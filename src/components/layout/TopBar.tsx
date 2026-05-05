@@ -5,6 +5,7 @@ import { Bell, LogOut, Search } from "lucide-react";
 import { useAlerts } from "@/hooks/useQueries";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { SyncIndicator } from "./SyncIndicator";
 
 export function TopBar() {
   const { data: session } = useSession();
@@ -30,6 +31,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
+        <SyncIndicator />
         <button
           onClick={() => router.push("/alertes")}
           className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
