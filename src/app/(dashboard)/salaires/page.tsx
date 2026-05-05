@@ -1,0 +1,155 @@
+"use client";
+// src/app/(dashboard)/salaires/page.tsx
+import { useState } from "react";
+import { usePayrolls, useGeneratePayrolls } from "@/hooks/useQueries";
+import { useUIStore } from "@/stores/useUIStore";
+import { formatCurrency, downloadReport, MONTHS } from "@/lib/utils";
+import { ClipboardList, Printer, RefreshCw, Wand2, Download } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+
+export default function SalairesPage() {
+  const now = new Date();
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [year, setYear] = useState(String(now.getFullYear()));
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const { addToast } = useUIStore();
+
+  const { data, isLoading, isFetching, refetch } = usePayrolls({ month: parseInt(month), year: parseInt(year) });
+  const { mutateAsync: generate, isPending: generating } = useGeneratePayrolls();
+  const payrolls = data?.data || [];
+
+  const handleGenerate = async () => {
+    const res = await generate({ month: parseInt(month), year: parseInt(year) });
+    if (res.error) addToast({ type: "error", title: "Erreur", message: res.error });
+    else addToast({ type: "success", title: res.message });
+    refetch();
+  };
+
+  const handlePayslipPDF = async (payrollId: string, empName: string) => {
+    setLoading(s => ({ ...s, [payrollId]: true }));
+    try {
+      await downloadReport({ type: "payslip", format: "pdf", payrollId }, `fiche-paie-${empName}`);
+      addToast({ type: "success", title: "Fiche de paie générée" });
+    } catch {
+      addToast({ type: "error", title: "Erreur de génération" });
+    } finally {
+      setLoading(s => ({ ...s, [payrollId]: false }));
+    }
+  };
+
+  const handleBulkExcel = async () => {
+    try {
+      await downloadReport({ type: "payroll", format: "excel", month: String(month), year: String(year) }, `salaires-${month}-${year}`);
+      addToast({ type: "success", title: "Export Excel téléchargé" });
+    } catch {
+      addToast({ type: "error", title: "Erreur d'export" });
+    }
+  };
+
+  const totalNet = payrolls.reduce((s: number, p: any) => s + p.netSalary, 0);
+  const totalBase = payrolls.reduce((s: number, p: any) => s + p.baseSalary, 0);
+
+  const statusBadge: Record<string, string> = { BROUILLON: "badge-gray", VALIDE: "badge-blue", PAYE: "badge-green" };
+
+  const monthOptions = MONTHS.map((m, i) => ({ value: String(i + 1), label: m }));
+  const yearOptions = [2023, 2024, 2025, 2026].map((y) => ({ value: String(y), label: String(y) }));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Gestion des salaires</h1>
+          <p className="text-gray-500 text-sm">{payrolls.length} fiche(s) — Masse salariale nette : {formatCurrency(totalNet)}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleBulkExcel} className="btn-secondary flex items-center gap-2 text-sm">
+            <Download className="w-4 h-4" /> Excel
+          </button>
+          <button onClick={handleGenerate} disabled={generating} className="btn-primary flex items-center gap-2 text-sm">
+            {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            Générer les fiches
+          </button>
+        </div>
+      </div>
+
+      {/* Period selector */}
+      <div className="card p-4 flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Période :</label>
+          <SearchableSelect
+            options={monthOptions}
+            value={month}
+            onChange={setMonth}
+            placeholder="Mois"
+            className="w-32"
+          />
+          <SearchableSelect
+            options={yearOptions}
+            value={year}
+            onChange={setYear}
+            placeholder="Année"
+            className="w-32"
+          />
+          <button onClick={() => refetch()} disabled={isFetching} className="btn-secondary p-2">
+            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+        {payrolls.length > 0 && (
+          <div className="flex items-center gap-6 ml-auto text-sm">
+            <div><span className="text-gray-500">Masse brute : </span><span className="font-semibold">{formatCurrency(totalBase)}</span></div>
+            <div><span className="text-gray-500">Masse nette : </span><span className="font-semibold text-green-700">{formatCurrency(totalNet)}</span></div>
+          </div>
+        )}
+      </div>
+
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th>Poste</th>
+              <th>Salaire Base</th>
+              <th>Primes</th>
+              <th>Charges sociales</th>
+              <th>Retenues</th>
+              <th>Salaire Net</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={9} className="text-center py-12 text-gray-400"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />Chargement…</td></tr>
+            ) : payrolls.length === 0 ? (
+              <tr><td colSpan={9} className="text-center py-12 text-gray-400">
+                <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                Aucune fiche pour {MONTHS[parseInt(month) - 1]} {year}. Cliquez sur "Générer les fiches".
+              </td></tr>
+            ) : payrolls.map((p: any) => (
+              <tr key={p.id}>
+                <td className="font-medium">{p.employee.firstName} {p.employee.lastName}</td>
+                <td className="text-gray-500 text-sm">{p.employee.position}</td>
+                <td className="text-right">{formatCurrency(p.baseSalary)}</td>
+                <td className="text-right text-green-700">{p.bonuses > 0 ? formatCurrency(p.bonuses) : "—"}</td>
+                <td className="text-right text-orange-600">{formatCurrency(p.socialCharges)}</td>
+                <td className="text-right text-red-600">{p.deductions > 0 ? formatCurrency(p.deductions) : "—"}</td>
+                <td className="text-right font-bold text-blue-700">{formatCurrency(p.netSalary)}</td>
+                <td><span className={`text-xs ${statusBadge[p.status] || "badge-gray"}`}>{p.status}</span></td>
+                <td>
+                  <button
+                    onClick={() => handlePayslipPDF(p.id, `${p.employee.firstName}-${p.employee.lastName}`)}
+                    disabled={loading[p.id]}
+                    title="Imprimer fiche de paie PDF"
+                    className="p-1.5 hover:bg-red-50 text-red-600 rounded transition-colors disabled:opacity-50"
+                  >
+                    {loading[p.id] ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

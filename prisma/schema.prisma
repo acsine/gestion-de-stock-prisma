@@ -1,0 +1,560 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// USERS & AUTH
+// =====================
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  roleId        String?
+  role          Role?    @relation(fields: [roleId], references: [id])
+  isActive      Boolean  @default(true)
+  mustChangePassword Boolean @default(true)
+  lastLogin     DateTime?
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+  purchaseOrders PurchaseOrder[]
+  transactions   Transaction[]
+  auditLogs      AuditLog[]
+  payrolls       Payroll[] @relation("ProcessedBy")
+  employee       Employee? @relation("UserEmployee")
+
+  @@map("users")
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  permissions Permission[] @relation("RolePermissions")
+  users       User[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("roles")
+}
+
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  roles       Role[]   @relation("RolePermissions")
+  createdAt   DateTime @default(now())
+
+  @@map("permissions")
+}
+
+// =====================
+// PRODUCTS & CATEGORIES
+// =====================
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  parentId    String?
+  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children    Category[] @relation("SubCategories")
+  color       String?    @default("#3B82F6")
+  icon        String?    @default("Package")
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+
+  buyPrice    Float
+  sellPrice   Float
+  taxRate     Float    @default(19.25)
+  unit        String   @default("Pièce")
+  location    String?
+  imageUrl    String?
+  barcode     String?
+
+  currentStock Float   @default(0)
+  minStock     Float   @default(5)
+  maxStock     Float   @default(100)
+
+  status      ProductStatus @default(ACTIF)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  stockMovements  StockMovement[]
+  invoiceItems    InvoiceItem[]
+  orderItems      OrderItem[]
+  alerts          Alert[]
+
+  @@map("products")
+}
+
+enum ProductStatus {
+  ACTIF
+  INACTIF
+  ARCHIVE
+}
+
+// =====================
+// SUPPLIERS & CUSTOMERS
+// =====================
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String
+  contactName  String?
+  phone        String?
+  email        String?
+  address      String?
+  city         String?
+  website      String?
+  taxId        String?
+  paymentTerms Int      @default(30)
+  balance      Float    @default(0)
+  isActive     Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+  transactions   Transaction[]
+
+  @@map("suppliers")
+}
+
+model Customer {
+  id           String       @id @default(cuid())
+  name         String
+  type         CustomerType @default(PARTICULIER)
+  phone        String?
+  email        String?
+  address      String?
+  city         String?
+  taxId        String?
+  rccm         String?
+  discount     Float        @default(0)
+  creditLimit  Float        @default(0)
+  balance      Float        @default(0)
+  isActive     Boolean      @default(true)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  invoices     Invoice[]
+
+  @@map("customers")
+}
+
+enum CustomerType {
+  PARTICULIER
+  ENTREPRISE
+  GROSSISTE
+}
+
+// =====================
+// STOCK MOVEMENTS
+// =====================
+model StockMovement {
+  id          String         @id @default(cuid())
+  productId   String
+  product     Product        @relation(fields: [productId], references: [id])
+  type        MovementType
+  quantity    Float
+  reason      String?
+  reference   String?
+  unitPrice   Float?
+  userId      String
+  user        User           @relation(fields: [userId], references: [id])
+  invoiceId   String?
+  invoice     Invoice?       @relation(fields: [invoiceId], references: [id])
+  orderId     String?
+  order       PurchaseOrder? @relation(fields: [orderId], references: [id])
+  note        String?
+  createdAt   DateTime       @default(now())
+
+  @@map("stock_movements")
+}
+
+enum MovementType {
+  ENTREE_ACHAT
+  ENTREE_RETOUR
+  ENTREE_AJUSTEMENT
+  SORTIE_VENTE
+  SORTIE_USAGE_INTERNE
+  SORTIE_PERTE
+  SORTIE_RETOUR_FOURNISSEUR
+  AJUSTEMENT_INVENTAIRE
+}
+
+// =====================
+// INVOICES
+// =====================
+model Invoice {
+  id            String        @id @default(cuid())
+  number        String        @unique
+  type          InvoiceType   @default(FACTURE)
+  status        InvoiceStatus @default(BROUILLON)
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+
+  discount      Float         @default(0)
+  subtotal      Float
+  taxAmount     Float
+  total         Float
+  paidAmount    Float         @default(0)
+  dueDate       DateTime?
+  notes         String?
+  issueDate     DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items         InvoiceItem[]
+  payments      Payment[]
+  stockMovements StockMovement[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  description String?
+  quantity    Float
+  unitPrice   Float
+  taxRate     Float   @default(19.25)
+  discount    Float   @default(0)
+  total       Float
+
+  @@map("invoice_items")
+}
+
+enum InvoiceType {
+  FACTURE
+  PROFORMA
+  AVOIR
+  DEVIS
+}
+
+enum InvoiceStatus {
+  BROUILLON
+  ENVOYE
+  PARTIELLEMENT_PAYE
+  PAYE
+  ANNULE
+  EXPIRE
+}
+
+// =====================
+// PURCHASE ORDERS
+// =====================
+model PurchaseOrder {
+  id          String      @id @default(cuid())
+  number      String      @unique
+  supplierId  String
+  supplier    Supplier    @relation(fields: [supplierId], references: [id])
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  status      OrderStatus @default(BROUILLON)
+  subtotal    Float
+  taxAmount   Float
+  total       Float
+  notes       String?
+  expectedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items       OrderItem[]
+  stockMovements StockMovement[]
+
+  @@map("purchase_orders")
+}
+
+model OrderItem {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id])
+  quantity    Float
+  receivedQty Float         @default(0)
+  unitPrice   Float
+  taxRate     Float         @default(19.25)
+  total       Float
+
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  BROUILLON
+  ENVOYE
+  PARTIELLEMENT_RECU
+  RECU
+  ANNULE
+}
+
+// =====================
+// PAYMENTS
+// =====================
+model Payment {
+  id          String        @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  amount      Float
+  method      PaymentMethod @default(ESPECES)
+  reference   String?
+  note        String?
+  paidAt      DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  ESPECES
+  VIREMENT
+  CHEQUE
+  MOBILE_MONEY
+  CARTE
+}
+
+// =====================
+// FINANCES
+// =====================
+model CashAccount {
+  id        String      @id @default(cuid())
+  name      String
+  type      AccountType @default(CAISSE)
+  balance   Float       @default(0)
+  currency  String      @default("XAF")
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions Transaction[]
+
+  @@map("cash_accounts")
+}
+
+enum AccountType {
+  CAISSE
+  BANQUE
+  MOBILE_MONEY
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  amount      Float
+  category    String
+  accountId   String
+  account     CashAccount     @relation(fields: [accountId], references: [id])
+  reference   String?
+  supplierId  String?
+  supplier    Supplier?       @relation(fields: [supplierId], references: [id])
+  description String?
+  attachment  String?
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+
+  @@map("transactions")
+}
+
+enum TransactionType {
+  RECETTE
+  DEPENSE
+}
+
+// =====================
+// EMPLOYEES & HR
+// =====================
+model Employee {
+  id           String         @id @default(cuid())
+  userId       String?        @unique
+  user         User?          @relation("UserEmployee", fields: [userId], references: [id])
+  firstName    String
+  lastName     String
+  dateOfBirth  DateTime?
+  phone        String?
+  email        String?
+  address      String?
+  position     String
+  department   String?
+  contractType ContractType   @default(CDI)
+  startDate    DateTime
+  endDate      DateTime?
+  baseSalary   Float
+  status       EmployeeStatus @default(ACTIF)
+  photoUrl     String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  payrolls Payroll[]
+  leaves   Leave[]
+
+  @@map("employees")
+}
+
+enum ContractType {
+  CDI
+  CDD
+  STAGE
+  FREELANCE
+}
+
+enum EmployeeStatus {
+  ACTIF
+  CONGE
+  SUSPENDU
+  LICENCIE
+}
+
+model Payroll {
+  id            String        @id @default(cuid())
+  employeeId    String
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+  month         Int
+  year          Int
+  baseSalary    Float
+  bonuses       Float         @default(0)
+  deductions    Float         @default(0)
+  socialCharges Float         @default(0)
+  netSalary     Float
+  status        PayrollStatus @default(BROUILLON)
+  notes         String?
+  processedById String?
+  processedBy   User?         @relation("ProcessedBy", fields: [processedById], references: [id])
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([employeeId, month, year])
+  @@map("payrolls")
+}
+
+enum PayrollStatus {
+  BROUILLON
+  VALIDE
+  PAYE
+}
+
+model Leave {
+  id          String      @id @default(cuid())
+  employeeId  String
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  type        LeaveType   @default(ANNUEL)
+  startDate   DateTime
+  endDate     DateTime
+  days        Int
+  reason      String?
+  status      LeaveStatus @default(EN_ATTENTE)
+  approvedBy  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("leaves")
+}
+
+enum LeaveType {
+  ANNUEL
+  MALADIE
+  MATERNITE
+  PATERNITE
+  SANS_SOLDE
+  EXCEPTIONNEL
+}
+
+enum LeaveStatus {
+  EN_ATTENTE
+  APPROUVE
+  REFUSE
+  ANNULE
+}
+
+// =====================
+// ALERTS
+// =====================
+model Alert {
+  id        String    @id @default(cuid())
+  productId String
+  product   Product   @relation(fields: [productId], references: [id])
+  type      AlertType
+  message   String
+  isRead    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@map("alerts")
+}
+
+enum AlertType {
+  STOCK_BAS
+  STOCK_CRITIQUE
+  RUPTURE
+  SURSTOCK
+  PEREMPTION
+}
+
+// =====================
+// AUDIT LOGS
+// =====================
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ip        String?
+  userAgent String?
+  timestamp DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// =====================
+// SETTINGS
+// =====================
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}

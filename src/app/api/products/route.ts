@@ -1,0 +1,89 @@
+// src/app/api/products/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { productSchema } from "@/lib/validations";
+import { hasPermission } from "@/lib/permissions";
+import * as XLSX from "xlsx";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search") || "";
+    const categoryId = searchParams.get("categoryId");
+    const status = searchParams.get("status");
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+
+    const where: any = {};
+    if (search) where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { sku: { contains: search, mode: "insensitive" } },
+    ];
+    if (categoryId) where.categoryId = categoryId;
+    if (status) {
+      where.status = status;
+    } else {
+      where.status = { not: "ARCHIVE" };
+    }
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: { category: true, supplier: true },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return NextResponse.json({ data: products, total, page, pageSize });
+  } catch (error) {
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    
+    const canCreate = await hasPermission("products.create");
+    if (!canCreate) {
+      return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const parsed = productSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+
+    const existing = await prisma.product.findUnique({ where: { sku: parsed.data.sku } });
+    if (existing) return NextResponse.json({ error: "SKU déjà utilisé" }, { status: 409 });
+
+    let barcode = parsed.data.barcode;
+    if (!barcode || barcode.trim() === "") {
+      // Generate a simple unique barcode if not provided
+      barcode = `PRD-${Date.now().toString().slice(-8)}`;
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        ...parsed.data,
+        barcode,
+      },
+      include: { category: true, supplier: true },
+    });
+
+    await prisma.auditLog.create({
+      data: { userId: (session.user as any).id, action: "CREATE", entity: "Product", entityId: product.id, newValue: parsed.data as any },
+    });
+
+    return NextResponse.json({ data: product, message: "Produit créé" }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
+}
