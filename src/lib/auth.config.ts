@@ -10,6 +10,9 @@ export const authConfig = {
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
+        token.tenantId = (user as any).tenantId;
+        token.isSuperAdmin = (user as any).isSuperAdmin;
+        token.canDownload = (user as any).canDownload;
         token.permissions = (user as any).permissions;
         token.mustChangePassword = (user as any).mustChangePassword;
       }
@@ -19,6 +22,9 @@ export const authConfig = {
       if (token) {
         session.user.id = token.sub!;
         (session.user as any).role = token.role;
+        (session.user as any).tenantId = token.tenantId;
+        (session.user as any).isSuperAdmin = token.isSuperAdmin;
+        (session.user as any).canDownload = token.canDownload;
         (session.user as any).permissions = token.permissions || [];
         (session.user as any).mustChangePassword = token.mustChangePassword;
       }

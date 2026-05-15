@@ -9,6 +9,9 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
     const { searchParams } = new URL(req.url);
     const reportType = searchParams.get("type");
     const format = searchParams.get("format") || "excel"; // pdf | excel | word
@@ -17,17 +20,25 @@ export async function GET(req: NextRequest) {
     const invoiceId = searchParams.get("invoiceId");
     const payrollId = searchParams.get("payrollId");
 
+    const baseWhere: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      baseWhere.tenantId = tenantId;
+    } else if (tenantId) {
+      baseWhere.tenantId = tenantId;
+    }
+
     const dateFilter = startDate && endDate ? {
       gte: new Date(startDate), lte: new Date(endDate)
     } : undefined;
 
-    const settings = await prisma.setting.findMany();
+    const settings = await prisma.setting.findMany({ where: baseWhere });
     const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]));
 
     // ===== INVOICE PDF/WORD =====
     if (reportType === "invoice" && invoiceId) {
       const invoice = await prisma.invoice.findUnique({
-        where: { id: invoiceId },
+        where: { id: invoiceId, ...baseWhere },
         include: { customer: true, items: { include: { product: true } }, user: { select: { name: true } } },
       });
       if (!invoice) return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
@@ -63,7 +74,7 @@ export async function GET(req: NextRequest) {
     // ===== PAYSLIP PDF =====
     if (reportType === "payslip" && payrollId) {
       const payroll = await prisma.payroll.findUnique({
-        where: { id: payrollId },
+        where: { id: payrollId, ...baseWhere },
         include: { employee: true },
       });
       if (!payroll) return NextResponse.json({ error: "Fiche de paie non trouvée" }, { status: 404 });
@@ -86,6 +97,7 @@ export async function GET(req: NextRequest) {
     // ===== STOCK REPORT =====
     if (reportType === "stock" || reportType === "inventory") {
       const products = await prisma.product.findMany({
+        where: baseWhere,
         include: { category: true, supplier: true },
         orderBy: { name: "asc" },
       });
@@ -130,7 +142,7 @@ export async function GET(req: NextRequest) {
     // ===== INVOICES REPORT =====
     if (reportType === "invoices" || reportType === "sales") {
       const invoices = await prisma.invoice.findMany({
-        where: dateFilter ? { createdAt: dateFilter } : undefined,
+        where: { ...baseWhere, ...(dateFilter ? { createdAt: dateFilter } : {}) },
         include: { customer: true },
         orderBy: { createdAt: "desc" },
       });
@@ -168,7 +180,7 @@ export async function GET(req: NextRequest) {
       const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()));
 
       const payrolls = await prisma.payroll.findMany({
-        where: { month, year },
+        where: { ...baseWhere, month, year },
         include: { employee: true },
       });
 
@@ -186,11 +198,11 @@ export async function GET(req: NextRequest) {
     // ===== FINANCE REPORT =====
     if (reportType === "finance") {
       const transactions = await prisma.transaction.findMany({
-        where: dateFilter ? { date: dateFilter } : undefined,
+        where: { ...baseWhere, ...(dateFilter ? { date: dateFilter } : {}) },
         include: { account: true },
         orderBy: { date: "desc" },
       });
-      const accounts = await prisma.cashAccount.findMany();
+      const accounts = await prisma.cashAccount.findMany({ where: baseWhere });
 
       if (format === "excel") {
         const buffer = await generateFinanceExcel(transactions, accounts);
@@ -222,6 +234,7 @@ export async function GET(req: NextRequest) {
     // ===== CUSTOMERS REPORT =====
     if (reportType === "customers") {
       const customers = await prisma.customer.findMany({
+        where: baseWhere,
         orderBy: { name: "asc" },
       });
 

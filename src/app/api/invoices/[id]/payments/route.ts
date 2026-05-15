@@ -7,19 +7,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  const tenantId = (session.user as any).tenantId;
 
   const { amount, method, reference } = await req.json();
   if (!amount || amount <= 0) return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
 
   const invoice = await prisma.invoice.findUnique({ where: { id } });
-  if (!invoice) return NextResponse.json({ error: "Facture non trouvée" }, { status: 404 });
+  if (!invoice || invoice.tenantId !== tenantId) {
+    return NextResponse.json({ error: "Facture non trouvée ou accès refusé" }, { status: 404 });
+  }
 
   const newPaidAmount = invoice.paidAmount + amount;
   const newStatus = newPaidAmount >= invoice.total ? "PAYE" : "PARTIELLEMENT_PAYE";
 
   const [payment] = await prisma.$transaction([
     prisma.payment.create({
-      data: { invoiceId: id, amount, method: method || "ESPECES", reference },
+      data: { tenantId, invoiceId: id, amount, method: method || "ESPECES", reference },
     }),
     prisma.invoice.update({
       where: { id },

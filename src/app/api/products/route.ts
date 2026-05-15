@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const categoryId = searchParams.get("categoryId");
@@ -19,6 +20,12 @@ export async function GET(req: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
 
     const where: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = tenantId;
+    } else if (tenantId) {
+      where.tenantId = tenantId;
+    }
     if (search) where.OR = [
       { name: { contains: search, mode: "insensitive" } },
       { sku: { contains: search, mode: "insensitive" } },
@@ -51,6 +58,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
     
     const canCreate = await hasPermission("products.create");
     if (!canCreate) {
@@ -61,18 +69,20 @@ export async function POST(req: NextRequest) {
     const parsed = productSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
-    const existing = await prisma.product.findUnique({ where: { sku: parsed.data.sku } });
+    const existing = await prisma.product.findFirst({ 
+      where: { sku: parsed.data.sku, tenantId } 
+    });
     if (existing) return NextResponse.json({ error: "SKU déjà utilisé" }, { status: 409 });
 
     let barcode = parsed.data.barcode;
     if (!barcode || barcode.trim() === "") {
-      // Generate a simple unique barcode if not provided
       barcode = `PRD-${Date.now().toString().slice(-8)}`;
     }
 
     const product = await prisma.product.create({
       data: {
         ...parsed.data,
+        tenantId,
         barcode,
       },
       include: { category: true, supplier: true },

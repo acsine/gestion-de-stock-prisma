@@ -10,10 +10,16 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // 1. Define Public Paths
-  const isPublicPath = pathname.startsWith("/login") || pathname.startsWith("/api/auth");
+  const isPublicPath = 
+    pathname === "/" || 
+    pathname.startsWith("/login") || 
+    pathname.startsWith("/register-company") ||
+    pathname.startsWith("/api/tenants/register") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/image");
 
   // 2. Handle Logged-in Users on Public Paths
-  if (isLoggedIn && pathname === "/login") {
+  if (isLoggedIn && (pathname === "/login" || pathname === "/")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 

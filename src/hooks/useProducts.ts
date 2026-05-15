@@ -5,16 +5,18 @@ import type { ProductInput } from "@/lib/validations";
 
 const API = "/api/products";
 
-export function useProducts(params?: { search?: string; categoryId?: string; status?: string; page?: number }) {
+export function useProducts(params?: { search?: string; categoryId?: string; status?: string; page?: number; pageSize?: number }) {
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
   if (params?.categoryId) query.set("categoryId", params.categoryId);
   if (params?.status) query.set("status", params.status);
   if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
 
   return useQuery<ApiResponse<Product[]>>({
     queryKey: ["products", params],
     queryFn: () => fetch(`${API}?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 }
 

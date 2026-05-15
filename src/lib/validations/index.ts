@@ -141,16 +141,16 @@ export type SupplierInput = z.infer<typeof supplierSchema>;
 export const employeeSchema = z.object({
   firstName: z.string().min(2, "Prénom requis"),
   lastName: z.string().min(2, "Nom requis"),
-  dateOfBirth: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  address: z.string().optional(),
-  position: z.string().min(2, "Poste requis"),
-  department: z.string().optional(),
+  dateOfBirth: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.string().email().nullable().optional().or(z.literal("")),
+  address: z.string().nullable().optional(),
+  position: z.string().min(2, "Poste requis (min 2 caractères)"),
+  department: z.string().nullable().optional(),
   contractType: z.enum(["CDI", "CDD", "STAGE", "FREELANCE"]),
-  startDate: z.string(),
-  endDate: z.string().optional(),
-  baseSalary: z.number().positive("Salaire de base requis"),
+  startDate: z.string().min(1, "Date de début requise"),
+  endDate: z.string().nullable().optional(),
+  baseSalary: z.number().positive("Salaire de base doit être positif"),
 });
 
 export type EmployeeInput = z.infer<typeof employeeSchema>;

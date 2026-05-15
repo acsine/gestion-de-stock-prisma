@@ -6,6 +6,7 @@ export async function hasPermission(permissionCode: string) {
   if (!session) return false;
   
   const user = session.user as any;
+  if (user.isSuperAdmin) return true;
   if (user.role === "ADMIN") return true;
   
   const permissions = user.permissions || [];

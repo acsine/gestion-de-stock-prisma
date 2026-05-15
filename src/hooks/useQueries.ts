@@ -13,6 +13,7 @@ export function useInvoices(params?: { search?: string; status?: string; type?: 
   return useQuery<ApiResponse<Invoice[]>>({
     queryKey: ["invoices", params],
     queryFn: () => fetch(`/api/invoices?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
@@ -21,6 +22,7 @@ export function useInvoice(id: string) {
     queryKey: ["invoices", id],
     queryFn: () => fetch(`/api/invoices/${id}`).then((r) => r.json()),
     enabled: !!id,
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -60,6 +62,7 @@ export function useStockMovements(params?: { productId?: string; type?: string; 
   return useQuery({
     queryKey: ["stock", params],
     queryFn: () => fetch(`/api/stock?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 30, // 30 seconds for stock movements
   });
 }
 
@@ -85,14 +88,23 @@ export function useEmployees(params?: { search?: string; status?: string }) {
   return useQuery({
     queryKey: ["employees", params],
     queryFn: () => fetch(`/api/employees?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
 export function useCreateEmployee() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) =>
-      fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+    mutationFn: async (data: any) => {
+      const r = await fetch("/api/employees", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(data) 
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de création");
+      return res;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 }
@@ -106,6 +118,7 @@ export function usePayrolls(params?: { month?: number; year?: number }) {
   return useQuery({
     queryKey: ["payrolls", params],
     queryFn: () => fetch(`/api/payroll?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -130,6 +143,7 @@ export function useTransactions(params?: { type?: string; accountId?: string; st
   return useQuery({
     queryKey: ["transactions", params],
     queryFn: () => fetch(`/api/finances?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 2,
   });
 }
 
@@ -149,6 +163,7 @@ export function useCashAccounts() {
   return useQuery({
     queryKey: ["accounts"],
     queryFn: () => fetch("/api/finances/accounts").then((r) => r.json()),
+    staleTime: 1000 * 60 * 10, // Cash accounts change rarely
   });
 }
 
@@ -177,6 +192,7 @@ export function useCustomers(params?: { search?: string }) {
   return useQuery({
     queryKey: ["customers", params],
     queryFn: () => fetch(`/api/customers?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -234,6 +250,7 @@ export function useSuppliers(params?: { search?: string }) {
   return useQuery({
     queryKey: ["suppliers", params],
     queryFn: () => fetch(`/api/suppliers?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -242,6 +259,7 @@ export function useCategories() {
   return useQuery({
     queryKey: ["categories"],
     queryFn: () => fetch("/api/categories").then((r) => r.json()),
+    staleTime: 1000 * 60 * 10,
   });
 }
 
@@ -285,6 +303,7 @@ export function usePurchaseOrders(params?: { status?: string; page?: number }) {
   return useQuery({
     queryKey: ["orders", params],
     queryFn: () => fetch(`/api/orders?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 2,
   });
 }
 
@@ -322,6 +341,7 @@ export function useRoles() {
   return useQuery({
     queryKey: ["roles"],
     queryFn: () => fetch("/api/roles").then((r) => r.json()),
+    staleTime: 1000 * 60 * 30, // Roles are very static
   });
 }
 
@@ -352,9 +372,109 @@ export function useSeedPermissions() {
 }
 
 // Settings
-export function useSettings() {
+export function useSettings(tenantId?: string) {
   return useQuery({
-    queryKey: ["settings"],
-    queryFn: () => fetch("/api/settings").then((r) => r.json()),
+    queryKey: ["settings", tenantId],
+    queryFn: () => {
+      const url = tenantId ? `/api/settings?tenantId=${tenantId}` : "/api/settings";
+      return fetch(url).then((r) => r.json());
+    },
+    staleTime: 1000 * 60 * 10,
+  });
+}
+
+// Users
+export function useUsers() {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: () => fetch("/api/users").then((r) => r.json()),
+    staleTime: 1000 * 60 * 10,
+  });
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
+// Tenants (SuperAdmin only)
+export function useTenants() {
+  return useQuery({
+    queryKey: ["tenants"],
+    queryFn: () => fetch("/api/tenants").then((r) => r.json()),
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+}
+
+// POS Sales
+export function useCreateSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch("/api/pos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur de vente");
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+// Support Tickets
+export function useTickets() {
+  return useQuery({
+    queryKey: ["tickets"],
+    queryFn: () => fetch("/api/support/tickets").then((r) => r.json()),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useTicket(id: string) {
+  return useQuery({
+    queryKey: ["tickets", id],
+    queryFn: () => fetch(`/api/support/tickets/${id}`).then((r) => r.json()),
+    enabled: !!id,
+    refetchInterval: 5000, 
+  });
+}
+
+export function useCreateTicket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { subject: string; message: string; priority: string }) =>
+      fetch("/api/support/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
+  });
+}
+
+export function useSendMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ticketId, content }: { ticketId: string; content: string }) =>
+      fetch(`/api/support/tickets/${ticketId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }).then((r) => r.json()),
+    onSuccess: (_, variables) => qc.invalidateQueries({ queryKey: ["tickets", variables.ticketId] }),
   });
 }

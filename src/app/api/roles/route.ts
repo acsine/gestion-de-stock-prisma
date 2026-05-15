@@ -7,7 +7,19 @@ export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   
+  const tenantId = (session.user as any).tenantId;
+  const isSuper = (session.user as any).isSuperAdmin;
+
+  const where: any = {};
+  if (!isSuper) {
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+    where.tenantId = tenantId;
+  } else if (tenantId) {
+    where.tenantId = tenantId;
+  }
+
   const roles = await prisma.role.findMany({
+    where,
     include: { permissions: true, _count: { select: { users: true } } },
     orderBy: { name: "asc" }
   });
@@ -18,14 +30,22 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  if ((session.user as any).role !== "ADMIN") return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+  const role = (session.user as any).role;
+  const isSuper = (session.user as any).isSuperAdmin;
+  const tenantId = (session.user as any).tenantId;
 
-  const { name, description, permissionIds } = await req.json();
+  if (role !== "ADMIN" && !isSuper) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+
+  const { name, description, permissionIds, targetTenantId } = await req.json();
+  const finalTenantId = tenantId || targetTenantId;
+
+  if (!finalTenantId) return NextResponse.json({ error: "Tenant ID requis" }, { status: 400 });
   if (!name) return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
 
   try {
     const role = await prisma.role.create({
       data: {
+        tenantId: finalTenantId,
         name,
         description,
         permissions: {

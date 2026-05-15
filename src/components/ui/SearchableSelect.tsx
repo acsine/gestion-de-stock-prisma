@@ -97,24 +97,24 @@ export function SearchableSelect({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`input w-full flex items-center justify-between gap-2 text-left cursor-pointer transition-all
-          ${isOpen ? "ring-2 ring-blue-500 border-blue-500" : ""}
-          ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-gray-400"}
+        className={`input min-h-[44px] w-full flex items-center justify-between gap-3 text-left cursor-pointer transition-all
+          ${isOpen ? "ring-2 ring-blue-500 border-blue-500 shadow-sm" : "hover:shadow-sm"}
+          ${disabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:border-gray-400"}
           ${!selectedOption && !(allowAll && value === "") ? "text-gray-400" : "text-gray-900"}`}
       >
-        <span className="truncate text-sm">{displayLabel}</span>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <span className="truncate text-sm font-medium">{displayLabel}</span>
+        <div className="flex items-center gap-2 flex-shrink-0 border-l pl-2 border-gray-100">
           {value && !allowAll && (
             <span
               onClick={handleClear}
-              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors"
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             </span>
           )}
           <ChevronDown
-            className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-              isOpen ? "rotate-180" : ""
+            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
+              isOpen ? "rotate-180 text-blue-500" : ""
             }`}
           />
         </div>

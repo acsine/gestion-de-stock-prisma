@@ -2,7 +2,7 @@
 // src/app/(dashboard)/caisse/page.tsx
 import { useState, useRef, useEffect } from "react";
 import { useProducts } from "@/hooks/useProducts";
-import { useCashAccounts, useCustomers } from "@/hooks/useQueries";
+import { useCashAccounts, useCustomers, useSettings } from "@/hooks/useQueries";
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatCurrency } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
   if (!invoice) return null;
-  const companyName = settings?.company_name || "SACHAND";
+  const companyName = settings?.company_name || "ThaborSolution";
   const companyLogo = settings?.company_logo;
 
   return (
@@ -96,23 +96,27 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
-  const [settings, setSettings] = useState<any>(null);
+  const { data: settingsData } = useSettings();
+  const settings = settingsData?.data;
 
-  useEffect(() => {
-    fetch("/api/settings").then(r => r.json()).then(d => setSettings(d.data));
-  }, []);
+
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useUIStore();
   const qc = useQueryClient();
 
-  const { data: prodData } = useProducts({ status: "ACTIF" });
+  const { data: prodData, isLoading: isProductsLoading } = useProducts({ status: "ACTIF", pageSize: 1000 });
   const { data: accData } = useCashAccounts();
   const { data: custData } = useCustomers();
 
   const products = prodData?.data || [];
   const accounts = accData?.data || [];
   const customers = custData?.data || [];
+
+  const filteredProducts = products.filter((p: any) => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const { videoRef, startScan, stopScan, cameras, activeCamera, setCamera, error: scannerError } = useBarcodeScanner((res) => {
     const product = products.find((p: any) => p.barcode === res.barcode || p.sku === res.barcode);
@@ -418,37 +422,49 @@ export default function POSPage() {
                 </tr>
               </thead>
               <tbody>
-                {products
-                  .filter((p: any) => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .slice(0, 50)
-                  .map((p: any) => (
-                  <tr key={p.id} className="hover:bg-blue-50/50 border-b border-gray-100 last:border-0 transition-colors">
-                    <td className="py-2.5 pr-2">
-                      <div className="font-medium text-gray-900">{p.name}</div>
-                      <div className="text-xs text-gray-400 font-mono">{p.sku}</div>
-                    </td>
-                    <td className="py-2.5 text-right px-2">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.currentStock > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                        {p.currentStock}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-bold text-blue-700 px-2">{formatCurrency(p.sellPrice)}</td>
-                    <td className="py-2.5 text-center pl-2">
-                      <button 
-                        onClick={() => addToCart(p)} 
-                        disabled={p.currentStock <= 0}
-                        className="p-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors"
-                        title="Ajouter au panier"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {products.filter((p: any) => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                {isProductsLoading ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-400 italic">Aucun produit trouvé</td>
+                    <td colSpan={4} className="py-20 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                        <p className="text-sm text-gray-400">Chargement des produits...</p>
+                      </div>
+                    </td>
                   </tr>
+                ) : filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-12">
+                      <div className="flex flex-col items-center gap-2 text-gray-300">
+                        <Search className="w-10 h-10 opacity-20" />
+                        <p className="italic text-sm">Aucun produit trouvé</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.slice(0, 50).map((p: any) => (
+                    <tr key={p.id} className="hover:bg-blue-50/50 border-b border-gray-100 last:border-0 transition-colors">
+                      <td className="py-2.5 pr-2">
+                        <div className="font-medium text-gray-900">{p.name}</div>
+                        <div className="text-xs text-gray-400 font-mono">{p.sku}</div>
+                      </td>
+                      <td className="py-2.5 text-right px-2">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${p.currentStock > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          {p.currentStock}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-right font-bold text-blue-700 px-2">{formatCurrency(p.sellPrice)}</td>
+                      <td className="py-2.5 text-center pl-2">
+                        <button 
+                          onClick={() => addToCart(p)} 
+                          disabled={p.currentStock <= 0}
+                          className="p-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors"
+                          title="Ajouter au panier"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -531,60 +547,81 @@ export default function POSPage() {
               <h2 className="text-xl font-bold flex items-center gap-2"><CreditCard className="w-6 h-6" /> Validation du paiement</h2>
               <button onClick={() => setShowCheckout(false)} className="hover:bg-white/20 p-1 rounded transition-colors"><X className="w-6 h-6" /></button>
             </div>
-            <form onSubmit={confirmSale} className="p-6 space-y-5">
+            <form onSubmit={confirmSale} className="p-6 space-y-6">
               
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-center">
-                <p className="text-blue-600 text-sm font-semibold uppercase mb-1">Montant à encaisser</p>
-                <p className="text-4xl font-black text-blue-800">{formatCurrency(total)}</p>
+              <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border border-blue-200 text-center shadow-inner">
+                <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">Montant total à encaisser</p>
+                <p className="text-4xl font-black text-blue-900 drop-shadow-sm">{formatCurrency(total)}</p>
               </div>
 
-              <div>
-                <label className="label">Client (Optionnel)</label>
-                <SearchableSelect
-                  options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
-                  value={customerId}
-                  onChange={setCustomerId}
-                  placeholder="Client par défaut..."
-                  allowAll
-                  allLabel="Client Divers (Comptoir)"
-                />
-              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Client (Optionnel)</label>
+                  <SearchableSelect
+                    options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
+                    value={customerId}
+                    onChange={setCustomerId}
+                    placeholder="Sélectionner un client..."
+                    allowAll
+                    allLabel="Client Divers (Comptoir)"
+                  />
+                </div>
 
-              <div>
-                <label className="label">Mode de paiement *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "ESPECES", label: "Espèces", icon: Banknote },
-                    { id: "MOBILE_MONEY", label: "Mobile Money", icon: CreditCard }
-                  ].map(method => (
-                    <button
-                      key={method.id}
-                      type="button"
-                      onClick={() => setPaymentMethod(method.id)}
-                      className={`py-3 flex flex-col items-center gap-2 border-2 rounded-xl transition-all ${paymentMethod === method.id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
-                    >
-                      <method.icon className="w-6 h-6" />
-                      <span className="font-semibold text-sm">{method.label}</span>
-                    </button>
-                  ))}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Mode de paiement *</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: "ESPECES", label: "Espèces", icon: Banknote, color: "blue" },
+                      { id: "MOBILE_MONEY", label: "Mobile Money", icon: CreditCard, color: "purple" }
+                    ].map(method => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={`py-4 flex flex-col items-center gap-2 border-2 rounded-2xl transition-all duration-200 shadow-sm
+                          ${paymentMethod === method.id 
+                            ? "border-blue-600 bg-blue-50 text-blue-700 ring-4 ring-blue-50 scale-[1.02]" 
+                            : "border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50"}`}
+                      >
+                        <div className={`p-2 rounded-xl ${paymentMethod === method.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400"}`}>
+                          <method.icon className="w-6 h-6" />
+                        </div>
+                        <span className="font-bold text-sm">{method.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Caisse / Compte de destination *</label>
+                  <SearchableSelect
+                    options={accounts.map((a: any) => ({ value: a.id, label: a.name, sub: `Solde actuel: ${formatCurrency(a.balance)}` }))}
+                    value={accountId}
+                    onChange={setAccountId}
+                    placeholder="Où va l'argent ?"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="label">Caisse / Compte de destination *</label>
-                <SearchableSelect
-                  options={accounts.map((a: any) => ({ value: a.id, label: a.name, sub: `Solde: ${formatCurrency(a.balance)}` }))}
-                  value={accountId}
-                  onChange={setAccountId}
-                  placeholder="Sélectionner la caisse..."
-                />
-              </div>
-
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setShowCheckout(false)} className="flex-1 btn-secondary py-3">Annuler</button>
-                <button type="submit" disabled={isPending || !accountId} className="flex-1 btn-primary py-3 shadow-lg flex items-center justify-center gap-2">
-                  {isPending ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  Encaisser
+                <button 
+                  type="button" 
+                  onClick={() => setShowCheckout(false)} 
+                  className="flex-1 px-4 py-3.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isPending || !accountId} 
+                  className="flex-[2] btn-primary py-3.5 shadow-lg shadow-blue-200 flex items-center justify-center gap-3 text-lg"
+                >
+                  {isPending ? (
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Check className="w-6 h-6" />
+                  )}
+                  Valider l'encaissement
                 </button>
               </div>
             </form>

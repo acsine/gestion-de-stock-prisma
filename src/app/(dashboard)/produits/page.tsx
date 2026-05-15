@@ -199,9 +199,22 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={isPending} className="btn-primary flex items-center gap-2">
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : (product ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
-              {product ? "Mettre à jour" : "Créer le produit"}
+            <button 
+              type="submit" 
+              disabled={isPending} 
+              className="btn-primary flex items-center justify-center gap-2 min-w-[140px] transition-all disabled:opacity-70"
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  {product ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{product ? "Mettre à jour" : "Créer le produit"}</span>
+                </>
+              )}
             </button>
           </div>
         </form>

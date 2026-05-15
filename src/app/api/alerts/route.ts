@@ -6,8 +6,19 @@ import prisma from "@/lib/prisma";
 export async function GET() {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  const tenantId = (session.user as any).tenantId;
+  const isSuper = (session.user as any).isSuperAdmin;
+
+  const where: any = { isRead: false };
+  if (!isSuper) {
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+    where.tenantId = tenantId;
+  } else if (tenantId) {
+    where.tenantId = tenantId;
+  }
+
   const alerts = await prisma.alert.findMany({
-    where: { isRead: false },
+    where,
     include: { product: { select: { id: true, name: true, sku: true, unit: true, currentStock: true } } },
     orderBy: { createdAt: "desc" },
   });

@@ -28,13 +28,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
+          console.log("[Auth] Attempting login for:", parsed.data.email);
           const user = await prisma.user.findUnique({
-            where: { email: parsed.data.email },
-            include: { role: { include: { permissions: true } } }
+            where: { email: parsed.data.email.toLowerCase() }, // Force lowercase search
+            include: { 
+              role: { include: { permissions: true } },
+              tenant: { include: { license: true } }
+            }
           });
 
-          if (!user || !user.isActive) {
-            console.warn("[Auth] User not found or inactive:", parsed.data.email);
+          if (!user) {
+            console.warn("[Auth] User not found:", parsed.data.email);
+            return null;
+          }
+
+          if (!user.isActive) {
+            console.warn("[Auth] User is inactive:", parsed.data.email);
             return null;
           }
 
@@ -42,22 +51,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             parsed.data.password,
             user.passwordHash
           );
+          
+          console.log("[Auth] Password match result:", passwordMatch);
+          
           if (!passwordMatch) {
             console.warn("[Auth] Password mismatch for:", parsed.data.email);
             return null;
           }
 
-          try {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { lastLogin: new Date() },
-            });
-          } catch (e) {
-            console.error("[Auth] Failed to update lastLogin:", e);
-          }
+          const canDownload = user.isSuperAdmin || user.tenant?.license?.canDownload || false;
 
           return {
             id: user.id,
+            tenantId: user.tenantId,
+            isSuperAdmin: user.isSuperAdmin,
+            canDownload,
             name: user.name,
             email: user.email,
             role: user.role?.name || "VENDEUR",

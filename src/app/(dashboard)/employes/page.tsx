@@ -12,7 +12,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIF: "badge-green", CONGE: "badge-yellow", SUSPENDU: "badge-yellow", LICENCIE: "badge-red",
+  ACTIF: "badge-success", CONGE: "badge-warning", SUSPENDU: "badge-warning", LICENCIE: "badge-error",
 };
 
 function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialData?: any }) {
@@ -21,27 +21,54 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
   const { mutateAsync: createEmployee, isPending: isCreating } = useCreateEmployee();
   
   const { mutateAsync: updateEmployee, isPending: isUpdating } = useMutation({
-    mutationFn: (data: any) => fetch(`/api/employees/${initialData.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const r = await fetch(`/api/employees/${id}`, { 
+        method: "PATCH", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(data) 
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de mise à jour");
+      return res;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["employees"] }),
   });
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<EmployeeInput>({
     resolver: zodResolver(employeeSchema),
     defaultValues: initialData ? {
-      ...initialData,
+      firstName: initialData.firstName || "",
+      lastName: initialData.lastName || "",
+      email: initialData.email || "",
+      phone: initialData.phone || "",
+      address: initialData.address || "",
+      position: initialData.position || "",
+      department: initialData.department || "",
+      contractType: initialData.contractType || "CDI",
+      baseSalary: initialData.baseSalary || 0,
       startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split("T")[0] : "",
       dateOfBirth: initialData.dateOfBirth ? new Date(initialData.dateOfBirth).toISOString().split("T")[0] : "",
+      endDate: initialData.endDate ? new Date(initialData.endDate).toISOString().split("T")[0] : "",
     } : { contractType: "CDI", startDate: new Date().toISOString().split("T")[0] },
   });
 
   const onSubmit = async (data: EmployeeInput) => {
+    console.log("Submitting Employee Data:", data);
     try {
-      const res = initialData ? await updateEmployee(data) : await createEmployee(data);
-      if (res.error) { addToast({ type: "error", title: "Erreur", message: typeof res.error === "string" ? res.error : "Une erreur est survenue" }); return; }
+      if (initialData) {
+        await updateEmployee({ id: initialData.id, data });
+      } else {
+        await createEmployee(data);
+      }
       addToast({ type: "success", title: initialData ? "Employé mis à jour" : "Employé créé" });
       onClose();
-    } catch (e) {
-      addToast({ type: "error", title: "Erreur", message: "Action impossible" });
+    } catch (e: any) {
+      console.error("Submission Error:", e);
+      addToast({ 
+        type: "error", 
+        title: "Action échouée", 
+        message: e.message || "Une erreur est survenue lors de l'enregistrement" 
+      });
     }
   };
 
@@ -55,49 +82,49 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto space-y-5">
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="label">Prénom *</label>
-              <input {...register("firstName")} className="input w-full" />
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Prénom *</label>
+              <input {...register("firstName")} className="input-premium w-full" />
               {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>}
             </div>
             <div>
-              <label className="label">Nom *</label>
-              <input {...register("lastName")} className="input w-full" />
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Nom *</label>
+              <input {...register("lastName")} className="input-premium w-full" />
               {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="label">Téléphone</label>
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Téléphone</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input {...register("phone")} className="input w-full pl-10" placeholder="+237 6xx xxx xxx" />
+                <input {...register("phone")} className="input-premium w-full pl-10" placeholder="+237 6xx xxx xxx" />
               </div>
             </div>
             <div>
-              <label className="label">Email</label>
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input {...register("email")} type="email" className="input w-full pl-10" />
+                <input {...register("email")} type="email" className="input-premium w-full pl-10" />
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="label">Poste *</label>
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Poste *</label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input {...register("position")} className="input w-full pl-10" placeholder="Responsable stock…" />
+                <input {...register("position")} className="input-premium w-full pl-10" placeholder="Responsable stock…" />
               </div>
               {errors.position && <p className="text-red-500 text-xs mt-1">{errors.position.message}</p>}
             </div>
             <div>
-              <label className="label">Département</label>
-              <input {...register("department")} className="input w-full" placeholder="Logistique, RH…" />
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Département</label>
+              <input {...register("department")} className="input-premium w-full" placeholder="Logistique, RH…" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div>
-              <label className="label">Type de contrat *</label>
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Type de contrat *</label>
               <Controller
                 name="contractType"
                 control={control}
@@ -117,25 +144,49 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
               />
             </div>
             <div>
-              <label className="label">Date d'embauche *</label>
+              <label className="text-sm font-bold text-slate-700 mb-1.5 block">Date d'embauche *</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input {...register("startDate")} type="date" className="input w-full pl-10" />
+                <input {...register("startDate")} type="date" className="input-premium w-full pl-10" />
               </div>
               {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate.message}</p>}
             </div>
           </div>
           <div>
-            <label className="label">Salaire de base brut (FCFA) *</label>
-            <input {...register("baseSalary", { valueAsNumber: true })} type="number" className="input w-full" placeholder="0" />
+            <label className="text-sm font-bold text-slate-700 mb-1.5 block">Salaire de base brut (FCFA) *</label>
+            <input {...register("baseSalary", { valueAsNumber: true })} type="number" className="input-premium w-full" placeholder="0" />
             {errors.baseSalary && <p className="text-red-500 text-xs mt-1">{errors.baseSalary.message}</p>}
           </div>
           
+          {Object.keys(errors).length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">
+              <p className="font-bold mb-1">Veuillez corriger les erreurs suivantes :</p>
+              <ul className="list-disc pl-4">
+                {Object.values(errors).map((err: any, i) => (
+                  <li key={i}>{err.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 btn-secondary py-3">Annuler</button>
-            <button type="submit" disabled={isCreating || isUpdating} className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-500/20">
-              {(isCreating || isUpdating) ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-              {initialData ? "Enregistrer les modifications" : "Créer l'employé"}
+            <button 
+              type="submit" 
+              disabled={isCreating || isUpdating} 
+              className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+            >
+              {(isCreating || isUpdating) ? (
+                <>
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  {initialData ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                  <span>{initialData ? "Enregistrer les modifications" : "Créer l'employé"}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -185,10 +236,10 @@ export default function EmployesPage() {
         </div>
       </div>
 
-      <div className="card p-4 flex flex-col md:flex-row gap-4 bg-white border shadow-sm">
+      <div className="card-premium p-4 flex flex-col md:flex-row gap-4 bg-white border shadow-sm">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par nom, email ou poste…" className="input pl-9 w-full" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par nom, email ou poste…" className="input-premium pl-9 w-full" />
         </div>
         <SearchableSelect
           options={[
@@ -206,8 +257,8 @@ export default function EmployesPage() {
         />
       </div>
 
-      <div className="table-container">
-        <table className="data-table">
+      <div className="card-premium overflow-x-auto">
+        <table className="table-premium">
           <thead>
             <tr>
               <th>Employé</th>
@@ -245,12 +296,12 @@ export default function EmployesPage() {
                   <div className="font-medium text-sm text-gray-900">{emp.position}</div>
                   <div className="text-xs text-gray-500">{emp.department || "Général"}</div>
                 </td>
-                <td><span className="badge-blue text-[10px] font-black uppercase tracking-wider">{emp.contractType}</span></td>
+                <td><span className="badge-info text-[10px] font-black uppercase tracking-wider">{emp.contractType}</span></td>
                 <td className="text-sm text-gray-500">{formatDate(emp.startDate)}</td>
                 <td className="font-bold text-right text-gray-900">{formatCurrency(emp.baseSalary)}</td>
-                <td><span className={`text-[10px] font-black uppercase tracking-wider ${STATUS_COLORS[emp.status] || "badge-gray"}`}>{emp.status}</span></td>
+                <td><span className={`text-[10px] font-black uppercase tracking-wider ${STATUS_COLORS[emp.status] || "badge-premium bg-slate-100 text-slate-700"}`}>{emp.status}</span></td>
                 <td className="text-right">
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center justify-end gap-1">
                     <button 
                       onClick={() => setEditingEmployee(emp)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"

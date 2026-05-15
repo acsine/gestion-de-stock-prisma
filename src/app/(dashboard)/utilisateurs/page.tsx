@@ -12,17 +12,14 @@ import { userSchema } from "@/lib/validations";
 import { z } from "zod";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import Link from "next/link";
-import { useRoles } from "@/hooks/useQueries";
+import { useRoles, useUsers, useCreateUser } from "@/hooks/useQueries";
 
 type UserInput = z.infer<typeof userSchema>;
 
 function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
   const qc = useQueryClient();
   const { addToast } = useUIStore();
-  const { mutateAsync, isPending } = useMutation({
-    mutationFn: (data: any) => fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
-  });
+  const { mutateAsync, isPending } = useCreateUser();
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<UserInput>({
     resolver: zodResolver(userSchema),
@@ -94,10 +91,7 @@ export default function UtilisateursPage() {
   const { data: session } = useSession();
   const { addToast } = useUIStore();
   const [showForm, setShowForm] = useState(false);
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => fetch("/api/users").then(r => r.json()),
-  });
+  const { data, isLoading, isFetching, refetch } = useUsers();
   const { data: rolesData } = useRoles();
   const roles = rolesData?.data || [];
   const users = data?.data || [];

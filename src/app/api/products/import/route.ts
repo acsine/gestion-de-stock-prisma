@@ -9,6 +9,9 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+    const tenantId = (session.user as any).tenantId;
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     if (!file) return NextResponse.json({ error: "Fichier requis" }, { status: 400 });
@@ -20,10 +23,10 @@ export async function POST(req: NextRequest) {
 
     const results = { imported: 0, errors: [] as string[], skipped: 0 };
 
-    // Get default category
-    const defaultCategory = await prisma.category.findFirst();
+    // Get default category for THIS tenant
+    const defaultCategory = await prisma.category.findFirst({ where: { tenantId } });
     if (!defaultCategory) {
-      return NextResponse.json({ error: "Aucune catégorie disponible" }, { status: 400 });
+      return NextResponse.json({ error: "Aucune catégorie disponible. Veuillez en créer une d'abord." }, { status: 400 });
     }
 
     for (let i = 0; i < rows.length; i++) {
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest) {
           results.errors.push(`Ligne ${lineNum}: SKU et Nom requis`);
           continue;
         }
-        if (buyPrice <= 0 || sellPrice <= 0) {
+        if (buyPrice < 0 || sellPrice < 0) {
           results.errors.push(`Ligne ${lineNum}: Prix invalide pour "${name}"`);
           continue;
         }
@@ -49,14 +52,16 @@ export async function POST(req: NextRequest) {
         const categoryName = String(row["Catégorie"] || row["category"] || "").trim();
         let category = defaultCategory;
         if (categoryName) {
-          const found = await prisma.category.findFirst({ where: { name: { contains: categoryName, mode: "insensitive" } } });
+          const found = await prisma.category.findFirst({ 
+            where: { tenantId, name: { contains: categoryName, mode: "insensitive" } } 
+          });
           if (found) category = found;
         }
 
-        const existing = await prisma.product.findUnique({ where: { sku } });
+        const existing = await prisma.product.findFirst({ where: { sku, tenantId } });
         if (existing) {
           await prisma.product.update({
-            where: { sku },
+            where: { id: existing.id },
             data: {
               name,
               buyPrice,
@@ -71,6 +76,7 @@ export async function POST(req: NextRequest) {
         } else {
           await prisma.product.create({
             data: {
+              tenantId,
               sku,
               name,
               buyPrice,

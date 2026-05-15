@@ -11,17 +11,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
   }
 
+  const tenantId = (session.user as any).tenantId;
+  if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
   const { month, year } = await req.json();
   if (!month || !year) return NextResponse.json({ error: "Mois et année requis" }, { status: 400 });
 
-  const settings = await prisma.setting.findFirst({ where: { key: "social_charges_rate" } });
+  const settings = await prisma.setting.findFirst({ 
+    where: { tenantId, key: "social_charges_rate" } 
+  });
   const socialRate = parseFloat(settings?.value || "17.5") / 100;
 
-  const employees = await prisma.employee.findMany({ where: { status: "ACTIF" } });
+  const employees = await prisma.employee.findMany({ 
+    where: { tenantId, status: "ACTIF" } 
+  });
   const generated = [];
 
   for (const emp of employees) {
-    const exists = await prisma.payroll.findFirst({ where: { employeeId: emp.id, month, year } });
+    const exists = await prisma.payroll.findFirst({ 
+      where: { tenantId, employeeId: emp.id, month, year } 
+    });
     if (exists) { generated.push(exists); continue; }
 
     const socialCharges = emp.baseSalary * socialRate;
@@ -29,6 +38,7 @@ export async function POST(req: NextRequest) {
 
     const payroll = await prisma.payroll.create({
       data: {
+        tenantId,
         employeeId: emp.id,
         month,
         year,

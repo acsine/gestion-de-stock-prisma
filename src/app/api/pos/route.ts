@@ -7,8 +7,23 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+    let tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
     const body = await req.json();
-    const { items, customerId, accountId, paymentMethod, globalDiscount } = body;
+    const { items, customerId, accountId, paymentMethod, globalDiscount, targetTenantId } = body;
+
+    // If superadmin, allow specifying target tenant or derive from account
+    if (isSuper) {
+      if (targetTenantId) {
+        tenantId = targetTenantId;
+      } else if (accountId) {
+        const acc = await prisma.cashAccount.findUnique({ where: { id: accountId } });
+        if (acc) tenantId = acc.tenantId;
+      }
+    }
+
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "Panier vide" }, { status: 400 });
@@ -17,10 +32,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Compte financier requis" }, { status: 400 });
     }
 
-    // Verify stock first
+    // Verify stock and ownership first
     for (const item of items) {
       const product = await prisma.product.findUnique({ where: { id: item.productId } });
-      if (!product) return NextResponse.json({ error: "Produit non trouvé" }, { status: 404 });
+      if (!product || product.tenantId !== tenantId) {
+        return NextResponse.json({ error: "Produit non trouvé ou non autorisé" }, { status: 404 });
+      }
       if (product.currentStock < item.quantity) {
         return NextResponse.json({
           error: `Stock insuffisant pour "${product.name}". Disponible: ${product.currentStock}`,
@@ -30,7 +47,9 @@ export async function POST(req: NextRequest) {
 
     // Generate invoice number
     const year = new Date().getFullYear();
-    const count = await prisma.invoice.count({ where: { type: "FACTURE", number: { startsWith: `FAC-${year}` } } });
+    const count = await prisma.invoice.count({ 
+      where: { tenantId, type: "FACTURE", number: { startsWith: `FAC-${year}` } } 
+    });
     const number = `FAC-${year}-${String(count + 1).padStart(4, "0")}`;
 
     // Compute totals
@@ -53,10 +72,10 @@ export async function POST(req: NextRequest) {
     let finalCustomerId = customerId;
     if (!finalCustomerId) {
       // Find or create default "Client Divers"
-      let defaultCustomer = await prisma.customer.findFirst({ where: { name: "Client Divers" } });
+      let defaultCustomer = await prisma.customer.findFirst({ where: { name: "Client Divers", tenantId } });
       if (!defaultCustomer) {
         defaultCustomer = await prisma.customer.create({
-          data: { name: "Client Divers", type: "PARTICULIER" }
+          data: { name: "Client Divers", type: "PARTICULIER", tenantId }
         });
       }
       finalCustomerId = defaultCustomer.id;
@@ -67,6 +86,7 @@ export async function POST(req: NextRequest) {
       // 1. Create Invoice
       const inv = await tx.invoice.create({
         data: {
+          tenantId,
           number,
           type: "FACTURE",
           status: "PAYE",
@@ -80,6 +100,7 @@ export async function POST(req: NextRequest) {
           issueDate: new Date(),
           items: {
             create: processedItems.map((item: any) => ({
+              tenantId,
               productId: item.productId,
               description: item.description,
               quantity: item.quantity,
@@ -105,6 +126,7 @@ export async function POST(req: NextRequest) {
         });
         await tx.stockMovement.create({
           data: {
+            tenantId,
             productId: item.productId,
             type: "SORTIE_VENTE",
             quantity: item.quantity,
@@ -120,6 +142,7 @@ export async function POST(req: NextRequest) {
       // 3. Register Payment
       await tx.payment.create({
         data: {
+          tenantId,
           invoiceId: inv.id,
           amount: total,
           method: paymentMethod || "ESPECES",
@@ -129,6 +152,7 @@ export async function POST(req: NextRequest) {
       // 4. Create Transaction & Update Cash Account
       await tx.transaction.create({
         data: {
+          tenantId,
           type: "RECETTE",
           amount: total,
           category: "Ventes produits",

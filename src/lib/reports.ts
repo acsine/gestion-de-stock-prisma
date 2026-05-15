@@ -45,7 +45,7 @@ function getLogoBuffer(logoPath?: string): Buffer | null {
 // ===========================
 export async function generateStockExcel(products: any[]): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Sachand Stock Manager";
+  wb.creator = "ThaborSolution Stock Manager";
   wb.created = new Date();
 
   const ws = wb.addWorksheet("État du Stock", { properties: { tabColor: { argb: "FF2563EB" } } });

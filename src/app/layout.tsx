@@ -7,7 +7,7 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sachand Stock Manager",
+  title: "ThaborSolution Stock Manager",
   description: "Logiciel de gestion de stock multi-utilisateurs",
 };
 

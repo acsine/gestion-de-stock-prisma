@@ -6,6 +6,7 @@ import { useUIStore } from "@/stores/useUIStore";
 import { formatCurrency, formatDate, getInvoiceStatusBadge, getInvoiceStatusLabel, downloadReport } from "@/lib/utils";
 import { FileText, Plus, Download, Search, RefreshCw, Printer, Eye } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TableLoading, TableEmpty } from "@/components/ui/TableStates";
 
@@ -14,6 +15,7 @@ export default function FacturesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const router = useRouter();
   const { addToast } = useUIStore();
 
   const { data, isLoading, isFetching, refetch } = useInvoices({ search, status: statusFilter, type: typeFilter });
@@ -49,8 +51,15 @@ export default function FacturesPage() {
           <p className="text-gray-500 text-sm">{data?.total || 0} document(s)</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => handleBulkExport("excel")} className="btn-secondary flex items-center gap-2 text-sm">
-            <Download className="w-4 h-4" /> Excel
+          <button 
+            onClick={() => {
+              setLoading(s => ({ ...s, 'bulk-excel': true }));
+              handleBulkExport("excel").finally(() => setLoading(s => ({ ...s, 'bulk-excel': false })));
+            }} 
+            disabled={loading['bulk-excel']}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            {loading['bulk-excel'] ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Excel
           </button>
           <Link href="/factures/nouvelle" className="btn-primary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" /> Nouvelle facture
@@ -139,9 +148,17 @@ export default function FacturesPage() {
                     >
                       {loading[`${inv.id}-pdf`] ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
                     </button>
-                    <Link href={`/factures/${inv.id}`} className="p-1.5 hover:bg-gray-100 text-gray-600 rounded transition-colors">
-                      <Eye className="w-3.5 h-3.5" />
-                    </Link>
+                    <button
+                      title="Voir les détails"
+                      onClick={() => {
+                        setLoading(s => ({ ...s, [`${inv.id}-view`]: true }));
+                        router.push(`/factures/${inv.id}`);
+                      }}
+                      disabled={loading[`${inv.id}-view`]}
+                      className="p-1.5 hover:bg-blue-50 text-blue-600 rounded transition-colors disabled:opacity-50"
+                    >
+                      {loading[`${inv.id}-view`] ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 </td>
               </tr>

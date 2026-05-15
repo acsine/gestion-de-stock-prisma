@@ -8,9 +8,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
     
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
     const role = (session.user as any).role;
-    if (!["ADMIN", "GESTIONNAIRE_STOCK"].includes(role)) {
+
+    if (!["ADMIN", "GESTIONNAIRE_STOCK"].includes(role) && !isSuper) {
       return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
+
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category || (!isSuper && category.tenantId !== tenantId)) {
+      return NextResponse.json({ error: "Catégorie non trouvée" }, { status: 404 });
     }
 
     const body = await req.json();
@@ -33,9 +41,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
     const role = (session.user as any).role;
-    if (!["ADMIN"].includes(role)) {
+
+    if (!["ADMIN"].includes(role) && !isSuper) {
       return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
+
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category || (!isSuper && category.tenantId !== tenantId)) {
+      return NextResponse.json({ error: "Catégorie non trouvée" }, { status: 404 });
     }
 
     // Check if category has products

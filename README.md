@@ -1,57 +1,47 @@
-# 📦 Sachand Stock Manager
+# 📦 ThaborSolution Stock Manager
 
 Logiciel de gestion de stock multi-utilisateurs développé avec **Next.js 15**, **Prisma**, **PostgreSQL**, **TanStack Query**, **Zustand** et **Zod**.
 
 ---
 
-## 🚀 Installation
+## ⚡ Installation Rapide (Recommandé)
+
+Si vous avez **Python** installé, vous pouvez utiliser l'installateur automatique qui configure tout pour vous (PostgreSQL, Node.js, Base de données, Raccourci Bureau) :
+
+1. Ouvrez le dossier du projet.
+2. Double-cliquez sur **`setup.bat`**.
+3. Suivez les instructions à l'écran.
+4. Une fois terminé, utilisez le raccourci **ThaborSolution Stock Manager** sur votre bureau pour lancer l'application.
+
+---
+
+## 🚀 Installation Manuelle (Développeurs)
 
 ### Prérequis
 - Node.js 18+
 - PostgreSQL 14+
 - npm ou yarn
 
-### 1. Extraction du projet
-Extraire le contenu du ZIP dans `D:\stockapigestion`
-
-### 2. Installation des dépendances
+### 1. Installation des dépendances
 ```bash
-cd D:\stockapigestion
 npm install
 ```
 
-### 3. Configuration de la base de données
-Copier `.env.example` en `.env` et remplir les variables :
+### 2. Configuration de la base de données
+Copier `.env.example` en `.env` :
 ```bash
 copy .env.example .env
 ```
+Éditer `.env` avec vos accès PostgreSQL.
 
-Éditer `.env` :
-```env
-# PostgreSQL — adapter le mot de passe
-DATABASE_URL="postgresql://postgres:VOTRE_MOT_DE_PASSE@localhost:5432/stockapigestion"
-
-# Générer une clé secrète aléatoire (minimum 32 caractères)
-NEXTAUTH_SECRET="remplacer-par-une-chaine-aleatoire-longue-et-securisee"
-NEXTAUTH_URL="http://localhost:3000"
-```
-
-### 4. Initialisation de la base de données
+### 3. Initialisation
 ```bash
-# Créer la base de données PostgreSQL d'abord :
-# Dans pgAdmin ou psql : CREATE DATABASE stockapigestion;
-
-# Appliquer le schéma Prisma
-npm run db:push
-
-# Générer le client Prisma
-npm run db:generate
-
-# Insérer les données initiales (admin + données de démo)
-npm run db:seed
+npx prisma generate
+npx prisma db push
+npx tsx prisma/seed.ts
 ```
 
-### 5. Démarrage en développement
+### 4. Démarrage
 ```bash
 npm run dev
 ```
@@ -60,6 +50,7 @@ Ouvrir http://localhost:3000
 **Compte administrateur :** `admin@stockapigestion.com` / `Admin@1234`
 
 ---
+
 
 ## 🏗️ Déploiement en production (réseau LAN)
 
@@ -173,7 +164,7 @@ Le fichier Excel d'import produits doit contenir les colonnes suivantes :
 
 ---
 
-**Version 1.0 — Sachand Stock Manager**
+**Version 1.0 — ThaborSolution Stock Manager**
 
 
 
@@ -198,3 +189,15 @@ Pour voir les logs Nginx : C:\nginx\logs.
 > [!TIP]
 > Si vous voulez que d'autres appareils (téléphones, tablettes) accèdent à l'application via `stock.local`, vous devrez configurer votre routeur pour pointer le DNS vers l'IP de votre serveur, ou utiliser un outil comme **Technitium DNS** sur cette machine. En attendant, l'accès via l'adresse IP locale (`http://192.168.x.x:3000`) fonctionnera sur tout le réseau grâce à l'ouverture automatique du pare-feu.@2
 Souhaites-tu que je t'aide à lancer un premier test sur ton projet actuel ?
+
+
+
+SuperAdministrateur ThaborSolution : superadmin@thaborsolution.com / SuperAdmin@2026
+Marchand (Test) : marchand@thaborsolution.com / Merchant@123 (Slug: thabor-merchant)
+
+
+
+
+superadmin@thaborsolution.com / SuperAdmin@2026
+Résultat : Accès complet à la gestion système + vue globale du stock et des ventes de tous les marchands.
+Marchand (Test) : marchand@thaborsolution.com / Merchant@123 (Slug: thabor-merchant)

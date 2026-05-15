@@ -9,10 +9,66 @@ datasource db {
 }
 
 // =====================
+// MULTI-TENANCY
+// =====================
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  email         String   @unique
+  phone         String?
+  address       String?
+  logo          String?
+  status        TenantStatus @default(PENDING)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  licenseId     String?
+  license       License? @relation(fields: [licenseId], references: [id])
+  trialEndsAt   DateTime? @default(dbgenerated("NOW() + interval '24 hours'"))
+  subscriptionActive Boolean @default(true)
+
+  users         User[]
+  roles         Role[]
+  categories    Category[]
+  products      Product[]
+  suppliers     Supplier[]
+  customers     Customer[]
+  stockMovements StockMovement[]
+  invoices       Invoice[]
+  purchaseOrders PurchaseOrder[]
+  cashAccounts   CashAccount[]
+  employees      Employee[]
+  alerts         Alert[]
+  settings       Setting[]
+  transactions   Transaction[]
+  permissions    Permission[]
+  invoiceItems   InvoiceItem[]
+  orderItems     OrderItem[]
+  payments       Payment[]
+  payrolls       Payroll[]
+  leaves         Leave[]
+  tickets        Ticket[]
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// =====================
 // USERS & AUTH
 // =====================
 model User {
   id            String   @id @default(cuid())
+  tenantId      String?
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  
+  isSuperAdmin  Boolean  @default(false)
+  
   name          String
   email         String   @unique
   passwordHash  String
@@ -35,13 +91,18 @@ model User {
   auditLogs      AuditLog[]
   payrolls       Payroll[] @relation("ProcessedBy")
   employee       Employee? @relation("UserEmployee")
+  tickets        Ticket[]
+  ticketMessages TicketMessage[]
 
   @@map("users")
 }
 
 model Role {
   id          String       @id @default(cuid())
-  name        String       @unique
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  
+  name        String
   description String?
   permissions Permission[] @relation("RolePermissions")
   users       User[]
@@ -51,17 +112,21 @@ model Role {
   isSynced    Boolean      @default(false)
   remoteId    String?      @unique
 
+  @@unique([tenantId, name])
   @@map("roles")
 }
 
-
 model Permission {
   id          String   @id @default(cuid())
+  tenantId    String?  // Permissions can be global or specific
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  
   name        String   @unique
   code        String   @unique
   description String?
   roles       Role[]   @relation("RolePermissions")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   isSynced    Boolean  @default(false)
   remoteId    String?  @unique
@@ -74,8 +139,11 @@ model Permission {
 // =====================
 model Category {
   id          String     @id @default(cuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  
   name        String
-  slug        String     @unique
+  slug        String
   parentId    String?
   parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
   children    Category[] @relation("SubCategories")
@@ -91,12 +159,16 @@ model Category {
 
   products Product[]
 
+  @@unique([tenantId, slug])
   @@map("categories")
 }
 
 model Product {
   id          String   @id @default(cuid())
-  sku         String   @unique
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  
+  sku         String
   name        String
   description String?
   categoryId  String
@@ -128,6 +200,7 @@ model Product {
   orderItems      OrderItem[]
   alerts          Alert[]
 
+  @@unique([tenantId, sku])
   @@map("products")
 }
 
@@ -142,6 +215,9 @@ enum ProductStatus {
 // =====================
 model Supplier {
   id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  
   name         String
   contactName  String?
   phone        String?
@@ -169,6 +245,9 @@ model Supplier {
 
 model Customer {
   id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  
   name         String
   type         CustomerType @default(PARTICULIER)
   phone        String?
@@ -204,6 +283,9 @@ enum CustomerType {
 // =====================
 model StockMovement {
   id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  
   productId   String
   product     Product        @relation(fields: [productId], references: [id])
   type        MovementType
@@ -243,6 +325,9 @@ enum MovementType {
 // =====================
 model Invoice {
   id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  
   number        String        @unique
   type          InvoiceType   @default(FACTURE)
   status        InvoiceStatus @default(BROUILLON)
@@ -274,6 +359,8 @@ model Invoice {
 
 model InvoiceItem {
   id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
   invoiceId   String
   invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   productId   String
@@ -284,6 +371,9 @@ model InvoiceItem {
   taxRate     Float   @default(19.25)
   discount    Float   @default(0)
   total       Float
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   isSynced    Boolean @default(false)
   remoteId    String? @unique
@@ -312,6 +402,9 @@ enum InvoiceStatus {
 // =====================
 model PurchaseOrder {
   id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  
   number      String      @unique
   supplierId  String
   supplier    Supplier    @relation(fields: [supplierId], references: [id])
@@ -337,6 +430,8 @@ model PurchaseOrder {
 
 model OrderItem {
   id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
   orderId     String
   order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId   String
@@ -346,6 +441,9 @@ model OrderItem {
   unitPrice   Float
   taxRate     Float         @default(19.25)
   total       Float
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   isSynced    Boolean @default(false)
   remoteId    String? @unique
@@ -366,6 +464,8 @@ enum OrderStatus {
 // =====================
 model Payment {
   id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
   invoiceId   String
   invoice     Invoice       @relation(fields: [invoiceId], references: [id])
   amount      Float
@@ -395,6 +495,9 @@ enum PaymentMethod {
 // =====================
 model CashAccount {
   id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+  
   name      String
   type      AccountType @default(CAISSE)
   balance   Float       @default(0)
@@ -419,6 +522,9 @@ enum AccountType {
 
 model Transaction {
   id          String          @id @default(cuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  
   type        TransactionType
   amount      Float
   category    String
@@ -451,6 +557,9 @@ enum TransactionType {
 // =====================
 model Employee {
   id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  
   userId       String?        @unique
   user         User?          @relation("UserEmployee", fields: [userId], references: [id])
   firstName    String
@@ -495,8 +604,10 @@ enum EmployeeStatus {
 
 model Payroll {
   id            String        @id @default(cuid())
-  employeeId    String
-  employee      Employee      @relation(fields: [employeeId], references: [id])
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  employeeId  String
+  employee    Employee      @relation(fields: [employeeId], references: [id])
   month         Int
   year          Int
   baseSalary    Float
@@ -527,6 +638,8 @@ enum PayrollStatus {
 
 model Leave {
   id          String      @id @default(cuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
   employeeId  String
   employee    Employee    @relation(fields: [employeeId], references: [id])
   type        LeaveType   @default(ANNUEL)
@@ -566,6 +679,9 @@ enum LeaveStatus {
 // =====================
 model Alert {
   id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  
   productId String
   product   Product   @relation(fields: [productId], references: [id])
   type      AlertType
@@ -593,6 +709,7 @@ enum AlertType {
 // =====================
 model AuditLog {
   id        String   @id @default(cuid())
+  // Linked to User
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   action    String
@@ -615,7 +732,10 @@ model AuditLog {
 // =====================
 model Setting {
   id        String   @id @default(cuid())
-  key       String   @unique
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  
+  key       String
   value     String
   group     String   @default("general")
   updatedAt DateTime @updatedAt
@@ -623,5 +743,73 @@ model Setting {
   isSynced  Boolean  @default(false)
   remoteId  String?  @unique
 
+  @@unique([tenantId, key])
   @@map("settings")
+}
+// =====================
+// LICENSES & SUBSCRIPTIONS
+// =====================
+model License {
+  id            String   @id @default(cuid())
+  name          String   @unique // ex: "Gratuit", "Pro", "Enterprise"
+  price         Float
+  durationDays  Int
+  maxUsers      Int      @default(5)
+  maxProducts   Int?     // null pour illimité
+  canDownload   Boolean  @default(false)
+  tenants       Tenant[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("licenses")
+}
+
+// =====================
+// SUPPORT TICKETS
+// =====================
+model Ticket {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  subject   String
+  status    TicketStatus @default(OUVERT)
+  priority  TicketPriority @default(NORMALE)
+  
+  messages  TicketMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  content   String
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("support_ticket_messages")
+}
+
+enum TicketStatus {
+  OUVERT
+  EN_COURS
+  RESOLU
+  FERME
+}
+
+enum TicketPriority {
+  BASSE
+  NORMALE
+  HAUTE
+  URGENTE
 }

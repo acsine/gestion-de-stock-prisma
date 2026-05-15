@@ -14,6 +14,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   try {
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser || (!isSuper && targetUser.tenantId !== tenantId)) {
+      return NextResponse.json({ error: "Utilisateur non trouvé" }, { status: 404 });
+    }
+
     const { isActive } = await req.json();
     
     const user = await prisma.user.update({

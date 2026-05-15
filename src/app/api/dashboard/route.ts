@@ -7,6 +7,18 @@ export async function GET() {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
+    // Use empty where clause for superadmin to see global stats, 
+    // or filter by tenantId if provided (for potential impersonation)
+    const baseWhere: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      baseWhere.tenantId = tenantId;
+    } else if (tenantId) {
+      baseWhere.tenantId = tenantId;
+    }
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -19,25 +31,25 @@ export async function GET() {
       products, monthInvoices, todayInvoices,
       recentInvoices, allInvoices, allTransactions
     ] = await Promise.all([
-      prisma.product.count({ where: { status: "ACTIF" } }),
-      prisma.alert.count({ where: { isRead: false } }),
-      prisma.product.count({ where: { currentStock: 0, status: "ACTIF" } }),
-      prisma.product.findMany({ select: { currentStock: true, buyPrice: true, sellPrice: true } }),
-      prisma.invoice.findMany({ where: { type: "FACTURE", createdAt: { gte: startOfMonth } }, select: { total: true, paidAmount: true } }),
-      prisma.invoice.findMany({ where: { type: "FACTURE", createdAt: { gte: startOfDay } }, select: { total: true, number: true } }),
+      prisma.product.count({ where: { ...baseWhere, status: "ACTIF" } }),
+      prisma.alert.count({ where: { ...baseWhere, isRead: false } }),
+      prisma.product.count({ where: { ...baseWhere, currentStock: 0, status: "ACTIF" } }),
+      prisma.product.findMany({ where: baseWhere, select: { currentStock: true, buyPrice: true, sellPrice: true } }),
+      prisma.invoice.findMany({ where: { ...baseWhere, type: "FACTURE", createdAt: { gte: startOfMonth } }, select: { total: true, paidAmount: true } }),
+      prisma.invoice.findMany({ where: { ...baseWhere, type: "FACTURE", createdAt: { gte: startOfDay } }, select: { total: true, number: true } }),
       prisma.invoice.findMany({
-        where: { type: "FACTURE" },
+        where: { ...baseWhere, type: "FACTURE" },
         include: { customer: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
         take: 6,
       }),
       // For 6 months chart
       prisma.invoice.findMany({
-        where: { type: "FACTURE", status: { not: "ANNULE" }, createdAt: { gte: sixMonthsAgo } },
+        where: { ...baseWhere, type: "FACTURE", status: { not: "ANNULE" }, createdAt: { gte: sixMonthsAgo } },
         select: { total: true, createdAt: true }
       }),
       prisma.transaction.findMany({
-        where: { date: { gte: sixMonthsAgo } },
+        where: { ...baseWhere, date: { gte: sixMonthsAgo } },
         select: { amount: true, type: true, date: true }
       })
     ]);

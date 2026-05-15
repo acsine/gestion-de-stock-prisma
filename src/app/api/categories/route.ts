@@ -5,36 +5,65 @@ import prisma from "@/lib/prisma";
 import { categorySchema } from "@/lib/validations";
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const categories = await prisma.category.findMany({
-    include: { _count: { select: { products: true } }, children: true },
-    orderBy: { name: "asc" },
-  });
-  return NextResponse.json({ data: categories });
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
+    const where: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = tenantId;
+    } else if (tenantId) {
+      where.tenantId = tenantId;
+    }
+
+    const categories = await prisma.category.findMany({
+      where,
+      include: { _count: { select: { products: true } }, children: true },
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json({ data: categories });
+  } catch (error) {
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const body = await req.json();
-  const parsed = categorySchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
-  
-  const data = { ...parsed.data };
-  if (!data.slug) {
-    data.slug = data.name.toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-    
-    // Check if slug exists, add random suffix if needed
-    const existing = await prisma.category.findUnique({ where: { slug: data.slug } });
-    if (existing) {
-      data.slug = `${data.slug}-${Math.random().toString(36).substring(2, 5)}`;
-    }
-  }
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
 
-  const category = await prisma.category.create({ data: data as any });
-  return NextResponse.json({ data: category, message: "Catégorie créée" }, { status: 201 });
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
+    const body = await req.json();
+    const parsed = categorySchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    
+    const data = { ...parsed.data, tenantId };
+    if (!data.slug) {
+      const baseSlug = data.name.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // remove accents
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      
+      data.slug = baseSlug;
+
+      // Check if slug exists for this tenant, add random suffix if needed
+      const existing = await prisma.category.findFirst({ 
+        where: { slug: data.slug, tenantId } 
+      });
+      if (existing) {
+        data.slug = `${baseSlug}-${Math.random().toString(36).substring(2, 5)}`;
+      }
+    }
+
+    const category = await prisma.category.create({ data: data as any });
+    return NextResponse.json({ data: category, message: "Catégorie créée" }, { status: 201 });
+  } catch (error: any) {
+    console.error("[API_CATEGORIES_POST]", error);
+    return NextResponse.json({ error: "Erreur serveur", details: error.message }, { status: 500 });
+  }
 }

@@ -4,11 +4,13 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { invoiceSchema } from "@/lib/validations";
 
-async function generateInvoiceNumber(type: string): Promise<string> {
+async function generateInvoiceNumber(tenantId: string, type: string): Promise<string> {
   const prefixMap: Record<string, string> = { FACTURE: "FAC", PROFORMA: "PRO", AVOIR: "AVO", DEVIS: "DEV" };
   const prefix = prefixMap[type] || "FAC";
   const year = new Date().getFullYear();
-  const count = await prisma.invoice.count({ where: { type: type as any, number: { startsWith: `${prefix}-${year}` } } });
+  const count = await prisma.invoice.count({ 
+    where: { tenantId, type: type as any, number: { startsWith: `${prefix}-${year}` } } 
+  });
   return `${prefix}-${year}-${String(count + 1).padStart(4, "0")}`;
 }
 
@@ -16,6 +18,8 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
@@ -25,6 +29,12 @@ export async function GET(req: NextRequest) {
     const pageSize = 20;
 
     const where: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = tenantId;
+    } else if (tenantId) {
+      where.tenantId = tenantId;
+    }
     if (search) where.OR = [
       { number: { contains: search, mode: "insensitive" } },
       { customer: { name: { contains: search, mode: "insensitive" } } },
@@ -49,7 +59,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({ data: invoices, total, page, pageSize });
-  } catch {
+  } catch (error) {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
@@ -58,6 +68,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
     const body = await req.json();
     const parsed = invoiceSchema.safeParse(body);
@@ -79,12 +92,14 @@ export async function POST(req: NextRequest) {
     const subtotal = subtotalRaw * (1 - discount / 100);
     const taxAmount = taxAmountRaw * (1 - discount / 100);
     const total = subtotal + taxAmount;
-    const number = await generateInvoiceNumber(type);
+    const number = await generateInvoiceNumber(tenantId, type);
 
     // Check stock availability for sales
     if (type === "FACTURE") {
       for (const item of items) {
-        const product = await prisma.product.findUnique({ where: { id: item.productId } });
+        const product = await prisma.product.findFirst({ 
+          where: { id: item.productId, tenantId } 
+        });
         if (!product) continue;
         if (product.currentStock < item.quantity) {
           return NextResponse.json({
@@ -97,6 +112,7 @@ export async function POST(req: NextRequest) {
     const invoice = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.create({
         data: {
+          tenantId,
           number,
           type: type as any,
           status: "BROUILLON",
@@ -111,6 +127,7 @@ export async function POST(req: NextRequest) {
           notes,
           items: {
             create: processedItems.map((item) => ({
+              tenantId,
               productId: item.productId,
               description: item.description,
               quantity: item.quantity,
@@ -136,6 +153,7 @@ export async function POST(req: NextRequest) {
           });
           await tx.stockMovement.create({
             data: {
+              tenantId,
               productId: item.productId,
               type: "SORTIE_VENTE",
               quantity: item.quantity,
@@ -153,6 +171,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: invoice, message: "Facture créée" }, { status: 201 });
   } catch (error: any) {
+    console.error("[API_INVOICES_POST]", error);
     return NextResponse.json({ error: error.message || "Erreur serveur" }, { status: 500 });
   }
 }

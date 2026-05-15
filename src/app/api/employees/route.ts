@@ -5,32 +5,72 @@ import prisma from "@/lib/prisma";
 import { employeeSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const { searchParams } = new URL(req.url);
-  const search = searchParams.get("search") || "";
-  const status = searchParams.get("status");
-  const where: any = {};
-  if (search) where.OR = [
-    { firstName: { contains: search, mode: "insensitive" } },
-    { lastName: { contains: search, mode: "insensitive" } },
-    { position: { contains: search, mode: "insensitive" } },
-  ];
-  if (status) where.status = status;
-  const employees = await prisma.employee.findMany({ where, orderBy: { lastName: "asc" } });
-  return NextResponse.json({ data: employees });
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search") || "";
+    const status = searchParams.get("status");
+    
+    const where: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = tenantId;
+    } else if (tenantId) {
+      where.tenantId = tenantId;
+    }
+
+    if (search) where.OR = [
+      { firstName: { contains: search, mode: "insensitive" } },
+      { lastName: { contains: search, mode: "insensitive" } },
+      { position: { contains: search, mode: "insensitive" } },
+    ];
+    if (status) where.status = status;
+
+    const employees = await prisma.employee.findMany({ 
+      where, 
+      orderBy: { lastName: "asc" } 
+    });
+    return NextResponse.json({ data: employees });
+  } catch (error) {
+    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const role = (session.user as any).role;
-  if (!["ADMIN", "RH"].includes(role)) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
-  const body = await req.json();
-  const parsed = employeeSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
-  const employee = await prisma.employee.create({
-    data: { ...parsed.data, startDate: new Date(parsed.data.startDate) },
-  });
-  return NextResponse.json({ data: employee, message: "Employé créé" }, { status: 201 });
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    const tenantId = (session.user as any).tenantId;
+    const isSuper = (session.user as any).isSuperAdmin;
+    const role = (session.user as any).role;
+
+    if (!isSuper && !tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
+    if (!["ADMIN", "RH"].includes(role) && !isSuper) {
+      return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const parsed = employeeSchema.safeParse(body);
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+
+    const employee = await prisma.employee.create({
+      data: { 
+        ...parsed.data, 
+        tenantId: tenantId!,
+        startDate: new Date(parsed.data.startDate),
+        dateOfBirth: (parsed.data.dateOfBirth && parsed.data.dateOfBirth !== "") ? new Date(parsed.data.dateOfBirth) : null,
+        endDate: (parsed.data.endDate && parsed.data.endDate !== "") ? new Date(parsed.data.endDate) : null
+      },
+    });
+
+    return NextResponse.json({ data: employee, message: "Employé créé" }, { status: 201 });
+  } catch (error: any) {
+    console.error("[API_EMPLOYEES_POST]", error);
+    return NextResponse.json({ error: "Erreur serveur", details: error.message }, { status: 500 });
+  }
 }

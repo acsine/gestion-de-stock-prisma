@@ -8,16 +8,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id: orderId } = await params;
+  const tenantId = (session.user as any).tenantId;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Get the order with items
+      // 1. Get the order with items and check ownership
       const order = await tx.purchaseOrder.findUnique({
         where: { id: orderId },
         include: { items: { include: { product: true } } }
       });
 
       if (!order) throw new Error("Bon de commande non trouvé");
+      if (order.tenantId !== tenantId) throw new Error("Accès non autorisé à ce bon de commande");
       if (order.status === "RECU") throw new Error("Ce bon de commande a déjà été reçu");
 
       // 2. Create stock movements and update product stocks
@@ -25,6 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Create movement
         await tx.stockMovement.create({
           data: {
+            tenantId,
             productId: item.productId,
             type: "ENTREE_ACHAT",
             quantity: item.quantity,

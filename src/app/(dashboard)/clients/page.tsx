@@ -136,9 +136,22 @@ function CustomerForm({ onClose, customer }: { onClose: () => void, customer?: a
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button type="button" onClick={onClose} className="btn-secondary px-6">Annuler</button>
-            <button type="submit" disabled={isPending} className="btn-primary px-8 flex items-center gap-2 shadow-lg shadow-blue-100">
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : isEditing ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {isEditing ? "Enregistrer les modifications" : "Créer le client"}
+            <button 
+              type="submit" 
+              disabled={isPending} 
+              className="btn-primary px-8 flex items-center justify-center gap-2 shadow-lg shadow-blue-100 min-w-[160px] transition-all disabled:opacity-70"
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  {isEditing ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  <span>{isEditing ? "Enregistrer les modifications" : "Créer le client"}</span>
+                </>
+              )}
             </button>
           </div>
         </form>

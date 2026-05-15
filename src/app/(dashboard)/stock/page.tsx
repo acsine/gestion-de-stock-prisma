@@ -80,9 +80,22 @@ function MovementForm({ onClose }: { onClose: () => void }) {
           </div>
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={isPending} className="btn-primary flex items-center gap-2">
-              {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Enregistrer
+            <button 
+              type="submit" 
+              disabled={isPending} 
+              className="btn-primary flex items-center justify-center gap-2 min-w-[120px] transition-all disabled:opacity-70"
+            >
+              {isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Enregistrement...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  <span>Enregistrer</span>
+                </>
+              )}
             </button>
           </div>
         </form>

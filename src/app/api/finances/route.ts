@@ -7,18 +7,28 @@ import { transactionSchema } from "@/lib/validations";
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const { searchParams } = new URL(req.url);
-  const type = searchParams.get("type");
-  const accountId = searchParams.get("accountId");
-  const startDate = searchParams.get("startDate");
-  const endDate = searchParams.get("endDate");
-  const page = parseInt(searchParams.get("page") || "1");
-  const pageSize = 20;
+  const tenantId = (session.user as any).tenantId;
+  const isSuper = (session.user as any).isSuperAdmin;
 
-  const where: any = {};
-  if (type) where.type = type;
-  if (accountId) where.accountId = accountId;
-  if (startDate && endDate) where.date = { gte: new Date(startDate), lte: new Date(endDate) };
+    const { searchParams } = new URL(req.url);
+    const type = searchParams.get("type");
+    const accountId = searchParams.get("accountId");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = 20;
+
+    const where: any = {};
+    if (!isSuper) {
+      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = tenantId;
+    } else if (tenantId) {
+      where.tenantId = tenantId;
+    }
+
+    if (type) where.type = type;
+    if (accountId) where.accountId = accountId;
+    if (startDate && endDate) where.date = { gte: new Date(startDate), lte: new Date(endDate) };
 
   const [transactions, total] = await Promise.all([
     prisma.transaction.findMany({
@@ -54,7 +64,11 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const role = (session.user as any).role;
-  if (!["ADMIN", "COMPTABLE"].includes(role)) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+  const isSuper = (session.user as any).isSuperAdmin;
+  if (!["ADMIN", "COMPTABLE"].includes(role) && !isSuper) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+
+  const tenantId = (session.user as any).tenantId;
+  if (!isSuper && !tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
   const body = await req.json();
   const parsed = transactionSchema.safeParse(body);
