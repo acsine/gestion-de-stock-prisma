@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   // Fallback if session is incomplete
   if (!tenantId && !isSuper) {
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: (session.user as any).id },
       select: { tenantId: true }
     });
     tenantId = user?.tenantId;
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   // Fallback if session is incomplete
   if (!tenantId && !isSuper) {
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: (session.user as any).id },
       select: { tenantId: true }
     });
     tenantId = user?.tenantId;

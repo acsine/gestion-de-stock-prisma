@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   const transaction = await prisma.$transaction(async (tx) => {
     const t = await tx.transaction.create({
-      data: { ...parsed.data, date: parsed.data.date ? new Date(parsed.data.date) : new Date(), userId: (session.user as any).id },
+      data: { ...parsed.data, date: parsed.data.date ? new Date(parsed.data.date) : new Date(), userId: (session.user as any).id, tenantId },
       include: { account: true },
     });
 

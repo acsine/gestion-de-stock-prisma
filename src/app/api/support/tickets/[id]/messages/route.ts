@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!content) return NextResponse.json({ error: "Message vide" }, { status: 400 });
 
   const ticket = await prisma.ticket.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!ticket) return NextResponse.json({ error: "Ticket non trouvé" }, { status: 404 });
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const message = await prisma.ticketMessage.create({
     data: {
       content,
-      ticketId: params.id,
+      ticketId: id,
       userId,
       isAdmin: isSuper,
     },
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Update ticket timestamp
   await prisma.ticket.update({
-    where: { id: params.id },
+    where: { id },
     data: { updatedAt: new Date() },
   });
 

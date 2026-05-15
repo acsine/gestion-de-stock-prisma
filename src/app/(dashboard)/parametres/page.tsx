@@ -45,7 +45,7 @@ export default function ParametresPage() {
     try {
       const dataToSave = { 
         ...localSettings, 
-        tenantId: selectedTenantId || (session.user as any).tenantId || apiResponse?.debug?.tenantId 
+        tenantId: selectedTenantId || (session?.user as any)?.tenantId || apiResponse?.debug?.tenantId 
       };
 
       const res = await fetch("/api/settings", { 
@@ -125,7 +125,7 @@ export default function ParametresPage() {
                 disabled={isFetching}
               >
                 <option value="">-- Sélectionner une entreprise --</option>
-                {tenants.map(t => (
+                {tenants.map((t: any) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
