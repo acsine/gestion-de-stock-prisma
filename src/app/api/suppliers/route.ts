@@ -3,11 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { supplierSchema } from "@/lib/validations";
+import { hasPermission } from "@/lib/permissions";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!(await hasPermission("suppliers.view"))) {
+      return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
     const tenantId = (session.user as any).tenantId;
     const isSuper = (session.user as any).isSuperAdmin;
 
@@ -42,6 +46,9 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    if (!(await hasPermission("suppliers.create"))) {
+      return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+    }
     const isSuper = (session.user as any).isSuperAdmin;
     const body = await req.json();
 

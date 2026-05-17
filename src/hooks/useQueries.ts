@@ -255,6 +255,38 @@ export function useSuppliers(params?: { search?: string }) {
   });
 }
 
+export function useUpdateSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const r = await fetch(`/api/suppliers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de mise à jour");
+      return res;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+}
+
+export function useDeleteSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/suppliers/${id}`, {
+        method: "DELETE",
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de suppression");
+      return res;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+}
+
 // Categories
 export function useCategories() {
   return useQuery({
@@ -328,6 +360,14 @@ export function usePurchaseOrders(params?: { status?: string; page?: number }) {
   });
 }
 
+export function usePurchaseOrder(id: string) {
+  return useQuery({
+    queryKey: ["order", id],
+    queryFn: () => fetch(`/api/orders/${id}`).then((r) => r.json()),
+    enabled: !!id,
+  });
+}
+
 export function useCreatePurchaseOrder() {
   const qc = useQueryClient();
   return useMutation({
@@ -359,6 +399,48 @@ export function useReceiveOrder() {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["stock"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useUpdatePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      fetch(`/api/orders/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur lors de la mise à jour");
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+export function useDeletePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/orders/${id}`, {
+        method: "DELETE",
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur lors de la suppression");
+        }
+        return r.json();
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
     },
   });
 }

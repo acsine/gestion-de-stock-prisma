@@ -131,6 +131,7 @@ export const supplierSchema = z.object({
   taxId: z.string().optional(),
   paymentTerms: z.number().min(0),
   notes: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export type SupplierInput = z.infer<typeof supplierSchema>;

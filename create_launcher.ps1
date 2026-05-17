@@ -8,7 +8,7 @@ $IconPath = Join-Path $AppPath "icon.png"
 # Create a hidden launcher batch
 $LauncherBat = @"
 @echo off
-cd /d "$AppPath"
+cd /d "%~dp0"
 start /min cmd /c "npm run dev"
 timeout /t 5 /nobreak > nul
 start http://localhost:3000
@@ -28,7 +28,9 @@ $Shortcut.Save()
 # Create VBS to hide terminal
 $VBS = @"
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run chr(34) & "$AppPath\start_app.bat" & Chr(34), 0
+Set fso = CreateObject("Scripting.FileSystemObject")
+strPath = fso.GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run chr(34) & strPath & "\start_app.bat" & Chr(34), 0
 Set WshShell = Nothing
 "@
 $VBS | Out-File -FilePath (Join-Path $AppPath "launcher.vbs") -Encoding ASCII

@@ -1,20 +1,23 @@
 "use client";
-// src/app/(dashboard)/commandes/nouveau/page.tsx
-import { useState, useRef } from "react";
+// src/app/(dashboard)/commandes/[id]/modifier/page.tsx
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { useSuppliers, useCreatePurchaseOrder, useSettings } from "@/hooks/useQueries";
+import { useSuppliers, usePurchaseOrder, useUpdatePurchaseOrder, useSettings } from "@/hooks/useQueries";
 import { useProducts } from "@/hooks/useProducts";
-import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, X, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
-export default function NouveauBonCommande() {
+export default function ModifierBonCommande({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
+  
+  const { data: orderData, isLoading: isOrderLoading } = usePurchaseOrder(id);
   const { data: suppliersData } = useSuppliers();
   const { data: productsData } = useProducts();
   const { data: settingsData } = useSettings();
-  const createOrder = useCreatePurchaseOrder();
+  const updateOrder = useUpdatePurchaseOrder();
 
   const suppliers = suppliersData?.data || [];
   const products = productsData?.data || [];
@@ -24,13 +27,35 @@ export default function NouveauBonCommande() {
   const [notes, setNotes] = useState("");
   const [expectedAt, setExpectedAt] = useState("");
   const [items, setItems] = useState<any[]>([]);
-  const [createdOrder, setCreatedOrder] = useState<any>(null);
+  const [updatedOrder, setUpdatedOrder] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorModal, setErrorModal] = useState<{ isOpen: boolean; title: string; message: string }>({
     isOpen: false,
     title: "",
     message: ""
   });
+
+  // Pre-load data from order
+  useEffect(() => {
+    if (orderData?.data) {
+      const order = orderData.data;
+      setSupplierId(order.supplierId || "");
+      setNotes(order.notes || "");
+      if (order.expectedAt) {
+        setExpectedAt(new Date(order.expectedAt).toISOString().split("T")[0]);
+      }
+      if (order.items) {
+        setItems(
+          order.items.map((i: any) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            taxRate: i.taxRate
+          }))
+        );
+      }
+    }
+  }, [orderData]);
 
   const supplierOptions = suppliers.map((s: any) => ({
     value: s.id,
@@ -83,26 +108,29 @@ export default function NouveauBonCommande() {
     setIsSaving(true);
     try {
       const [res] = await Promise.all([
-        createOrder.mutateAsync({
-          supplierId,
-          notes,
-          expectedAt: expectedAt || undefined,
-          items: items.map(i => ({
-            productId: i.productId,
-            quantity: Number(i.quantity),
-            unitPrice: Number(i.unitPrice),
-            taxRate: Number(i.taxRate)
-          }))
+        updateOrder.mutateAsync({
+          id,
+          data: {
+            supplierId,
+            notes,
+            expectedAt: expectedAt || undefined,
+            items: items.map(i => ({
+              productId: i.productId,
+              quantity: Number(i.quantity),
+              unitPrice: Number(i.unitPrice),
+              taxRate: Number(i.taxRate)
+            }))
+          }
         }),
-        new Promise(resolve => setTimeout(resolve, 800)) // Enforce 800ms min delay for beautiful spinner feedback
+        new Promise(resolve => setTimeout(resolve, 800)) // Min delay for premium smooth feedback
       ]);
-      setCreatedOrder(res.data);
+      setUpdatedOrder(res.data);
     } catch (error: any) {
       console.error(error);
       setErrorModal({
         isOpen: true,
         title: "Erreur d'enregistrement",
-        message: error.message || "Une erreur est survenue lors de la création du bon de commande. Veuillez réessayer."
+        message: error.message || "Une erreur est survenue lors de la mise à jour du bon de commande. Veuillez réessayer."
       });
     } finally {
       setIsSaving(false);
@@ -114,11 +142,11 @@ export default function NouveauBonCommande() {
   };
 
   const handleShare = async () => {
-    if (!createdOrder) return;
+    if (!updatedOrder) return;
     const shareData = {
-      title: `Bon de Commande ${createdOrder.number}`,
-      text: `Bon de Commande ${createdOrder.number} pour ${createdOrder.supplier?.name}. Total: ${formatCurrency(createdOrder.total)}`,
-      url: window.location.origin + `/commandes/${createdOrder.id}`
+      title: `Bon de Commande ${updatedOrder.number}`,
+      text: `Bon de Commande ${updatedOrder.number} pour ${updatedOrder.supplier?.name}. Total: ${formatCurrency(updatedOrder.total)}`,
+      url: window.location.origin + `/commandes/${updatedOrder.id}`
     };
 
     if (navigator.share) {
@@ -132,8 +160,36 @@ export default function NouveauBonCommande() {
     }
   };
 
-  // SUCCESS VIEW / MODAL
-  if (createdOrder) {
+  // Loading view
+  if (isOrderLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+        <p className="text-gray-500 font-medium">Chargement du bon de commande...</p>
+      </div>
+    );
+  }
+
+  // If order was received, prevent edit
+  if (orderData?.data?.status === "RECU") {
+    return (
+      <div className="max-w-md mx-auto mt-20 card p-6 text-center space-y-4">
+        <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">Modification impossible</h2>
+        <p className="text-gray-500 text-sm">
+          Le bon de commande <span className="font-mono font-bold">{orderData.data.number}</span> a déjà été réceptionné et les stocks ont été mis à jour.
+        </p>
+        <Link href="/commandes" className="btn-primary inline-block w-full py-2.5">
+          Retour aux bons de commande
+        </Link>
+      </div>
+    );
+  }
+
+  // SUCCESS VIEW
+  if (updatedOrder) {
     return (
       <>
         {/* Success View Screen (Hidden on print) */}
@@ -142,9 +198,9 @@ export default function NouveauBonCommande() {
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-100">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Bon de commande créé !</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Bon de commande mis à jour !</h1>
             <p className="text-gray-500 max-w-md mx-auto">
-              Le bon de commande <span className="font-mono font-bold text-blue-600">{createdOrder.number}</span> a été enregistré avec succès.
+              Le bon de commande <span className="font-mono font-bold text-blue-600">{updatedOrder.number}</span> a été modifié avec succès.
             </p>
           </div>
 
@@ -171,17 +227,17 @@ export default function NouveauBonCommande() {
             </div>
             <div className="text-right">
               <h2 className="text-4xl font-black text-gray-300 uppercase leading-none mb-2">Bon de Commande</h2>
-              <p className="text-xl font-mono font-bold">N° {createdOrder.number}</p>
-              <p className="text-sm">Date: {formatDate(createdOrder.createdAt)}</p>
-              {createdOrder.expectedAt && <p className="text-sm font-bold text-red-600">Livraison prévue: {formatDate(createdOrder.expectedAt)}</p>}
+              <p className="text-xl font-mono font-bold">N° {updatedOrder.number}</p>
+              <p className="text-sm">Date: {formatDate(updatedOrder.createdAt)}</p>
+              {updatedOrder.expectedAt && <p className="text-sm font-bold text-red-600">Livraison prévue: {formatDate(updatedOrder.expectedAt)}</p>}
             </div>
           </div>
 
           <div className="bg-gray-100 p-6 rounded-lg mb-8 border border-gray-200">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Fournisseur</h3>
-            <p className="text-xl font-bold">{createdOrder.supplier?.name}</p>
-            <p className="text-sm">{createdOrder.supplier?.address || createdOrder.supplier?.city}</p>
-            <p className="text-sm">{createdOrder.supplier?.phone}</p>
+            <p className="text-xl font-bold">{updatedOrder.supplier?.name}</p>
+            <p className="text-sm">{updatedOrder.supplier?.address || updatedOrder.supplier?.city}</p>
+            <p className="text-sm">{updatedOrder.supplier?.phone}</p>
           </div>
 
           <table className="w-full mb-10">
@@ -195,7 +251,7 @@ export default function NouveauBonCommande() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {createdOrder.items.map((item: any) => (
+              {updatedOrder.items.map((item: any) => (
                 <tr key={item.id}>
                   <td className="py-3 font-medium">{item.product?.name}</td>
                   <td className="py-3 text-center">{item.quantity} {item.product?.unit}</td>
@@ -209,18 +265,18 @@ export default function NouveauBonCommande() {
 
           <div className="flex justify-end">
             <div className="w-64 space-y-2">
-              <div className="flex justify-between text-sm"><span>Sous-total HT:</span><span>{formatCurrency(createdOrder.subtotal)}</span></div>
-              <div className="flex justify-between text-sm"><span>Total TVA:</span><span>{formatCurrency(createdOrder.taxAmount)}</span></div>
+              <div className="flex justify-between text-sm"><span>Sous-total HT:</span><span>{formatCurrency(updatedOrder.subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span>Total TVA:</span><span>{formatCurrency(updatedOrder.taxAmount)}</span></div>
               <div className="flex justify-between text-xl font-black border-t-2 border-gray-900 pt-2">
                 <span>TOTAL TTC:</span>
-                <span>{formatCurrency(createdOrder.total)}</span>
+                <span>{formatCurrency(updatedOrder.total)}</span>
               </div>
             </div>
           </div>
 
-          {createdOrder.notes && (
+          {updatedOrder.notes && (
             <div className="mt-10 p-4 border rounded text-sm italic text-gray-600">
-              <strong>Notes:</strong> {createdOrder.notes}
+              <strong>Notes:</strong> {updatedOrder.notes}
             </div>
           )}
 
@@ -239,7 +295,7 @@ export default function NouveauBonCommande() {
         <Link href="/commandes" className="p-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold font-heading">Nouveau Bon de Commande</h1>
+        <h1 className="text-2xl font-bold font-heading">Modifier Bon de Commande</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -405,7 +461,7 @@ export default function NouveauBonCommande() {
             ) : (
               <Save className="w-5 h-5" />
             )}
-            <span className="font-bold">Enregistrer le Bon</span>
+            <span className="font-bold">Mettre à jour le Bon</span>
           </button>
         </div>
       </form>

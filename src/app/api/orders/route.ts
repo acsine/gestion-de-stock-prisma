@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { purchaseOrderSchema } from "@/lib/validations";
+import { hasPermission } from "@/lib/permissions";
 
 async function generateOrderNumber(tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -15,6 +16,9 @@ async function generateOrderNumber(tenantId: string): Promise<string> {
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!(await hasPermission("orders.view"))) {
+    return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+  }
   const tenantId = (session.user as any).tenantId;
   const isSuper = (session.user as any).isSuperAdmin;
 
@@ -47,6 +51,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!(await hasPermission("orders.create"))) {
+    return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+  }
 
   const isSuper = (session.user as any).isSuperAdmin;
   const body = await req.json();

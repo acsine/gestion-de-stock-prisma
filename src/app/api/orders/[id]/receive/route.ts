@@ -2,10 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { hasPermission } from "@/lib/permissions";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  if (!(await hasPermission("orders.receive"))) {
+    return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+  }
 
   const { id: orderId } = await params;
   const tenantId = (session.user as any).tenantId;
