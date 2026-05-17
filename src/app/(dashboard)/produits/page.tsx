@@ -102,7 +102,7 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">SKU / Référence *</label>
               <input {...register("sku")} className="input" placeholder="PROD-001" />
@@ -114,7 +114,7 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Catégorie *</label>
               <Controller
@@ -148,7 +148,7 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="label">Prix achat (FCFA) *</label>
               <input {...register("buyPrice", { valueAsNumber: true })} type="number" className="input" placeholder="0" />
@@ -175,7 +175,7 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="label">Stock min</label>
               <input {...register("minStock", { valueAsNumber: true })} type="number" className="input" placeholder="5" />

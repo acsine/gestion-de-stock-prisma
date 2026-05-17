@@ -80,7 +80,7 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 overflow-y-auto space-y-5">
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="text-sm font-bold text-slate-700 mb-1.5 block">Prénom *</label>
               <input {...register("firstName")} className="input-premium w-full" />
@@ -92,7 +92,7 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
               {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="text-sm font-bold text-slate-700 mb-1.5 block">Téléphone</label>
               <div className="relative">
@@ -108,7 +108,7 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="text-sm font-bold text-slate-700 mb-1.5 block">Poste *</label>
               <div className="relative">
@@ -122,7 +122,7 @@ function EmployeeForm({ onClose, initialData }: { onClose: () => void, initialDa
               <input {...register("department")} className="input-premium w-full" placeholder="Logistique, RH…" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="text-sm font-bold text-slate-700 mb-1.5 block">Type de contrat *</label>
               <Controller

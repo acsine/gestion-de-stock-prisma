@@ -5,6 +5,8 @@ import { useRoles, usePermissionsList, useCreateRole, useSeedPermissions } from 
 import { useUIStore } from "@/stores/useUIStore";
 import { Shield, Plus, RefreshCw, X, Check, Search, Lock, AlertCircle, Trash2 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 export default function RolesPage() {
   const { data: rolesData, isLoading: rolesLoading, refetch: refetchRoles } = useRoles();
   const { data: permsData, isLoading: permsLoading } = usePermissionsList();
@@ -38,10 +40,11 @@ export default function RolesPage() {
   };
 
   const handleCreate = async () => {
-    if (!newRole.name) return addToast({ type: "error", title: "Erreur", message: "Nom requis" });
+    if (!newRole.name.trim()) return addToast({ type: "error", title: "Erreur", message: "Le nom du rôle est requis" });
+    if (newRole.permissionIds.length === 0) return addToast({ type: "error", title: "Erreur", message: "Veuillez sélectionner au moins une permission pour ce rôle" });
     try {
       await createRole.mutateAsync(newRole);
-      addToast({ type: "success", title: "Succès", message: "Rôle créé" });
+      addToast({ type: "success", title: "Succès", message: "Rôle créé avec succès" });
       setShowAddModal(false);
       setNewRole({ name: "", description: "", permissionIds: [] });
     } catch (error) {
@@ -57,8 +60,13 @@ export default function RolesPage() {
           <p className="text-gray-500 text-sm">Gérez les niveaux d'accès de vos employés</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleSeed} className="btn-secondary flex items-center gap-2 text-sm">
-            <RefreshCw className="w-4 h-4" /> Initialiser les permissions
+          <button 
+            onClick={handleSeed} 
+            disabled={seedPerms.isPending}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-70 transition-all"
+          >
+            <RefreshCw className={cn("w-4 h-4", seedPerms.isPending && "animate-spin")} /> 
+            <span>{seedPerms.isPending ? "Initialisation..." : "Initialiser les permissions"}</span>
           </button>
           <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" /> Nouveau Rôle
@@ -83,19 +91,39 @@ export default function RolesPage() {
             <div className="p-5 flex-1 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
                 <span>Permissions</span>
-                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{role.permissions?.length || 0}</span>
+                {role.name === "ADMIN" ? (
+                  <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase">TOUT</span>
+                ) : (
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-[10px] font-black",
+                    (role.permissions?.length || 0) === 0 ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                  )}>
+                    {role.permissions?.length || 0}
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
-                {role.permissions?.slice(0, 10).map((p: any) => (
-                  <span key={p.id} className="px-2 py-1 bg-white border border-gray-200 text-gray-600 rounded-md text-[10px] font-medium">
-                    {p.name}
-                  </span>
-                ))}
-                {role.permissions?.length > 10 && (
-                  <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-md text-[10px]">+{role.permissions.length - 10} de plus</span>
-                )}
-                {(!role.permissions || role.permissions.length === 0) && (
-                  <p className="text-xs text-gray-400 italic">Aucune permission spécifique</p>
+                {role.name === "ADMIN" ? (
+                  <div className="w-full py-2.5 px-3 bg-amber-50 border border-amber-200/50 rounded-xl flex items-center gap-2 text-amber-800 text-xs font-medium animate-in fade-in duration-300">
+                    <Shield className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
+                    <span>Accès total et illimité à toutes les fonctionnalités</span>
+                  </div>
+                ) : (!role.permissions || role.permissions.length === 0) ? (
+                  <div className="w-full py-2.5 px-3 bg-red-50 border border-red-200/50 rounded-xl flex items-center gap-2 text-red-800 text-xs font-medium animate-in fade-in duration-300">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                    <span>Aucune permission. Rôle inactif et sans accès.</span>
+                  </div>
+                ) : (
+                  <>
+                    {role.permissions?.slice(0, 10).map((p: any) => (
+                      <span key={p.id} className="px-2 py-1 bg-white border border-gray-200 text-gray-600 rounded-md text-[10px] font-medium">
+                        {p.name}
+                      </span>
+                    ))}
+                    {role.permissions?.length > 10 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-400 rounded-md text-[10px]">+{role.permissions.length - 10} de plus</span>
+                    )}
+                  </>
                 )}
               </div>
             </div>

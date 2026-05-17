@@ -42,11 +42,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          if (!user.isActive) {
-            console.warn("[Auth] User is inactive:", parsed.data.email);
-            return null;
-          }
-
           const passwordMatch = await bcrypt.compare(
             parsed.data.password,
             user.passwordHash
@@ -71,6 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: user.role?.name || "VENDEUR",
             permissions: user.role?.permissions?.map(p => p.code) || [],
             mustChangePassword: user.mustChangePassword,
+            isActive: user.isActive,
           };
         } catch (error) {
           console.error("[Auth] Authorize error:", error);

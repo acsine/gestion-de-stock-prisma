@@ -58,7 +58,7 @@ function MovementForm({ onClose }: { onClose: () => void }) {
             )} />
             {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Quantité *</label>
               <input {...register("quantity", { valueAsNumber: true })} type="number" step="0.01" min="0.01" className="input" placeholder="0" />

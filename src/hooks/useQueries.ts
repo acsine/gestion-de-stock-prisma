@@ -366,8 +366,13 @@ export function useCreateRole() {
 }
 
 export function useSeedPermissions() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => fetch("/api/permissions", { method: "POST" }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["permissions"] });
+      qc.invalidateQueries({ queryKey: ["roles"] });
+    },
   });
 }
 

@@ -57,7 +57,7 @@ const nav = [
 export function Sidebar() {
   const pathname = usePathname();
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
-  const { sidebarOpen, toggleSidebar } = useUIStore();
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
   const { data: alertData } = useAlerts();
   const { role, hasPermission } = usePermissions();
   const { data: session } = useSession();
@@ -83,12 +83,20 @@ export function Sidebar() {
   };
 
   return (
-    <aside
-      className={cn(
-        "bg-slate-900 text-white flex flex-col transition-all duration-500 z-20 relative flex-shrink-0 shadow-2xl shadow-slate-900/50",
-        sidebarOpen ? "w-64" : "w-20"
+    <>
+      {/* Mobile backdrop overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
-    >
+      <aside
+        className={cn(
+          "bg-slate-900 text-white flex flex-col transition-all duration-300 z-40 fixed md:relative inset-y-0 left-0 flex-shrink-0 shadow-2xl shadow-slate-900/50",
+          sidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full overflow-hidden"
+        )}
+      >
       {/* Logo */}
       <div className="h-20 flex items-center justify-between px-4 border-b border-white/5 bg-white/5">
         {sidebarOpen && (
@@ -104,15 +112,14 @@ export function Sidebar() {
             <Boxes className="w-6 h-6 text-white" />
           </div>
         )}
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            "p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all duration-300",
-            !sidebarOpen && "absolute -right-3 top-20 bg-blue-600 text-white border border-white/20 shadow-lg hover:bg-blue-700"
-          )}
-        >
-          {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-        </button>
+        {sidebarOpen && (
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all duration-300"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -215,6 +222,7 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

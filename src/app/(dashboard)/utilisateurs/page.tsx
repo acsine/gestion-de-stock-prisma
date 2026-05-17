@@ -14,6 +14,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import Link from "next/link";
 import { useRoles, useUsers, useCreateUser } from "@/hooks/useQueries";
 
+import { useRouter } from "next/navigation";
+
 type UserInput = z.infer<typeof userSchema>;
 
 function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
@@ -91,6 +93,8 @@ export default function UtilisateursPage() {
   const { data: session } = useSession();
   const { addToast } = useUIStore();
   const [showForm, setShowForm] = useState(false);
+  const [isNavigatingRoles, setIsNavigatingRoles] = useState(false);
+  const router = useRouter();
   const { data, isLoading, isFetching, refetch } = useUsers();
   const { data: rolesData } = useRoles();
   const roles = rolesData?.data || [];
@@ -104,9 +108,21 @@ export default function UtilisateursPage() {
           <p className="text-gray-500 text-sm">Contrôlez les accès et la sécurité de la plateforme</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/utilisateurs/roles" className="btn-secondary flex items-center gap-2 text-sm px-4">
-            <Settings2 className="w-4 h-4" /> Gérer les Rôles
-          </Link>
+          <button 
+            onClick={() => {
+              setIsNavigatingRoles(true);
+              router.push("/utilisateurs/roles");
+            }}
+            disabled={isNavigatingRoles}
+            className="btn-secondary flex items-center gap-2 text-sm px-4 disabled:opacity-70 transition-all"
+          >
+            {isNavigatingRoles ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Settings2 className="w-4 h-4" />
+            )}
+            <span>Gérer les Rôles</span>
+          </button>
           <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 text-sm px-4 font-bold shadow-lg shadow-blue-500/20">
             <Plus className="w-4 h-4" /> Nouvel utilisateur
           </button>
@@ -193,8 +209,8 @@ export default function UtilisateursPage() {
                   </button>
                 </td>
                 <td className="text-right">
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                  <div className="flex items-center justify-end gap-1">
+                    <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Paramètres">
                       <Settings2 className="w-4 h-4" />
                     </button>
                   </div>

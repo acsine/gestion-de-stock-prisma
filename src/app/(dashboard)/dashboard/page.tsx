@@ -74,13 +74,13 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Produits actifs" value={stats?.totalProducts || 0} icon={Package} color="blue" sub="en catalogue" />
         <StatCard title="Alertes stock" value={stats?.alertCount || 0} icon={AlertTriangle} color={stats?.alertCount > 0 ? "red" : "green"} sub={`${stats?.ruptures || 0} ruptures`} />
         <StatCard title="CA du mois" value={formatCurrency(stats?.monthRevenue || 0)} icon={TrendingUp} color="green" trend={stats?.revenueTrend} />
         <StatCard title="Valeur du stock" value={formatCurrency(stats?.totalStockValue || 0)} icon={Wallet} color="purple" sub="prix d'achat" />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Factures du jour" value={stats?.todayInvoices || 0} icon={FileText} color="blue" sub={formatCurrency(stats?.todaySales || 0)} />
         <StatCard title="Factures en attente" value={stats?.pendingInvoices || 0} icon={FileText} color="yellow" sub="non soldées" />
         <StatCard title="Commandes actives" value="—" icon={ShoppingCart} color="blue" />

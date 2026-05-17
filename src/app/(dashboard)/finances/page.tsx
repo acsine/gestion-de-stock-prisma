@@ -48,7 +48,7 @@ function TransactionForm({ onClose, accounts }: { onClose: () => void; accounts:
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Montant (FCFA) *</label>
               <input {...register("amount", { valueAsNumber: true })} type="number" min="1" className="input" placeholder="0" />
@@ -89,7 +89,7 @@ function TransactionForm({ onClose, accounts }: { onClose: () => void; accounts:
             />
             {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Date</label>
               <input {...register("date")} type="date" className="input" />
@@ -167,7 +167,7 @@ export default function FinancesPage() {
 
       {/* Summary stats */}
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="card p-4 border-l-4 border-l-green-500">
             <p className="text-sm text-gray-500">Total recettes</p>
             <p className="text-xl font-bold text-green-700">{formatCurrency(summary.totalRecettes)}</p>

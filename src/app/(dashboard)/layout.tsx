@@ -1,12 +1,22 @@
-// src/app/(dashboard)/layout.tsx
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  if (!session) redirect("/login");
+  if (!session || !session.user?.id) redirect("/login");
+
+  // Real-time check if the user is active in the database
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isActive: true }
+  });
+
+  if (!dbUser || !dbUser.isActive) {
+    redirect("/blocked");
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

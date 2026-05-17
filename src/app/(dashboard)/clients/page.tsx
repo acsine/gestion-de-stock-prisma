@@ -88,8 +88,8 @@ function CustomerForm({ onClose, customer }: { onClose: () => void, customer?: a
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="col-span-1 sm:col-span-2">
               <label className="label text-xs font-bold text-gray-400 uppercase tracking-widest">Nom / Raison sociale *</label>
               <input {...register("name")} className="input focus:ring-blue-500" placeholder="Ex: Jean Dupont" />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
@@ -129,7 +129,7 @@ function CustomerForm({ onClose, customer }: { onClose: () => void, customer?: a
               <label className="label text-xs font-bold text-gray-400 uppercase tracking-widest">Remise (%)</label>
               <input {...register("discount", { valueAsNumber: true })} type="number" min="0" max="100" className="input focus:ring-blue-500" placeholder="0" />
             </div>
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <label className="label text-xs font-bold text-gray-400 uppercase tracking-widest">Notes / Observations</label>
               <textarea {...register("notes")} className="input focus:ring-blue-500 min-h-[80px] py-2" placeholder="Informations complémentaires..." />
             </div>

@@ -1,7 +1,10 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 3600, // 1 heure (3600 secondes) maximum de session
+  },
   pages: {
     signIn: "/login",
   },
@@ -15,6 +18,7 @@ export const authConfig = {
         token.canDownload = (user as any).canDownload;
         token.permissions = (user as any).permissions;
         token.mustChangePassword = (user as any).mustChangePassword;
+        token.isActive = (user as any).isActive;
       }
       return token;
     },
@@ -27,6 +31,7 @@ export const authConfig = {
         (session.user as any).canDownload = token.canDownload;
         (session.user as any).permissions = token.permissions || [];
         (session.user as any).mustChangePassword = token.mustChangePassword;
+        (session.user as any).isActive = token.isActive;
       }
       return session;
     },
