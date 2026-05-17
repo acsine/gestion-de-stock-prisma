@@ -1,20 +1,29 @@
 "use client";
 // src/app/(dashboard)/utilisateurs/roles/page.tsx
 import { useState } from "react";
-import { useRoles, usePermissionsList, useCreateRole, useSeedPermissions } from "@/hooks/useQueries";
+import { 
+  useRoles, 
+  usePermissionsList, 
+  useCreateRole, 
+  useUpdateRole, 
+  useDeleteRole, 
+  useSeedPermissions 
+} from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
-import { Shield, Plus, RefreshCw, X, Check, Search, Lock, AlertCircle, Trash2 } from "lucide-react";
-
+import { Shield, Plus, RefreshCw, X, Check, Search, Lock, AlertCircle, Trash2, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function RolesPage() {
-  const { data: rolesData, isLoading: rolesLoading, refetch: refetchRoles } = useRoles();
-  const { data: permsData, isLoading: permsLoading } = usePermissionsList();
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  const { data: permsData } = usePermissionsList();
   const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
   const seedPerms = useSeedPermissions();
   const { addToast } = useUIStore();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingRole, setEditingRole] = useState<any | null>(null); // null = creation, non-null = modification
   const [newRole, setNewRole] = useState({ name: "", description: "", permissionIds: [] as string[] });
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -24,10 +33,28 @@ export default function RolesPage() {
   const handleSeed = async () => {
     try {
       await seedPerms.mutateAsync();
-      addToast({ type: "success", title: "Succès", message: "Permissions initialisées" });
-    } catch (error) {
-      addToast({ type: "error", title: "Erreur", message: "Impossible d'initialiser" });
+      addToast({ type: "success", title: "Succès", message: "Permissions initialisées avec succès" });
+    } catch (error: any) {
+      addToast({ type: "error", title: "Erreur", message: error.message || "Impossible d'initialiser" });
     }
+  };
+
+  const handleOpenCreate = () => {
+    setEditingRole(null);
+    setNewRole({ name: "", description: "", permissionIds: [] });
+    setSearchTerm("");
+    setShowAddModal(true);
+  };
+
+  const handleOpenEdit = (role: any) => {
+    setEditingRole(role);
+    setNewRole({
+      name: role.name,
+      description: role.description || "",
+      permissionIds: role.permissions?.map((p: any) => p.id) || []
+    });
+    setSearchTerm("");
+    setShowAddModal(true);
   };
 
   const handleTogglePerm = (id: string) => {
@@ -42,15 +69,34 @@ export default function RolesPage() {
   const handleCreate = async () => {
     if (!newRole.name.trim()) return addToast({ type: "error", title: "Erreur", message: "Le nom du rôle est requis" });
     if (newRole.permissionIds.length === 0) return addToast({ type: "error", title: "Erreur", message: "Veuillez sélectionner au moins une permission pour ce rôle" });
+    
     try {
-      await createRole.mutateAsync(newRole);
-      addToast({ type: "success", title: "Succès", message: "Rôle créé avec succès" });
+      if (editingRole) {
+        await updateRole.mutateAsync({ id: editingRole.id, data: newRole });
+        addToast({ type: "success", title: "Succès", message: "Rôle modifié avec succès" });
+      } else {
+        await createRole.mutateAsync(newRole);
+        addToast({ type: "success", title: "Succès", message: "Rôle créé avec succès" });
+      }
       setShowAddModal(false);
+      setEditingRole(null);
       setNewRole({ name: "", description: "", permissionIds: [] });
-    } catch (error) {
-      addToast({ type: "error", title: "Erreur", message: "Erreur lors de la création" });
+    } catch (error: any) {
+      addToast({ type: "error", title: "Erreur", message: error.message || "Erreur lors de l'enregistrement" });
     }
   };
+
+  const handleDelete = async (role: any) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer le rôle "${role.name}" ?`)) return;
+    try {
+      await deleteRole.mutateAsync(role.id);
+      addToast({ type: "success", title: "Succès", message: "Rôle supprimé avec succès" });
+    } catch (error: any) {
+      addToast({ type: "error", title: "Erreur", message: error.message || "Impossible de supprimer ce rôle" });
+    }
+  };
+
+  const isPending = editingRole ? updateRole.isPending : createRole.isPending;
 
   return (
     <div className="space-y-6">
@@ -68,7 +114,7 @@ export default function RolesPage() {
             <RefreshCw className={cn("w-4 h-4", seedPerms.isPending && "animate-spin")} /> 
             <span>{seedPerms.isPending ? "Initialisation..." : "Initialiser les permissions"}</span>
           </button>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 text-sm">
+          <button onClick={handleOpenCreate} className="btn-primary flex items-center gap-2 text-sm">
             <Plus className="w-4 h-4" /> Nouveau Rôle
           </button>
         </div>
@@ -88,6 +134,7 @@ export default function RolesPage() {
               </div>
               <p className="text-sm text-gray-500 min-h-[40px]">{role.description || "Aucune description"}</p>
             </div>
+            
             <div className="p-5 flex-1 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-gray-400 uppercase tracking-wider">
                 <span>Permissions</span>
@@ -102,6 +149,7 @@ export default function RolesPage() {
                   </span>
                 )}
               </div>
+              
               <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
                 {role.name === "ADMIN" ? (
                   <div className="w-full py-2.5 px-3 bg-amber-50 border border-amber-200/50 rounded-xl flex items-center gap-2 text-amber-800 text-xs font-medium animate-in fade-in duration-300">
@@ -127,26 +175,43 @@ export default function RolesPage() {
                 )}
               </div>
             </div>
+            
             <div className="px-5 py-3 bg-gray-50 border-t flex items-center justify-between text-xs text-gray-500">
               <span>{role._count?.users || 0} utilisateur(s)</span>
               {role.name !== "ADMIN" && (
-                <button className="text-red-500 hover:text-red-700 font-bold flex items-center gap-1">
-                  <Trash2 className="w-3.5 h-3.5" /> Supprimer
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleOpenEdit(role)}
+                    className="text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 transition-colors px-2 py-1 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" /> Modifier
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(role)}
+                    disabled={deleteRole.isPending}
+                    className="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 disabled:opacity-50 transition-colors px-2 py-1 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                  </button>
+                </div>
               )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Add Modal */}
+      {/* Unified Add/Edit Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in slide-in-from-bottom-4 duration-300">
             <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Créer un nouveau rôle</h2>
-                <p className="text-sm text-gray-500">Définissez le nom et les permissions associées</p>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {editingRole ? `Modifier le rôle: ${editingRole.name}` : "Créer un nouveau rôle"}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {editingRole ? "Modifiez le nom, la description et les permissions du rôle" : "Définissez le nom et les permissions associées"}
+                </p>
               </div>
               <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                 <X className="w-6 h-6 text-gray-400" />
@@ -191,6 +256,7 @@ export default function RolesPage() {
                     />
                   </div>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-2 border rounded-xl p-3 bg-gray-50 max-h-[300px] overflow-y-auto">
                   {permissions
                     .filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.code.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -226,11 +292,11 @@ export default function RolesPage() {
               <button onClick={() => setShowAddModal(false)} className="flex-1 btn-secondary py-3">Annuler</button>
               <button 
                 onClick={handleCreate} 
-                disabled={createRole.isPending}
+                disabled={isPending}
                 className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
               >
-                {createRole.isPending ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                Créer le rôle
+                {isPending ? <RefreshCw className="w-5 h-5 animate-spin" /> : (editingRole ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />)}
+                <span>{editingRole ? "Enregistrer les modifications" : "Créer le rôle"}</span>
               </button>
             </div>
           </div>

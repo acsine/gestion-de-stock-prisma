@@ -365,10 +365,45 @@ export function useCreateRole() {
   });
 }
 
+export function useUpdateRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const r = await fetch(`/api/roles/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de modification");
+      return res;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }),
+  });
+}
+
+export function useDeleteRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/roles/${id}`, { method: "DELETE" });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur de suppression");
+      return res;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["roles"] }),
+  });
+}
+
 export function useSeedPermissions() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => fetch("/api/permissions", { method: "POST" }).then((r) => r.json()),
+    mutationFn: async () => {
+      const r = await fetch("/api/permissions", { method: "POST" });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || "Erreur d'initialisation");
+      return res;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["permissions"] });
       qc.invalidateQueries({ queryKey: ["roles"] });

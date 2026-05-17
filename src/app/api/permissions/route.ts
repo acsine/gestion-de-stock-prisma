@@ -18,7 +18,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  if ((session.user as any).role !== "ADMIN") return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
+
+  const isSuper = (session.user as any).isSuperAdmin;
+  const roleName = (session.user as any).role;
+  if (!isSuper && roleName !== "ADMIN") return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
 
   const defaultPermissions = [
     { code: "dashboard.view", name: "Voir le tableau de bord" },
