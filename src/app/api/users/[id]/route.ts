@@ -8,8 +8,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Only admins can change user status
-  if ((session.user as any).role !== "ADMIN") {
+  // Only admins or superadmins can change user status
+  const role = (session.user as any).role;
+  const isSuper = (session.user as any).isSuperAdmin;
+  if (role !== "ADMIN" && !isSuper) {
     return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
   }
 

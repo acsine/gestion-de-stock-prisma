@@ -21,19 +21,20 @@ export function usePermissions() {
   const rawRole = (session?.user as any)?.role;
   const role: string = typeof rawRole === 'string' ? rawRole : rawRole?.name || "";
   const permissions: string[] = (session?.user as any)?.permissions || [];
+  const isSuper = (session?.user as any)?.isSuperAdmin || false;
 
   const hasPermission = (code: string) => {
-    if (role === "ADMIN") return true; // Admin has all permissions
+    if (isSuper || role === "ADMIN") return true; // SuperAdmin and Admin have all permissions
     return permissions.includes(code);
   };
 
   const hasAnyPermission = (codes: string[]) => {
-    if (role === "ADMIN") return true;
+    if (isSuper || role === "ADMIN") return true;
     return codes.some((code) => permissions.includes(code));
   };
 
   const hasAllPermissions = (codes: string[]) => {
-    if (role === "ADMIN") return true;
+    if (isSuper || role === "ADMIN") return true;
     return codes.every((code) => permissions.includes(code));
   };
 

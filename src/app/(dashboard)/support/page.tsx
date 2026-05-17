@@ -8,6 +8,7 @@ import { useUIStore } from "@/stores/useUIStore";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function SupportPage() {
   const { addToast } = useUIStore();
@@ -26,6 +27,13 @@ export default function SupportPage() {
 
   const tickets = ticketsData?.data || [];
   const ticket = ticketDetail?.data;
+
+  const priorityOptions = [
+    { value: "BASSE", label: "Basse" },
+    { value: "NORMALE", label: "Normale" },
+    { value: "HAUTE", label: "Haute" },
+    { value: "URGENTE", label: "Urgente" },
+  ];
 
   const handleSelectTicket = (id: string) => {
     setSelectedId(id);
@@ -144,16 +152,13 @@ export default function SupportPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Priorité</label>
-                  <select 
+                  <SearchableSelect
+                    options={priorityOptions}
                     value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-4 py-2 md:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="BASSE">Basse</option>
-                    <option value="NORMALE">Normale</option>
-                    <option value="HAUTE">Haute</option>
-                    <option value="URGENTE">Urgente</option>
-                  </select>
+                    onChange={setPriority}
+                    placeholder="Priorité"
+                    className="w-full font-bold"
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Description détaillée</label>

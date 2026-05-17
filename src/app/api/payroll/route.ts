@@ -7,12 +7,17 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   
-  const tenantId = (session.user as any).tenantId;
+  let tenantId = (session.user as any).tenantId;
   const isSuper = (session.user as any).isSuperAdmin;
 
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month") ? parseInt(searchParams.get("month")!) : undefined;
   const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : undefined;
+  const queryTenantId = searchParams.get("tenantId");
+
+  if (isSuper && queryTenantId) {
+    tenantId = queryTenantId;
+  }
   
   const where: any = {};
   if (!isSuper) {

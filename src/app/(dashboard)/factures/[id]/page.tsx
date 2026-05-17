@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function InvoiceViewPage() {
   const params = useParams();
@@ -27,6 +28,12 @@ export default function InvoiceViewPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
+
+  const paymentMethodOptions = [
+    { value: "ESPECES", label: "Espèces" },
+    { value: "MOBILE_MONEY", label: "Mobile Money" },
+    { value: "VIREMENT", label: "Virement" },
+  ];
 
   const [showSendModal, setShowSendModal] = useState(false);
 
@@ -348,11 +355,13 @@ export default function InvoiceViewPage() {
                   </div>
                   <div>
                     <label className="label">Mode de paiement</label>
-                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="input">
-                      <option value="ESPECES">Espèces</option>
-                      <option value="MOBILE_MONEY">Mobile Money</option>
-                      <option value="VIREMENT">Virement</option>
-                    </select>
+                    <SearchableSelect
+                      options={paymentMethodOptions}
+                      value={paymentMethod}
+                      onChange={setPaymentMethod}
+                      placeholder="Mode de paiement"
+                      className="w-full font-bold"
+                    />
                   </div>
                   <div className="pt-4 flex gap-3">
                     <button type="button" onClick={() => setShowPaymentModal(false)} className="flex-1 btn-secondary">Annuler</button>

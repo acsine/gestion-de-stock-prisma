@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { employeeSchema } from "@/lib/validations";
+import { logActivity } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,17 +45,16 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const tenantId = (session.user as any).tenantId;
     const isSuper = (session.user as any).isSuperAdmin;
     const role = (session.user as any).role;
-
-    if (!isSuper && !tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+    const body = await req.json();
+    const tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
     if (!["ADMIN", "RH"].includes(role) && !isSuper) {
       return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
     }
 
-    const body = await req.json();
     const parsed = employeeSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
@@ -66,6 +66,14 @@ export async function POST(req: NextRequest) {
         dateOfBirth: (parsed.data.dateOfBirth && parsed.data.dateOfBirth !== "") ? new Date(parsed.data.dateOfBirth) : null,
         endDate: (parsed.data.endDate && parsed.data.endDate !== "") ? new Date(parsed.data.endDate) : null
       },
+    });
+
+    await logActivity({
+      userId: (session.user as any).id,
+      action: "CREATE",
+      entity: "Employee",
+      entityId: employee.id,
+      newValue: employee,
     });
 
     return NextResponse.json({ data: employee, message: "Employé créé" }, { status: 201 });

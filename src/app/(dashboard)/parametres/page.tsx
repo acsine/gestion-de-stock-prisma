@@ -5,6 +5,7 @@ import { Settings, Save, RefreshCw, AlertCircle } from "lucide-react";
 import { useUIStore } from "@/stores/useUIStore";
 import { useSettings, useTenants } from "@/hooks/useQueries";
 import { useSession } from "next-auth/react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 const Field = ({ label, k, settings, setSettings, type = "text", placeholder = "" }: { label: string; k: string; settings: any; setSettings: any; type?: string; placeholder?: string }) => (
   <div>
@@ -29,6 +30,7 @@ export default function ParametresPage() {
   const [selectedTenantId, setSelectedTenantId] = useState<string>("");
   const { data: tenantsData } = useTenants();
   const tenants = tenantsData?.data || [];
+  const tenantOptions = tenants.map((t: any) => ({ value: t.id, label: t.name }));
 
   // Use React Query for more reliable fetching
   const { data: apiResponse, isLoading, error, refetch, isFetching } = useSettings(selectedTenantId);
@@ -113,22 +115,19 @@ export default function ParametresPage() {
         </div>
         <div className="flex items-center gap-3">
           {( (session?.user as any)?.isSuperAdmin || apiResponse?.debug?.isSuper ) && (
-            <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-2xl border-2 border-orange-200 shadow-sm transition-all hover:border-orange-300">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-2xl border border-orange-200 shadow-sm transition-all hover:border-orange-300">
+              <div className="flex items-center gap-2 mr-1">
                 <span className="text-[10px] font-black text-orange-700 uppercase tracking-tighter whitespace-nowrap">Gestion Multi-Tenant:</span>
                 {isFetching && <RefreshCw className="w-3 h-3 animate-spin text-orange-500" />}
               </div>
-              <select 
-                value={selectedTenantId} 
-                onChange={(e) => setSelectedTenantId(e.target.value)}
-                className="bg-transparent border-none text-sm font-bold text-orange-900 focus:ring-0 cursor-pointer min-w-[200px] py-1"
+              <SearchableSelect
+                options={tenantOptions}
+                value={selectedTenantId}
+                onChange={setSelectedTenantId}
+                placeholder="Sélectionner..."
+                className="w-56"
                 disabled={isFetching}
-              >
-                <option value="">-- Sélectionner une entreprise --</option>
-                {tenants.map((t: any) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+              />
             </div>
           )}
           <button 

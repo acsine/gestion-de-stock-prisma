@@ -1,8 +1,8 @@
-// src/app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { productSchema } from "@/lib/validations";
+import { logActivity } from "@/lib/audit";
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -43,6 +43,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data: body,
     include: { category: true, supplier: true },
   });
+
+  await logActivity({
+    userId: (session.user as any).id,
+    action: "UPDATE",
+    entity: "Product",
+    entityId: product.id,
+    oldValue: existing,
+    newValue: product,
+  });
+
   return NextResponse.json({ data: product });
 }
 
@@ -64,5 +74,15 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   }
 
   await prisma.product.update({ where: { id }, data: { status: "ARCHIVE" } });
+
+  await logActivity({
+    userId: (session.user as any).id,
+    action: "DELETE",
+    entity: "Product",
+    entityId: existing.id,
+    oldValue: existing,
+    newValue: { status: "ARCHIVE" },
+  });
+
   return NextResponse.json({ message: "Produit archivé" });
 }

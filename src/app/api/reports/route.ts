@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const tenantId = (session.user as any).tenantId;
+    let tenantId = (session.user as any).tenantId;
     const isSuper = (session.user as any).isSuperAdmin;
 
     const { searchParams } = new URL(req.url);
@@ -19,6 +19,11 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate");
     const invoiceId = searchParams.get("invoiceId");
     const payrollId = searchParams.get("payrollId");
+    const queryTenantId = searchParams.get("tenantId");
+
+    if (isSuper && queryTenantId) {
+      tenantId = queryTenantId;
+    }
 
     const baseWhere: any = {};
     if (!isSuper) {

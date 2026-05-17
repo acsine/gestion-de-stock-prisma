@@ -8,7 +8,7 @@ import {
   ShoppingCart, Users, UserCircle, BarChart3, 
   Bell, Settings, ChevronLeft, ChevronRight, Boxes, Wallet,
   ClipboardList, Building2, Loader2, Download,
-  Database, ShieldAlert, LifeBuoy, CreditCard, Landmark
+  Database, ShieldAlert, LifeBuoy, CreditCard, Landmark, Activity
 } from "lucide-react";
 import { useUIStore } from "@/stores/useUIStore";
 import { useAlerts } from "@/hooks/useQueries";
@@ -44,6 +44,7 @@ const nav = [
   { label: "ADMINISTRATION", type: "section" },
   { href: "/utilisateurs", label: "Utilisateurs", icon: Users, permission: "users.manage" },
   { href: "/parametres", label: "Paramètres", icon: Settings, permission: "settings.manage" },
+  { href: "/audit-logs", label: "Journal d'activités", icon: Activity, permission: "settings.manage" },
   { href: "/support", label: "Aide & Support", icon: LifeBuoy },
 
   { label: "SYSTÈME (SUPERADMIN)", type: "section", superAdminOnly: true },

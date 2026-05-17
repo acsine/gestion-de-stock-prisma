@@ -1,25 +1,44 @@
 "use client";
 // src/app/(dashboard)/salaires/page.tsx
 import { useState } from "react";
-import { usePayrolls, useGeneratePayrolls } from "@/hooks/useQueries";
+import { useSession } from "next-auth/react";
+import { usePayrolls, useGeneratePayrolls, useTenants } from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatCurrency, downloadReport, MONTHS } from "@/lib/utils";
 import { ClipboardList, Printer, RefreshCw, Wand2, Download } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function SalairesPage() {
+  const { data: session } = useSession();
+  const isSuper = (session?.user as any)?.isSuperAdmin || false;
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
+  const { data: tenantsData } = useTenants();
+  const tenants = tenantsData?.data || [];
+
   const now = new Date();
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const { addToast } = useUIStore();
 
-  const { data, isLoading, isFetching, refetch } = usePayrolls({ month: parseInt(month), year: parseInt(year) });
+  const { data, isLoading, isFetching, refetch } = usePayrolls({ 
+    month: parseInt(month), 
+    year: parseInt(year),
+    tenantId: isSuper ? selectedTenantId : undefined
+  });
   const { mutateAsync: generate, isPending: generating } = useGeneratePayrolls();
   const payrolls = data?.data || [];
 
   const handleGenerate = async () => {
-    const res = await generate({ month: parseInt(month), year: parseInt(year) });
+    if (isSuper && !selectedTenantId) {
+      addToast({ type: "error", title: "Erreur", message: "Veuillez sélectionner une entreprise." });
+      return;
+    }
+    const res = await generate({ 
+      month: parseInt(month), 
+      year: parseInt(year),
+      tenantId: isSuper ? selectedTenantId : undefined
+    });
     if (res.error) addToast({ type: "error", title: "Erreur", message: res.error });
     else addToast({ type: "success", title: res.message });
     refetch();
@@ -28,7 +47,12 @@ export default function SalairesPage() {
   const handlePayslipPDF = async (payrollId: string, empName: string) => {
     setLoading(s => ({ ...s, [payrollId]: true }));
     try {
-      await downloadReport({ type: "payslip", format: "pdf", payrollId }, `fiche-paie-${empName}`);
+      await downloadReport({ 
+        type: "payslip", 
+        format: "pdf", 
+        payrollId,
+        ...(isSuper && selectedTenantId ? { tenantId: selectedTenantId } : {})
+      }, `fiche-paie-${empName}`);
       addToast({ type: "success", title: "Fiche de paie générée" });
     } catch {
       addToast({ type: "error", title: "Erreur de génération" });
@@ -38,8 +62,18 @@ export default function SalairesPage() {
   };
 
   const handleBulkExcel = async () => {
+    if (isSuper && !selectedTenantId) {
+      addToast({ type: "error", title: "Erreur", message: "Veuillez sélectionner une entreprise." });
+      return;
+    }
     try {
-      await downloadReport({ type: "payroll", format: "excel", month: String(month), year: String(year) }, `salaires-${month}-${year}`);
+      await downloadReport({ 
+        type: "payroll", 
+        format: "excel", 
+        month: String(month), 
+        year: String(year),
+        ...(isSuper && selectedTenantId ? { tenantId: selectedTenantId } : {})
+      }, `salaires-${month}-${year}`);
       addToast({ type: "success", title: "Export Excel téléchargé" });
     } catch {
       addToast({ type: "error", title: "Erreur d'export" });
@@ -53,6 +87,7 @@ export default function SalairesPage() {
 
   const monthOptions = MONTHS.map((m, i) => ({ value: String(i + 1), label: m }));
   const yearOptions = [2023, 2024, 2025, 2026].map((y) => ({ value: String(y), label: String(y) }));
+  const tenantOptions = tenants.map((t: any) => ({ value: t.id, label: t.name }));
 
   return (
     <div className="space-y-5">
@@ -73,8 +108,20 @@ export default function SalairesPage() {
       </div>
 
       {/* Period selector */}
-      <div className="card p-4 flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="card p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isSuper && (
+            <div className="flex items-center gap-2 mr-3">
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Entreprise :</span>
+              <SearchableSelect
+                options={tenantOptions}
+                value={selectedTenantId}
+                onChange={setSelectedTenantId}
+                placeholder="Choisir…"
+                className="w-56"
+              />
+            </div>
+          )}
           <label className="text-sm font-medium text-gray-700">Période :</label>
           <SearchableSelect
             options={monthOptions}

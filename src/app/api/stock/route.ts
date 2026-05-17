@@ -1,8 +1,8 @@
-// src/app/api/stock/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { stockMovementSchema } from "@/lib/validations";
+import { logActivity } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,8 +19,16 @@ export async function GET(req: NextRequest) {
 
     const where: any = {};
     if (!isSuper) {
-      if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
-      where.tenantId = tenantId;
+      let resolvedTenantId = tenantId;
+      if (!resolvedTenantId) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: session.user?.id },
+          select: { tenantId: true }
+        });
+        resolvedTenantId = dbUser?.tenantId;
+      }
+      if (!resolvedTenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+      where.tenantId = resolvedTenantId;
     } else if (tenantId) {
       where.tenantId = tenantId;
     }
@@ -48,25 +56,44 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const tenantId = (session.user as any).tenantId;
     const role = (session.user as any).role;
+    const isSuper = (session.user as any).isSuperAdmin;
 
-    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
-
-    if (!["ADMIN", "GESTIONNAIRE_STOCK"].includes(role) && !(session.user as any).isSuperAdmin) {
+    if (!["ADMIN", "GESTIONNAIRE_STOCK"].includes(role) && !isSuper) {
       return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
     }
 
     const body = await req.json();
+    const sessionTenantId = (session.user as any).tenantId;
+
     const parsed = stockMovementSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
     const { productId, type, quantity, reason, reference, unitPrice, note } = parsed.data;
 
-    const product = await prisma.product.findFirst({ 
-      where: { id: productId, tenantId } 
+    // Resolve product and its tenant from database
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
     });
     if (!product) return NextResponse.json({ error: "Produit non trouvé" }, { status: 404 });
+
+    // Validate tenantId
+    let tenantId = sessionTenantId || (isSuper ? body.tenantId || product.tenantId : null);
+    if (!tenantId) {
+      // Direct DB user tenant ID lookup fallback
+      const dbUser = await prisma.user.findUnique({
+        where: { id: session.user?.id },
+        select: { tenantId: true }
+      });
+      tenantId = dbUser?.tenantId || null;
+    }
+
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
+    // Security Check: Standard users cannot touch products outside their own tenant
+    if (!isSuper && product.tenantId !== tenantId) {
+      return NextResponse.json({ error: "Non autorisé sur ce produit" }, { status: 403 });
+    }
 
     const isExit = type.startsWith("SORTIE");
     if (isExit && product.currentStock < quantity) {
@@ -96,6 +123,14 @@ export async function POST(req: NextRequest) {
 
     // Generate alerts
     await generateStockAlerts(tenantId, product.id, newStock, product.minStock, product.maxStock);
+
+    await logActivity({
+      userId: (session.user as any).id,
+      action: "CREATE",
+      entity: "StockMovement",
+      entityId: movement.id,
+      newValue: movement,
+    });
 
     return NextResponse.json({ data: movement, message: "Mouvement enregistré" }, { status: 201 });
   } catch (error: any) {

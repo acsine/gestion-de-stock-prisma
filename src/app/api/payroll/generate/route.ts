@@ -6,16 +6,18 @@ import prisma from "@/lib/prisma";
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  
   const role = (session.user as any).role;
-  if (!["ADMIN", "RH", "COMPTABLE"].includes(role)) {
+  const isSuper = (session.user as any).isSuperAdmin;
+  if (!["ADMIN", "RH", "COMPTABLE"].includes(role) && !isSuper) {
     return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
   }
 
-  const tenantId = (session.user as any).tenantId;
-  if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
-
-  const { month, year } = await req.json();
+  const { month, year, tenantId: bodyTenantId } = await req.json();
   if (!month || !year) return NextResponse.json({ error: "Mois et année requis" }, { status: 400 });
+
+  const tenantId = (session.user as any).tenantId || (isSuper ? bodyTenantId : null);
+  if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
   const settings = await prisma.setting.findFirst({ 
     where: { tenantId, key: "social_charges_rate" } 

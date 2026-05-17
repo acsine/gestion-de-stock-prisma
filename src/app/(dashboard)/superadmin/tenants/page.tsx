@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { getTenants, getLicenses, updateTenantLicense } from "@/app/actions/admin-actions";
 import { Landmark, CheckCircle, XCircle, Clock, ShieldCheck } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function AdminTenantsPage() {
   const [tenants, setTenants] = useState<any[]>([]);
@@ -25,6 +26,11 @@ export default function AdminTenantsPage() {
     await updateTenantLicense(tenantId, licenseId, active);
     loadData();
   };
+
+  const licenseOptions = licenses.map(l => ({
+    value: l.id,
+    label: `${l.name} (${l.price.toLocaleString()} F)`,
+  }));
 
   if (loading) return <div>Chargement...</div>;
 
@@ -73,16 +79,13 @@ export default function AdminTenantsPage() {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end lg:items-center gap-4 w-full lg:w-auto">
                 <div className="flex flex-col gap-1 flex-1 sm:flex-none">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modifier Licence</label>
-                  <select 
+                  <SearchableSelect
+                    options={licenseOptions}
                     value={tenant.licenseId || ""}
-                    onChange={(e) => handleUpdate(tenant.id, e.target.value, tenant.subscriptionActive)}
-                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 w-full min-w-[160px]"
-                  >
-                    <option value="">Sélectionner Licence</option>
-                    {licenses.map(l => (
-                      <option key={l.id} value={l.id}>{l.name} ({l.price.toLocaleString()} F)</option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleUpdate(tenant.id, val, tenant.subscriptionActive)}
+                    placeholder="Sélectionner Licence"
+                    className="w-full min-w-[160px] text-xs font-bold"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1 flex-1 sm:flex-none">

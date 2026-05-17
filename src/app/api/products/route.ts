@@ -1,9 +1,9 @@
-// src/app/api/products/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { productSchema } from "@/lib/validations";
 import { hasPermission } from "@/lib/permissions";
+import { logActivity } from "@/lib/audit";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
@@ -58,14 +58,16 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const tenantId = (session.user as any).tenantId;
-    
     const canCreate = await hasPermission("products.create");
     if (!canCreate) {
       return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
     }
 
     const body = await req.json();
+    const isSuper = (session.user as any).isSuperAdmin;
+    const tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+    if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
     const parsed = productSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
@@ -88,8 +90,12 @@ export async function POST(req: NextRequest) {
       include: { category: true, supplier: true },
     });
 
-    await prisma.auditLog.create({
-      data: { userId: (session.user as any).id, action: "CREATE", entity: "Product", entityId: product.id, newValue: parsed.data as any },
+    await logActivity({
+      userId: (session.user as any).id,
+      action: "CREATE",
+      entity: "Product",
+      entityId: product.id,
+      newValue: parsed.data,
     });
 
     return NextResponse.json({ data: product, message: "Produit créé" }, { status: 201 });

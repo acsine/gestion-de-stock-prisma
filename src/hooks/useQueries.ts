@@ -110,10 +110,11 @@ export function useCreateEmployee() {
 }
 
 // Payroll
-export function usePayrolls(params?: { month?: number; year?: number }) {
+export function usePayrolls(params?: { month?: number; year?: number; tenantId?: string }) {
   const query = new URLSearchParams();
   if (params?.month) query.set("month", String(params.month));
   if (params?.year) query.set("year", String(params.year));
+  if (params?.tenantId) query.set("tenantId", params.tenantId);
 
   return useQuery({
     queryKey: ["payrolls", params],
@@ -125,8 +126,8 @@ export function usePayrolls(params?: { month?: number; year?: number }) {
 export function useGeneratePayrolls() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ month, year }: { month: number; year: number }) =>
-      fetch("/api/payroll/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, year }) }).then((r) => r.json()),
+    mutationFn: ({ month, year, tenantId }: { month: number; year: number; tenantId?: string }) =>
+      fetch("/api/payroll/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, year, tenantId }) }).then((r) => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["payrolls"] }),
   });
 }
@@ -267,7 +268,17 @@ export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: any) =>
-      fetch("/api/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+      fetch("/api/categories", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(data) 
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur de création de la catégorie");
+        }
+        return r.json();
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
   });
 }
@@ -276,7 +287,17 @@ export function useUpdateCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
-      fetch(`/api/categories/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then((r) => r.json()),
+      fetch(`/api/categories/${id}`, { 
+        method: "PATCH", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(data) 
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur de modification de la catégorie");
+        }
+        return r.json();
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["categories"] }),
   });
 }
@@ -516,5 +537,20 @@ export function useSendMessage() {
         body: JSON.stringify({ content }),
       }).then((r) => r.json()),
     onSuccess: (_, variables) => qc.invalidateQueries({ queryKey: ["tickets", variables.ticketId] }),
+  });
+}
+
+export function useAuditLogs(params?: { search?: string; action?: string; entity?: string; page?: number; pageSize?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.action) query.set("action", params.action);
+  if (params?.entity) query.set("entity", params.entity);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+
+  return useQuery({
+    queryKey: ["auditLogs", params],
+    queryFn: () => fetch(`/api/audit-logs?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 10,
   });
 }

@@ -67,10 +67,10 @@ export async function POST(req: NextRequest) {
   const isSuper = (session.user as any).isSuperAdmin;
   if (!["ADMIN", "COMPTABLE"].includes(role) && !isSuper) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
 
-  const tenantId = (session.user as any).tenantId;
-  if (!isSuper && !tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
-
   const body = await req.json();
+  const tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+  if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
+
   const parsed = transactionSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
