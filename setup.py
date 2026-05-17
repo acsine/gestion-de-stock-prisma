@@ -40,6 +40,93 @@ def check_cmd(cmd):
     """Vérifie si une commande existe dans le système."""
     return shutil.which(cmd) is not None
 
+def add_to_system_path(directory_path):
+    """Ajoute de manière temporaire et permanente un répertoire au PATH système."""
+    if not os.path.exists(directory_path):
+        return
+    # Session en cours
+    if directory_path not in os.environ["PATH"]:
+        os.environ["PATH"] += os.pathsep + directory_path
+    
+    # Permanent via PowerShell pour éviter les conflits et doublons
+    try:
+        check_cmd_str = '[Environment]::GetEnvironmentVariable("PATH", "User")'
+        current_user_path = subprocess.run(f'powershell -Command "{check_cmd_str}"', capture_output=True, text=True, shell=True).stdout.strip()
+        if directory_path not in current_user_path:
+            add_cmd = f'[Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";{directory_path}", "User")'
+            subprocess.run(f'powershell -Command "{add_cmd}"', shell=True)
+            print(f"➕ Chemin ajoute de maniere permanente au PATH : {directory_path}")
+    except Exception as e:
+        print(f"⚠️ Impossible d'ajouter le chemin au PATH systeme : {e}")
+
+def check_and_configure_node():
+    """Détecte Node.js, le configure automatiquement s'il existe déjà pour éviter les doublons, ou l'installe."""
+    if check_cmd("node"):
+        print("[OK] Node.js est deja installe et configure.")
+        return True
+
+    # Chemins d'installation par défaut sous Windows
+    common_paths = [
+        "C:\\Program Files\\nodejs",
+        "C:\\Program Files (x86)\\nodejs",
+        os.path.join(os.environ.get("APPDATA", ""), "npm")
+    ]
+    for p in common_paths:
+        node_exe = os.path.join(p, "node.exe")
+        if os.path.exists(node_exe):
+            print(f"🔍 Node.js trouve dans : {p}. Configuration automatique du PATH...")
+            add_to_system_path(p)
+            if check_cmd("node"):
+                print("[OK] Node.js configure avec succes.")
+                return True
+
+    # Si absent, installer via winget
+    print("📥 Node.js est absent. Installation automatique via Winget...")
+    try:
+        run_command("winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements")
+        # Ajout immédiat au PATH
+        default_path = "C:\\Program Files\\nodejs"
+        if os.path.exists(default_path):
+            add_to_system_path(default_path)
+        print("✅ Node.js installe avec succes.")
+        return True
+    except Exception as e:
+        print(f"❌ Impossible d'installer Node.js automatiquement : {e}")
+        return False
+
+def check_and_configure_postgres():
+    """Détecte PostgreSQL, le configure automatiquement s'il existe déjà pour éviter les doublons, ou l'installe."""
+    if check_cmd("psql"):
+        print("[OK] PostgreSQL est deja installe et configure.")
+        return True
+
+    pg_root = Path("C:/Program Files/PostgreSQL")
+    if pg_root.exists():
+        bins = list(pg_root.glob("**/bin/psql.exe"))
+        if bins:
+            bin_dir = str(bins[0].parent)
+            print(f"🔍 PostgreSQL trouve dans : {bin_dir}. Configuration automatique du PATH...")
+            add_to_system_path(bin_dir)
+            if check_cmd("psql"):
+                print("[OK] PostgreSQL configure avec succes.")
+                return True
+
+    # Si absent, installer via winget
+    print("📥 PostgreSQL est absent. Installation automatique via Winget...")
+    try:
+        run_command("winget install PostgreSQL.PostgreSQL --silent --accept-package-agreements --accept-source-agreements")
+        time.sleep(5)
+        if pg_root.exists():
+            bins = list(pg_root.glob("**/bin/psql.exe"))
+            if bins:
+                bin_dir = str(bins[0].parent)
+                add_to_system_path(bin_dir)
+        print("✅ PostgreSQL installe avec succes.")
+        return True
+    except Exception as e:
+        print(f"❌ Impossible d'installer PostgreSQL automatiquement : {e}")
+        return False
+
 def get_local_ip():
     """Récupère l'adresse IP locale de la machine."""
     try:
@@ -114,30 +201,16 @@ def main():
     print("\nCe script va installer TOUTES les dépendances et configurer l'application.\n")
 
     # 1. Vérification Node.js
-    if not check_cmd("node"):
-        print("📥 Node.js est manquant. Installation automatique...")
-        run_command("winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements")
-        print("✅ Node.js installé. VEUILLEZ REDÉMARRER CE SCRIPT dans un nouveau terminal.")
+    if not check_and_configure_node():
+        print("❌ Impossible de configurer ou d'installer Node.js automatiquement.")
         input("Appuyez sur Entrée pour quitter...")
-        sys.exit(0)
+        sys.exit(1)
     
     # 2. Vérification PostgreSQL
-    psql_found = check_cmd("psql")
-    if not psql_found:
-        pg_path = Path("C:/Program Files/PostgreSQL")
-        if pg_path.exists():
-            bins = list(pg_path.glob("**/bin/psql.exe"))
-            if bins:
-                os.environ["PATH"] += os.pathsep + str(bins[0].parent)
-                psql_found = True
-
-    if not psql_found:
-        print("📥 PostgreSQL est manquant. Installation automatique...")
-        run_command("winget install PostgreSQL.PostgreSQL --silent --accept-package-agreements --accept-source-agreements")
-        print("✅ PostgreSQL installé. IMPORTANT : Utilisez le mot de passe 'FOMO' lors de la configuration.")
-        print("Une fois PostgreSQL installé, relancez ce script.")
+    if not check_and_configure_postgres():
+        print("❌ Impossible de configurer ou d'installer PostgreSQL automatiquement.")
         input("Appuyez sur Entrée pour quitter...")
-        sys.exit(0)
+        sys.exit(1)
 
     # 3. Installation des dépendances NPM
     print("\n📦 Installation des bibliothèques logicielles (npm install)...")
