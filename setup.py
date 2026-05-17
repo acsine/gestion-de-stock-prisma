@@ -167,12 +167,21 @@ def main():
     with open("start_app.bat", "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("title " + APP_NAME + "\n")
-        f.write("echo Demarrage de " + APP_NAME + "...\n")
-        f.write("echo Veuillez patienter quelques secondes...\n")
-        f.write("start /min cmd /c \"npm run dev\"\n")
-        f.write("timeout /t 10 /nobreak > nul\n")
+        f.write("cd /d \"%~dp0\"\n")
+        f.write("echo ====================================================\n")
+        f.write("echo    DEMARRAGE DE " + APP_NAME.upper() + "\n")
+        f.write("echo ====================================================\n")
+        f.write("echo.\n")
+        f.write("echo [Systeme] Lancement du serveur local...\n")
+        f.write("echo [Systeme] Le site va s'ouvrir automatiquement dans votre navigateur.\n")
+        f.write("echo.\n")
         f.write("start http://localhost:3000\n")
-        f.write("exit\n")
+        f.write("call npm run dev\n")
+        f.write("if %errorlevel% neq 0 (\n")
+        f.write("    echo.\n")
+        f.write("    echo [ERREUR] Le serveur s'est arrete avec une erreur.\n")
+        f.write("    pause\n")
+        f.write(")\n")
 
     # 7. Raccourci Bureau
     try:
