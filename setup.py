@@ -33,7 +33,8 @@ def run_command(command, shell=True, check=True, cwd=None, show_output=False):
                 check=check,
                 cwd=cwd,
                 capture_output=True,
-                text=True
+                encoding="utf-8",
+                errors="replace"
             )
             return result.stdout.strip()
     except subprocess.CalledProcessError as e:
@@ -61,7 +62,7 @@ def add_to_system_path(directory_path):
     # Permanent via PowerShell pour éviter les conflits et doublons
     try:
         check_cmd_str = '[Environment]::GetEnvironmentVariable("PATH", "User")'
-        current_user_path = subprocess.run(f'powershell -Command "{check_cmd_str}"', capture_output=True, text=True, shell=True).stdout.strip()
+        current_user_path = subprocess.run(f'powershell -Command "{check_cmd_str}"', capture_output=True, encoding="utf-8", errors="replace", shell=True).stdout.strip()
         if directory_path not in current_user_path:
             # Escape directory path for PowerShell single quotes
             escaped_dir = directory_path.replace("'", "''")
