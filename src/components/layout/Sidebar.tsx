@@ -8,14 +8,16 @@ import {
   ShoppingCart, Users, UserCircle, BarChart3, 
   Bell, Settings, ChevronLeft, ChevronRight, Boxes, Wallet,
   ClipboardList, Building2, Loader2, Download,
-  Database, ShieldAlert, LifeBuoy, CreditCard, Landmark, Activity
+  Database, ShieldAlert, LifeBuoy, CreditCard, Landmark, Activity,
+  LogOut
 } from "lucide-react";
 import { useUIStore } from "@/stores/useUIStore";
 import { useAlerts } from "@/hooks/useQueries";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/components/auth/HasPermission";
 import { motion } from "framer-motion";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
+import { useTranslation } from "@/locales/i18n";
 
 const nav = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, permission: "dashboard.view" },
@@ -46,7 +48,7 @@ const nav = [
   { href: "/parametres", label: "Paramètres", icon: Settings, permission: "settings.manage" },
   { href: "/audit-logs", label: "Journal d'activités", icon: Activity, permission: "settings.manage" },
   { href: "/support", label: "Aide & Support", icon: LifeBuoy },
-
+  
   { label: "SYSTÈME (SUPERADMIN)", type: "section", superAdminOnly: true },
   { href: "/superadmin/tenants", label: "Marchands & Apps", icon: Landmark, superAdminOnly: true },
   { href: "/superadmin/licences", label: "Licences & Tarifs", icon: ShieldAlert, superAdminOnly: true },
@@ -62,7 +64,19 @@ export function Sidebar() {
   const { data: alertData } = useAlerts();
   const { role, hasPermission } = usePermissions();
   const { data: session } = useSession();
+  const { language, setLanguage, t } = useTranslation();
   const alertCount = alertData?.data?.length || 0;
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await signOut({ redirect: false });
+      window.location.href = "/login";
+    } catch {
+      window.location.href = "/login";
+    }
+  };
 
   // Reset loading state when pathname changes
   useEffect(() => {
@@ -81,6 +95,44 @@ export function Sidebar() {
     if (item.permission === "ALL") return true;
     if (!item.permission) return true;
     return hasPermission(item.permission);
+  };
+
+  const getTranslatedLabel = (item: any) => {
+    if (item.type === "section") {
+      if (item.label === "STOCK") return "STOCK";
+      if (item.label === "COMMERCIAL") return "COMMERCIAL";
+      if (item.label === "FINANCES & RH") return language === "fr" ? "FINANCES & RH" : "FINANCES & HR";
+      if (item.label === "ANALYTIQUE") return language === "fr" ? "ANALYTIQUE" : "ANALYTICS";
+      if (item.label === "ADMINISTRATION") return "ADMINISTRATION";
+      if (item.label === "SYSTÈME (SUPERADMIN)") return language === "fr" ? "SYSTÈME (SUPERADMIN)" : "SYSTEM (SUPERADMIN)";
+      return item.label;
+    }
+    switch (item.href) {
+      case "/dashboard": return t.nav.dashboard;
+      case "/produits": return t.nav.products;
+      case "/categories": return t.nav.categories;
+      case "/stock": return language === "fr" ? "Mouvements" : "Stock Movements";
+      case "/alertes": return language === "fr" ? "Alertes" : "Alerts";
+      case "/caisse": return language === "fr" ? "Caisse (POS)" : "Cashier (POS)";
+      case "/factures": return t.nav.invoices;
+      case "/commandes": return t.nav.orders;
+      case "/clients": return t.nav.customers;
+      case "/fournisseurs": return t.nav.suppliers;
+      case "/finances": return t.nav.finances;
+      case "/employes": return t.nav.employees;
+      case "/salaires": return t.nav.salaires;
+      case "/rapports": return language === "fr" ? "Rapports" : "Reports";
+      case "/utilisateurs": return t.nav.users;
+      case "/parametres": return t.nav.settings;
+      case "/audit-logs": return language === "fr" ? "Journal d'activités" : "Activity Logs";
+      case "/support": return language === "fr" ? "Aide & Support" : "Help & Support";
+      case "/superadmin/tenants": return language === "fr" ? "Marchands & Apps" : "Merchants & Apps";
+      case "/superadmin/licences": return language === "fr" ? "Licences & Tarifs" : "Licenses & Pricing";
+      case "/superadmin/paiements": return language === "fr" ? "Validation Paiements" : "Payment Validation";
+      case "/superadmin/sql": return language === "fr" ? "Console SQL (DB)" : "SQL Console (DB)";
+      case "/superadmin/support": return t.nav.support;
+      default: return item.label;
+    }
   };
 
   return (
@@ -126,11 +178,12 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
         {nav.map((item, i) => {
+          const transLabel = getTranslatedLabel(item);
           if ((item as any).type === "section") {
             if (!sidebarOpen) return <div key={i} className="my-6 border-t border-white/5 mx-2" />;
             return (
               <p key={i} className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-3 pt-6 pb-2">
-                {item.label}
+                {transLabel}
               </p>
             );
           }
@@ -146,7 +199,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href!}
               onClick={() => setNavigatingTo(item.href!)}
-              title={!sidebarOpen ? item.label : undefined}
+              title={!sidebarOpen ? transLabel : undefined}
               className={cn(
                 "group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 relative overflow-hidden",
                 isActive
@@ -158,7 +211,7 @@ export function Sidebar() {
             >
               {isActive && (
                 <motion.div 
-                  layoutId="active-nav"
+                   layoutId="active-nav"
                   className="absolute left-0 w-1 h-6 bg-white rounded-r-full"
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 />
@@ -176,7 +229,7 @@ export function Sidebar() {
                   </span>
                 )}
               </div>
-              {sidebarOpen && <span className="truncate">{item.label}</span>}
+              {sidebarOpen && <span className="truncate">{transLabel}</span>}
               {sidebarOpen && item.badge && alertCount > 0 && !isNavigating && (
                 <span className="ml-auto bg-red-500/20 text-red-400 text-[10px] font-black rounded-full px-2 py-0.5 border border-red-500/30">
                   {alertCount}
@@ -197,33 +250,97 @@ export function Sidebar() {
               "flex items-center gap-3 p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-600/20 hover:bg-blue-600/20 transition-all group",
               !sidebarOpen && "justify-center p-2"
             )}
-            title="Télécharger la version locale"
+            title={language === "fr" ? "Télécharger la version locale" : "Download local version"}
           >
             <Download className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
-            {sidebarOpen && <span className="text-xs font-black uppercase tracking-widest">Version Locale</span>}
+            {sidebarOpen && <span className="text-xs font-black uppercase tracking-widest">{language === "fr" ? "Version Locale" : "Local Version"}</span>}
           </a>
         </div>
       )}
 
+      {/* Language Switcher */}
+      {sidebarOpen ? (
+        <div className="px-6 py-3 border-t border-white/5 flex gap-2">
+          <button
+            onClick={() => setLanguage("fr")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-white/5",
+              language === "fr" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-white/40 hover:bg-white/5 hover:text-white"
+            )}
+          >
+            FR
+          </button>
+          <button
+            onClick={() => setLanguage("en")}
+            className={cn(
+              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-white/5",
+              language === "en" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-white/40 hover:bg-white/5 hover:text-white"
+            )}
+          >
+            EN
+          </button>
+        </div>
+      ) : (
+        <div className="py-3 border-t border-white/5 flex justify-center">
+          <button
+            onClick={() => setLanguage(language === "fr" ? "en" : "fr")}
+            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black text-blue-400 hover:bg-white/10 hover:text-white transition-all"
+            title={language === "fr" ? "Switch to English" : "Passer en Français"}
+          >
+            {language.toUpperCase()}
+          </button>
+        </div>
+      )}
+
       {/* User Card */}
-      <div className="p-4 border-t border-white/5 bg-white/5">
+      <div className="p-4 border-t border-white/5 bg-white/5 flex flex-col gap-2">
         <div className={cn("flex items-center gap-3 p-2 rounded-2xl transition-colors", sidebarOpen ? "bg-white/5" : "justify-center")}>
           <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">
             {String(role || "?")[0]?.toUpperCase()}
           </div>
           {sidebarOpen && (
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-blue-400 font-black uppercase tracking-widest leading-none mb-1">
-                {typeof role === 'string' ? role : (role as any)?.name || "MEMBRE"}
-              </p>
-              <p className="text-sm font-bold text-white truncate">
-                {(session as any)?.user?.name || "Utilisateur"}
-              </p>
+            <div className="min-w-0 flex-1 flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-blue-400 font-black uppercase tracking-widest leading-none mb-1">
+                  {typeof role === 'string' ? role : (role as any)?.name || "MEMBRE"}
+                </p>
+                <p className="text-sm font-bold text-white truncate">
+                  {(session as any)?.user?.name || "Utilisateur"}
+                </p>
+              </div>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="p-2 rounded-xl text-white/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all shrink-0 ml-2 disabled:opacity-50"
+                title={language === "fr" ? "Se déconnecter" : "Log Out"}
+              >
+                {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-400" /> : <LogOut className="w-5 h-5" />}
+              </button>
             </div>
           )}
         </div>
+        {!sidebarOpen && (
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-10 h-10 mx-auto bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl flex items-center justify-center transition-all disabled:opacity-50"
+            title={language === "fr" ? "Se déconnecter" : "Log Out"}
+          >
+            {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-400" /> : <LogOut className="w-5 h-5" />}
+          </button>
+        )}
       </div>
       </aside>
+
+      {/* Full-screen logout overlay */}
+      {loggingOut && (
+        <div className="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-md flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+          <p className="text-lg font-bold text-slate-700">
+            {language === "fr" ? "Déconnexion en cours..." : "Logging out..."}
+          </p>
+        </div>
+      )}
     </>
   );
 }

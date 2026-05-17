@@ -6,6 +6,7 @@ import { SessionProvider } from "next-auth/react";
 import { useState } from "react";
 import { ToastContainer } from "@/components/ui/ToastContainer";
 import { SessionTimeoutProvider } from "@/components/auth/SessionTimeoutProvider";
+import { LanguageProvider } from "@/locales/i18n";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,13 +25,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <SessionTimeoutProvider>
-        <QueryClientProvider client={queryClient}>
-          {children}
-          <ToastContainer />
-          {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}
-        </QueryClientProvider>
-      </SessionTimeoutProvider>
+      <LanguageProvider>
+        <SessionTimeoutProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+            <ToastContainer />
+            {process.env.NODE_ENV === "development" && <ReactQueryDevtools initialIsOpen={false} />}
+          </QueryClientProvider>
+        </SessionTimeoutProvider>
+      </LanguageProvider>
     </SessionProvider>
   );
 }
