@@ -15,22 +15,32 @@ DB_USER = "postgres"
 DB_PASS = "FOMO"  # Mot de passe par défaut
 PORT = 3000
 
-def run_command(command, shell=True, check=True, cwd=None):
+def run_command(command, shell=True, check=True, cwd=None, show_output=False):
     """Exécute une commande et retourne le résultat."""
     try:
-        result = subprocess.run(
-            command,
-            shell=shell,
-            check=check,
-            cwd=cwd,
-            capture_output=True,
-            text=True
-        )
-        return result.stdout.strip()
+        if show_output:
+            result = subprocess.run(
+                command,
+                shell=shell,
+                check=check,
+                cwd=cwd
+            )
+            return ""
+        else:
+            result = subprocess.run(
+                command,
+                shell=shell,
+                check=check,
+                cwd=cwd,
+                capture_output=True,
+                text=True
+            )
+            return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         print(f"\n[ERREUR] La commande a échoué : {command}")
-        print(f"Sortie : {e.stdout}")
-        print(f"Erreur : {e.stderr}")
+        if not show_output:
+            print(f"Sortie : {e.stdout}")
+            print(f"Erreur : {e.stderr}")
         if check:
             input("\nAppuyez sur Entrée pour quitter...")
             sys.exit(1)
@@ -53,7 +63,9 @@ def add_to_system_path(directory_path):
         check_cmd_str = '[Environment]::GetEnvironmentVariable("PATH", "User")'
         current_user_path = subprocess.run(f'powershell -Command "{check_cmd_str}"', capture_output=True, text=True, shell=True).stdout.strip()
         if directory_path not in current_user_path:
-            add_cmd = f'[Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";{directory_path}", "User")'
+            # Escape directory path for PowerShell single quotes
+            escaped_dir = directory_path.replace("'", "''")
+            add_cmd = f"$old = [Environment]::GetEnvironmentVariable('PATH', 'User'); [Environment]::SetEnvironmentVariable('PATH', $old + ';{escaped_dir}', 'User')"
             subprocess.run(f'powershell -Command "{add_cmd}"', shell=True)
             print(f"➕ Chemin ajoute de maniere permanente au PATH : {directory_path}")
     except Exception as e:
@@ -214,7 +226,7 @@ def main():
 
     # 3. Installation des dépendances NPM
     print("\n📦 Installation des bibliothèques logicielles (npm install)...")
-    run_command("npm install")
+    run_command("npm install", show_output=True)
 
     # 4. Configuration .env
     print("📝 Configuration des paramètres système (.env)...")
@@ -229,11 +241,11 @@ def main():
     subprocess.run(f'psql -U {DB_USER} -c "CREATE DATABASE {DB_NAME};"', shell=True, env=env, capture_output=True)
 
     print("🚀 Initialisation du moteur de données (Prisma)...")
-    run_command("npx prisma generate")
-    run_command("npx prisma db push --accept-data-loss")
+    run_command("npx prisma generate", show_output=True)
+    run_command("npx prisma db push --accept-data-loss", show_output=True)
     
     print("🌱 Chargement des données d'usine et compte admin...")
-    run_command("npx tsx prisma/seed.ts")
+    run_command("npx tsx prisma/seed.ts", show_output=True)
 
     # 6. Script de démarrage
     print("📝 Création du lanceur rapide...")
