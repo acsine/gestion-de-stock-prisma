@@ -47,10 +47,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  const tenantId = (session.user as any).tenantId;
+
+  const isSuper = (session.user as any).isSuperAdmin;
+  const body = await req.json();
+
+  let tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+  if (isSuper && !tenantId) {
+    const firstTenant = await prisma.tenant.findFirst({ select: { id: true } });
+    if (firstTenant) {
+      tenantId = firstTenant.id;
+    }
+  }
+
   if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
-  const body = await req.json();
   const parsed = purchaseOrderSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 

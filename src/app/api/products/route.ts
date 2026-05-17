@@ -65,7 +65,13 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const isSuper = (session.user as any).isSuperAdmin;
-    const tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+    let tenantId = (session.user as any).tenantId || (isSuper ? body.tenantId : null);
+    if (isSuper && !tenantId) {
+      const firstTenant = await prisma.tenant.findFirst({ select: { id: true } });
+      if (firstTenant) {
+        tenantId = firstTenant.id;
+      }
+    }
     if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
     const parsed = productSchema.safeParse(body);

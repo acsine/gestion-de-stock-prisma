@@ -336,7 +336,13 @@ export function useCreatePurchaseOrder() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      }).then((r) => r.json()),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json();
+          throw new Error(err.error || "Erreur lors de la création du bon de commande");
+        }
+        return r.json();
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["orders"] }),
   });
 }

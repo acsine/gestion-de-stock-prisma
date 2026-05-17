@@ -63,6 +63,7 @@ function ReceptionModal({ order, onClose, onConfirm, isPending }: { order: any, 
 export default function CommandesPage() {
   const [search, setSearch] = useState("");
   const [confirmOrder, setConfirmOrder] = useState<any>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const { data, isLoading, refetch } = usePurchaseOrders();
   const receiveOrder = useReceiveOrder();
   const { addToast } = useUIStore();
@@ -105,8 +106,17 @@ export default function CommandesPage() {
           <button onClick={() => refetch()} className="btn-secondary p-2.5">
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
           </button>
-          <Link href="/commandes/nouveau" className="btn-primary flex items-center gap-2 text-sm">
-            <Plus className="w-4 h-4" /> Nouveau BC
+          <Link 
+            href="/commandes/nouveau" 
+            onClick={() => setIsNavigating(true)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            {isNavigating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            Nouveau BC
           </Link>
         </div>
       </div>

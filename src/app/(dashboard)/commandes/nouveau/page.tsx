@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSuppliers, useCreatePurchaseOrder, useSettings } from "@/hooks/useQueries";
 import { useProducts } from "@/hooks/useProducts";
-import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, X } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, X, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -25,6 +25,12 @@ export default function NouveauBonCommande() {
   const [expectedAt, setExpectedAt] = useState("");
   const [items, setItems] = useState<any[]>([]);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorModal, setErrorModal] = useState<{ isOpen: boolean; title: string; message: string }>({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
 
   const supplierOptions = suppliers.map((s: any) => ({
     value: s.id,
@@ -65,24 +71,41 @@ export default function NouveauBonCommande() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supplierId || items.length === 0) return alert("Veuillez remplir tous les champs obligatoires");
-
-    try {
-      const res = await createOrder.mutateAsync({
-        supplierId,
-        notes,
-        expectedAt: expectedAt || undefined,
-        items: items.map(i => ({
-          productId: i.productId,
-          quantity: Number(i.quantity),
-          unitPrice: Number(i.unitPrice),
-          taxRate: Number(i.taxRate)
-        }))
+    if (!supplierId || items.length === 0) {
+      setErrorModal({
+        isOpen: true,
+        title: "Champs obligatoires manquants",
+        message: "Veuillez sélectionner un fournisseur et ajouter au moins un article avec une quantité valide pour enregistrer le bon de commande."
       });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const [res] = await Promise.all([
+        createOrder.mutateAsync({
+          supplierId,
+          notes,
+          expectedAt: expectedAt || undefined,
+          items: items.map(i => ({
+            productId: i.productId,
+            quantity: Number(i.quantity),
+            unitPrice: Number(i.unitPrice),
+            taxRate: Number(i.taxRate)
+          }))
+        }),
+        new Promise(resolve => setTimeout(resolve, 800)) // Enforce 800ms min delay for beautiful spinner feedback
+      ]);
       setCreatedOrder(res.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erreur lors de la création du bon de commande");
+      setErrorModal({
+        isOpen: true,
+        title: "Erreur d'enregistrement",
+        message: error.message || "Une erreur est survenue lors de la création du bon de commande. Veuillez réessayer."
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -224,7 +247,7 @@ export default function NouveauBonCommande() {
               Articles de la commande
             </h2>
             <div className="space-y-4">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto min-h-[350px]">
                 <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
@@ -239,7 +262,7 @@ export default function NouveauBonCommande() {
                   <tbody className="divide-y divide-gray-50">
                     {items.map((item, index) => (
                       <tr key={index} className="group">
-                        <td className="py-4 pr-4">
+                        <td className="py-4 pr-4 relative focus-within:z-50">
                           <SearchableSelect
                             options={productOptions}
                             value={item.productId}
@@ -252,7 +275,7 @@ export default function NouveauBonCommande() {
                         <td className="py-4 px-2">
                           <input
                             type="number"
-                            className="input text-center font-medium"
+                            className="w-24 text-center font-medium h-10 px-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white"
                             value={item.quantity}
                             onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
                             min="1"
@@ -262,7 +285,7 @@ export default function NouveauBonCommande() {
                         <td className="py-4 px-2">
                           <input
                             type="number"
-                            className="input text-right font-medium"
+                            className="w-32 text-right font-medium h-10 px-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white"
                             value={item.unitPrice}
                             onChange={(e) => updateItem(index, "unitPrice", Number(e.target.value))}
                             step="0.01"
@@ -272,7 +295,7 @@ export default function NouveauBonCommande() {
                         <td className="py-4 px-2">
                           <input
                             type="number"
-                            className="input text-center text-gray-500"
+                            className="w-20 text-center text-gray-500 h-10 px-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm bg-white"
                             value={item.taxRate}
                             onChange={(e) => updateItem(index, "taxRate", Number(e.target.value))}
                             step="0.01"
@@ -371,10 +394,10 @@ export default function NouveauBonCommande() {
 
           <button
             type="submit"
-            disabled={createOrder.isPending || items.length === 0}
+            disabled={isSaving || items.length === 0}
             className="btn-primary w-full py-4 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-transform"
           >
-            {createOrder.isPending ? (
+            {isSaving ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <Save className="w-5 h-5" />
@@ -383,6 +406,28 @@ export default function NouveauBonCommande() {
           </button>
         </div>
       </form>
+
+      {errorModal.isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in slide-in-from-bottom-4 duration-300">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{errorModal.title}</h2>
+              <p className="text-gray-500 text-sm leading-relaxed">{errorModal.message}</p>
+            </div>
+            <div className="p-4 bg-gray-50 flex justify-center">
+              <button
+                onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+                className="w-full sm:w-auto px-6 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 text-sm"
+              >
+                Compris
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

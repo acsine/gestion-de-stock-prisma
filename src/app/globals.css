@@ -127,3 +127,45 @@
 .table-premium tbody td {
   @apply px-6 py-4 text-slate-700;
 }
+
+/* Global Print Stylesheet for Elegant receipts, invoices and purchase orders */
+@media print {
+  body, html {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    min-height: unset !important;
+    overflow: visible !important;
+  }
+  
+  header, nav, aside, footer, button, .print\:hidden, [title="Ouvrir le menu"] {
+    display: none !important;
+  }
+
+  /* Reset layout constraints for printing */
+  div.flex.h-screen {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  div.flex-1 {
+    overflow: visible !important;
+    display: block !important;
+    height: auto !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    height: auto !important;
+  }
+
+  /* Force background colors to render during print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
