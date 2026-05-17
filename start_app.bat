@@ -7,6 +7,20 @@ echo    DEMARRAGE DE SACHAND STOCK MANAGER
 echo ====================================================
 echo.
 
+:: 0. Vérification de Node.js
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [ERREUR] Node.js n'est pas installe ou non detecte sur cette machine.
+    echo.
+    echo Pour faire fonctionner l'application en local, vous devez installer Node.js :
+    echo 1. Telechargez Node.js sur : https://nodejs.org/ ^(Version LTS^)
+    echo 2. Installez-le en vous assurant que l'option "Ajouter au PATH" est activee.
+    echo 3. Fermez tous vos terminaux, puis relancez start_app.bat.
+    echo.
+    pause
+    exit /b
+)
+
 :: 1. Vérification de node_modules
 if not exist "node_modules\" (
     echo [Systeme] Dossier node_modules absent.
