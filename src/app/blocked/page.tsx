@@ -266,15 +266,13 @@ export default function BlockedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen w-full bg-white flex flex-col md:flex-row relative font-sans overflow-hidden">
       {/* Sleek dynamic colorful glassmorphism glow backdrops */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full filter blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full filter blur-[120px]" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full filter blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full filter blur-[120px] pointer-events-none" />
 
-      <div className="max-w-5xl w-full h-[85vh] bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl relative z-10 flex flex-col md:flex-row overflow-hidden animate-in zoom-in-95 duration-300">
-        
-        {/* Left Side: Dynamic Human Information / Blocked Notice */}
-        <div className="w-full md:w-80 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-8 flex flex-col justify-between flex-shrink-0">
+      {/* Left Side: Dynamic Human Information / Blocked Notice */}
+      <div className="w-full md:w-80 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-8 flex flex-col justify-between flex-shrink-0 relative z-10 h-auto md:h-screen">
           <div>
             <div className="w-12 h-12 bg-rose-500/10 text-rose-600 rounded-2xl flex items-center justify-center mb-6 border border-rose-500/20">
               <ShieldAlert className="w-6 h-6" />
@@ -314,7 +312,7 @@ export default function BlockedPage() {
         </div>
 
         {/* Right Side: Tab Container */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white overflow-hidden h-screen">
           
           {/* Top Tabs */}
           <div className="h-16 px-6 border-b border-slate-100 flex items-center justify-between flex-shrink-0 bg-slate-50/20">
@@ -796,7 +794,6 @@ export default function BlockedPage() {
           </div>
         </div>
 
-      </div>
     </div>
   );
 }
