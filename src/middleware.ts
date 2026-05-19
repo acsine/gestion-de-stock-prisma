@@ -7,7 +7,7 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+  const isLoggedIn = !!req.auth?.user;
 
   // 1. Define Public Paths
   const isPublicPath = 
@@ -20,7 +20,7 @@ export default auth((req) => {
 
   // 2. Handle Logged-in Users on Public Paths
   if (isLoggedIn && (pathname === "/login" || pathname === "/")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
   }
 
   // 3. Allow Public Paths
@@ -37,7 +37,7 @@ export default auth((req) => {
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/login", req.nextUrl));
   }
 
   return NextResponse.next();
