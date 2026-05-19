@@ -1,10 +1,13 @@
 // src/lib/sync-config.ts
 
 export const SYNCABLE_MODELS = [
+  "role",
+  "permission",
+  "user",
   "category",
-  "product",
   "supplier",
   "customer",
+  "product",
   "stockMovement",
   "invoice",
   "invoiceItem",
@@ -17,10 +20,7 @@ export const SYNCABLE_MODELS = [
   "payroll",
   "leave",
   "alert",
-  "setting",
-  "role",
-  "permission",
-  "user"
+  "setting"
 ];
 
 export type SyncableModel = typeof SYNCABLE_MODELS[number];

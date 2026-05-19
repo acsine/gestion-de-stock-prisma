@@ -29,6 +29,21 @@ export async function POST() {
       },
     });
 
+    // S'assurer que le Tenant existe dans la base Cloud avant toute synchronisation
+    if (tenantId) {
+      const localTenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      });
+      if (localTenant) {
+        const { licenseId, ...cleanTenant } = localTenant;
+        await cloudPrisma.tenant.upsert({
+          where: { id: tenantId },
+          update: { ...cleanTenant },
+          create: { ...cleanTenant },
+        });
+      }
+    }
+
     console.log(`[CLOUD SYNC] Début de la synchronisation pour le tenant : ${tenantId}`);
     const report: Record<string, { pushed: number; pulled: number }> = {};
 
@@ -45,7 +60,7 @@ export async function POST() {
       // 1. PUSH : Envoyer les données locales non synchronisées vers le Cloud
       // ----------------------------------------------------
       const pushWhere: any = {};
-      if (model !== "permission" && model !== "user" && tenantId) {
+      if (model !== "permission" && tenantId) {
         pushWhere.tenantId = tenantId;
       }
       pushWhere.isSynced = false;
@@ -83,7 +98,7 @@ export async function POST() {
       // 2. PULL : Récupérer les données du Cloud vers le Local
       // ----------------------------------------------------
       const localWhere: any = {};
-      if (model !== "permission" && model !== "user" && tenantId) {
+      if (model !== "permission" && tenantId) {
         localWhere.tenantId = tenantId;
       }
       
@@ -93,7 +108,7 @@ export async function POST() {
       });
 
       const pullWhere: any = {};
-      if (model !== "permission" && model !== "user" && tenantId) {
+      if (model !== "permission" && tenantId) {
         pullWhere.tenantId = tenantId;
       }
       if (lastLocalRecord) {
