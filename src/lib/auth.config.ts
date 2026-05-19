@@ -1,5 +1,9 @@
 import type { NextAuthConfig } from "next-auth";
 
+if (!process.env.AUTH_SECRET) {
+  process.env.AUTH_SECRET = process.env.NEXTAUTH_SECRET || "f6e7d8c9b0a1a2b3c4d5e6f7g8h9i0j1";
+}
+
 export const authConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   session: { 
