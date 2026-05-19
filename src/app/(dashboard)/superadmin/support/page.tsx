@@ -107,6 +107,46 @@ export default function AdminSupportPage() {
                 </div>
               </div>
 
+              {ticket.subject.startsWith("Paiement Manuel — ") && ticket.status !== "RESOLU" && (
+                <div className="bg-emerald-50 border-b border-emerald-100 p-4 px-6 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500/10 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0 border border-emerald-500/20">
+                      <CheckCircle2 className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 mb-0.5">Demande de validation d'abonnement</h4>
+                      <p className="text-[10px] text-slate-500 font-medium leading-tight">
+                        Le client a chargé son justificatif de dépôt Orange Money. Cliquez ci-contre après vérification pour activer sa licence.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Voulez-vous valider ce paiement et activer l'abonnement du client ?")) return;
+                      try {
+                        const res = await fetch("/api/superadmin/tenants/activate", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ticketId: ticket.id }),
+                        });
+                        if (res.ok) {
+                          alert("Abonnement activé et client débloqué !");
+                          window.location.reload();
+                        } else {
+                          const err = await res.json();
+                          alert(err.error || "Une erreur est survenue");
+                        }
+                      } catch (err) {
+                        alert("Erreur réseau");
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
+                  >
+                    Valider & Activer
+                  </button>
+                </div>
+              )}
+
               <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 bg-slate-50/50">
                 {ticket.messages?.map((m: any) => (
                   <div key={m.id} className={cn("flex gap-2 md:gap-3", m.isAdmin ? "justify-end" : "")}>
