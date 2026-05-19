@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   session: { 
     strategy: "jwt",
     maxAge: 3600, // 1 heure (3600 secondes) maximum de session
