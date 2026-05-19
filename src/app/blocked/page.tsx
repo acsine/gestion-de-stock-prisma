@@ -25,7 +25,7 @@ export default function BlockedPage() {
         body: JSON.stringify({
           subject: `Demande de déblocage — ${session?.user?.name || "Utilisateur"}`,
           message: message,
-          priority: "URGENT",
+          priority: "URGENTE",
         }),
       });
 
