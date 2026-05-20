@@ -81,16 +81,51 @@ export default function RegisterCompanyPage() {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
-  // ─── Phone validation ───────────────────────────────────────────
+  // ─── Phone state for real-time UI feedback ────────────────────────
+  const [phoneValid, setPhoneValid] = useState<boolean | null>(null);
+
+  // Validate & update feedback on every keystroke
+  const handlePhoneInput = (dial: string, num: string) => {
+    setPhoneNumber(num);
+    if (!num.trim()) { setPhoneError(""); setPhoneValid(null); return; }
+    const full = `${dial}${num.replace(/\s/g, "")}`;
+    const parsed = parsePhoneNumberFromString(full);
+    if (parsed && parsed.isValid()) {
+      setPhoneError("");
+      setPhoneValid(true);
+    } else {
+      setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneValid(false);
+    }
+  };
+
+  // Called on dial-code change — re-validate existing number immediately
+  const handleDialChange = (newDial: string) => {
+    setDialCode(newDial);
+    if (!phoneNumber.trim()) { setPhoneError(""); setPhoneValid(null); return; }
+    const full = `${newDial}${phoneNumber.replace(/\s/g, "")}`;
+    const parsed = parsePhoneNumberFromString(full);
+    if (parsed && parsed.isValid()) {
+      setPhoneError("");
+      setPhoneValid(true);
+    } else {
+      setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneValid(false);
+    }
+  };
+
+  // ─── Phone validation (submit-time) ────────────────────────────────
   const validatePhone = (dial: string, num: string): boolean => {
-    if (!num.trim()) { setPhoneError("Le numéro de téléphone est requis"); return false; }
+    if (!num.trim()) { setPhoneError("Le numéro de téléphone est requis"); setPhoneValid(false); return false; }
     const full = `${dial}${num.replace(/\s/g, "")}`;
     const parsed = parsePhoneNumberFromString(full);
     if (!parsed || !parsed.isValid()) {
       setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneValid(false);
       return false;
     }
     setPhoneError("");
+    setPhoneValid(true);
     return true;
   };
 
@@ -269,8 +304,12 @@ export default function RegisterCompanyPage() {
                         <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                         <select
                           value={dialCode}
-                          onChange={(e) => { setDialCode(e.target.value); setPhoneError(""); }}
-                          className="appearance-none bg-white border border-slate-200 rounded-2xl pl-9 pr-4 h-[50px] text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer min-w-[130px]"
+                          onChange={(e) => handleDialChange(e.target.value)}
+                          className={`appearance-none bg-white border rounded-2xl pl-9 pr-4 h-[50px] text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer min-w-[130px] ${
+                            phoneValid === true ? "border-emerald-400 focus:border-emerald-500" :
+                            phoneValid === false ? "border-rose-400 focus:border-rose-500" :
+                            "border-slate-200 focus:border-blue-500"
+                          }`}
                         >
                           {COUNTRY_CODES.map((c) => (
                             <option key={c.code + c.country} value={c.code}>
@@ -279,20 +318,39 @@ export default function RegisterCompanyPage() {
                           ))}
                         </select>
                       </div>
-                      {/* Number */}
+                      {/* Number input with live feedback icon */}
                       <div className="relative flex-1">
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                         <input
                           type="tel"
                           value={phoneNumber}
-                          onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(""); }}
+                          onChange={(e) => handlePhoneInput(dialCode, e.target.value)}
                           required
-                          className="input-premium pl-12 w-full"
+                          className={`input-premium pl-12 pr-10 w-full transition-all ${
+                            phoneValid === true ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/10" :
+                            phoneValid === false ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                          }`}
                           placeholder="699 123 456"
                         />
+                        {/* Validation icon */}
+                        {phoneValid === true && (
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 text-lg">✓</span>
+                        )}
+                        {phoneValid === false && (
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-500 text-lg">✗</span>
+                        )}
                       </div>
                     </div>
-                    {phoneError && <p className="text-rose-500 text-xs font-bold ml-1">{phoneError}</p>}
+                    {phoneError && (
+                      <p className="text-rose-500 text-xs font-bold ml-1 flex items-center gap-1">
+                        <span>⚠</span> {phoneError}
+                      </p>
+                    )}
+                    {phoneValid === true && (
+                      <p className="text-emerald-600 text-xs font-bold ml-1 flex items-center gap-1">
+                        <span>✓</span> Numéro valide
+                      </p>
+                    )}
                     <p className="text-slate-400 text-[10px] ml-1">
                       Ce numéro sera unique et vous permettra de vous connecter.
                     </p>

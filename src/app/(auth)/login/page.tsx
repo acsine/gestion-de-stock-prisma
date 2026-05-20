@@ -69,6 +69,37 @@ export default function LoginPage() {
   const [dialCode, setDialCode] = useState("+237");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneInputError, setPhoneInputError] = useState("");
+  const [phoneValid, setPhoneValid] = useState<boolean | null>(null);
+
+  // Real-time phone validation
+  const handlePhoneInput = (dial: string, num: string) => {
+    setPhoneNumber(num);
+    setPhoneInputError("");
+    if (!num.trim()) { setPhoneValid(null); return; }
+    const full = `${dial}${num.replace(/\s/g, "")}`;
+    const parsed = parsePhoneNumberFromString(full);
+    if (parsed && parsed.isValid()) {
+      setPhoneValid(true);
+    } else {
+      setPhoneValid(false);
+      setPhoneInputError("Numéro invalide pour ce code pays");
+    }
+  };
+
+  // Re-validate on country code change
+  const handleDialChange = (newDial: string) => {
+    setDialCode(newDial);
+    setPhoneInputError("");
+    if (!phoneNumber.trim()) { setPhoneValid(null); return; }
+    const full = `${newDial}${phoneNumber.replace(/\s/g, "")}`;
+    const parsed = parsePhoneNumberFromString(full);
+    if (parsed && parsed.isValid()) {
+      setPhoneValid(true);
+    } else {
+      setPhoneValid(false);
+      setPhoneInputError("Numéro invalide pour ce code pays");
+    }
+  };
 
   // Password
   const [password, setPassword] = useState("");
@@ -106,7 +137,7 @@ export default function LoginPage() {
         setPhoneInputError("Numéro invalide pour ce code pays");
         return;
       }
-      loginValue = parsed.format("E.164"); // e.g. +237699123456
+      loginValue = parsed.format("E.164");
     }
 
     setIsSubmitting(true);
@@ -288,8 +319,12 @@ export default function LoginPage() {
                       <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <select
                         value={dialCode}
-                        onChange={(e) => { setDialCode(e.target.value); setPhoneInputError(""); }}
-                        className="appearance-none bg-white border border-slate-200 rounded-2xl pl-9 pr-4 h-[50px] text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer min-w-[130px]"
+                        onChange={(e) => handleDialChange(e.target.value)}
+                        className={`appearance-none bg-white border rounded-2xl pl-9 pr-4 h-[50px] text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer min-w-[130px] ${
+                          phoneValid === true ? "border-emerald-400 focus:border-emerald-500" :
+                          phoneValid === false ? "border-rose-400 focus:border-rose-500" :
+                          "border-slate-200 focus:border-blue-500"
+                        }`}
                       >
                         {COUNTRY_CODES.map((c) => (
                           <option key={c.code + c.label} value={c.code}>
@@ -304,15 +339,30 @@ export default function LoginPage() {
                       <input
                         type="tel"
                         value={phoneNumber}
-                        onChange={(e) => { setPhoneNumber(e.target.value); setPhoneInputError(""); }}
+                        onChange={(e) => handlePhoneInput(dialCode, e.target.value)}
                         placeholder="699 123 456"
-                        className="input-premium pl-12 w-full"
+                        className={`input-premium pl-12 pr-10 w-full transition-all ${
+                          phoneValid === true ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/10" :
+                          phoneValid === false ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                        }`}
                         autoComplete="tel"
                       />
+                      {/* Live validation icon */}
+                      {phoneValid === true && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 text-lg">✓</span>
+                      )}
+                      {phoneValid === false && (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-500 text-lg">✗</span>
+                      )}
                     </div>
                   </div>
                   {phoneInputError && (
-                    <p className="text-rose-500 text-xs font-bold ml-1">{phoneInputError}</p>
+                    <p className="text-rose-500 text-xs font-bold ml-1 flex items-center gap-1">
+                      <span>⚠</span> {phoneInputError}
+                    </p>
+                  )}
+                  {phoneValid === true && (
+                    <p className="text-emerald-600 text-xs font-bold ml-1">✓ Numéro valide</p>
                   )}
                 </motion.div>
               )}
