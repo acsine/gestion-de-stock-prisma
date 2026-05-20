@@ -42,14 +42,24 @@ export async function updateTenantLicense(tenantId: string, licenseId: string, s
     throw new Error("Accès refusé");
   }
 
-  return await prisma.tenant.update({
+  // 1. Mettre à jour le locataire (Tenant)
+  const updatedTenant = await prisma.tenant.update({
     where: { id: tenantId },
     data: { 
       licenseId,
       subscriptionActive,
+      status: subscriptionActive ? "ACTIVE" : "SUSPENDED",
       trialEndsAt: null // Once assigned a license, trial is over
     }
   });
+
+  // 2. Propager l'activation/désactivation aux utilisateurs associés
+  await prisma.user.updateMany({
+    where: { tenantId },
+    data: { isActive: subscriptionActive }
+  });
+
+  return updatedTenant;
 }
 
 export async function getLicenses() {

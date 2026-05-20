@@ -1,13 +1,28 @@
-
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const localPrisma = new PrismaClient();
+const cloudPrisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.CLOUD_DATABASE_URL,
+    },
+  },
+});
 
-async function main() {
-  const products = await prisma.product.findMany({ take: 1, include: { category: true } });
-  console.log("Product sample:", JSON.stringify(products, null, 2));
+async function run() {
+  const localProducts = await localPrisma.product.findMany();
+  const cloudProducts = await cloudPrisma.product.findMany();
+
+  console.log("=== LOCAL PRODUCTS ===");
+  console.log(JSON.stringify(localProducts, null, 2));
+
+  console.log("=== CLOUD PRODUCTS ===");
+  console.log(JSON.stringify(cloudProducts, null, 2));
 }
 
-main()
+run()
   .catch(console.error)
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await localPrisma.$disconnect();
+    await cloudPrisma.$disconnect();
+  });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantSubscription } from "@/lib/subscription";
 
 export async function GET() {
   try {
@@ -11,10 +12,19 @@ export async function GET() {
 
     const dbUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { isActive: true, isSuperAdmin: true }
+      select: { isActive: true, isSuperAdmin: true, tenantId: true }
     });
 
-    const active = dbUser?.isActive || dbUser?.isSuperAdmin || false;
+    const isSuper = dbUser?.isSuperAdmin || false;
+    let active = dbUser?.isActive || isSuper || false;
+
+    // Si l'utilisateur est actif mais n'est pas Super Admin, on vérifie l'état de l'abonnement du locataire
+    if (active && !isSuper && dbUser?.tenantId) {
+      const sub = await getTenantSubscription(dbUser.tenantId);
+      if (!sub || !sub.isValid) {
+        active = false;
+      }
+    }
 
     return NextResponse.json({
       active,

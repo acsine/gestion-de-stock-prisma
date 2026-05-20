@@ -1,12 +1,28 @@
 import { PrismaClient } from "@prisma/client";
+import * as fs from "fs";
+import * as path from "path";
+
+const envPath = path.resolve(process.cwd(), ".env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, "utf-8");
+  envContent.split("\n").forEach(line => {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match) {
+      const key = match[1];
+      let value = match[2] || "";
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      } else if (value.startsWith("'") && value.endsWith("'")) {
+        value = value.slice(1, -1);
+      }
+      process.env[key] = value;
+    }
+  });
+}
 
 const localPrisma = new PrismaClient();
 const cloudPrisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.CLOUD_DATABASE_URL,
-    },
-  },
+  datasources: { db: { url: process.env.CLOUD_DATABASE_URL } }
 });
 
 const SYNCABLE_MODELS = [
@@ -195,7 +211,6 @@ function areRecordsIdentical(record1: any, record2: any): boolean {
     const val1 = record1[key];
     const val2 = record2[key];
 
-    // Normalisation et comparaison des dates
     if (
       val1 instanceof Date || 
       val2 instanceof Date || 
@@ -208,7 +223,6 @@ function areRecordsIdentical(record1: any, record2: any): boolean {
       continue;
     }
 
-    // Normalisation et comparaison des valeurs nulles/non-définies
     if (val1 === null || val1 === undefined) {
       if (val2 !== null && val2 !== undefined) return false;
       continue;
@@ -218,7 +232,6 @@ function areRecordsIdentical(record1: any, record2: any): boolean {
       continue;
     }
 
-    // Comparaison directe ou sérialisée pour les objets/blobs
     if (typeof val1 === "object" || typeof val2 === "object") {
       if (JSON.stringify(val1) !== JSON.stringify(val2)) return false;
     } else {
@@ -342,24 +355,7 @@ async function ensureRelationInLocal(modelName: string, id: string) {
 }
 
 async function run() {
-  const tenantId = "cmpcx43ab0005h8cwmb54vjgf"; // Thabor Merchant Demo ID
-  console.log("=== RUNNING RECURSIVE MANUAL SYNC FOR TENANT:", tenantId);
-
-  // S'assurer que le Tenant existe dans la base Cloud avant toute synchronisation
-  if (tenantId) {
-    const localTenant = await localPrisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-    if (localTenant) {
-      const { licenseId, ...cleanTenant } = localTenant;
-      await cloudPrisma.tenant.upsert({
-        where: { id: tenantId },
-        update: { ...cleanTenant },
-        create: { ...cleanTenant },
-      });
-      console.log("Tenant verified on Cloud");
-    }
-  }
+  console.log("=== RUNNING RECURSIVE SYNC AS SUPERADMIN ===");
 
   const report: Record<string, any> = {};
 
@@ -374,57 +370,20 @@ async function run() {
       let pulledCount = 0;
 
       const timeField = model === "auditLog" ? "timestamp" : "updatedAt";
-
-      // Helper robuste pour obtenir la valeur numérique de l'horodatage
       const getTimestamp = (item: any) => {
         const val = item[timeField];
         if (!val) return 0;
         return new Date(val).getTime();
       };
 
-      // ----------------------------------------------------
-      // Récupération des données locales pour comparaison
-      // ----------------------------------------------------
-      const localWhere: any = {};
-      if (model !== "permission" && tenantId) {
-        if (model === "auditLog") {
-          const tenantUsers = await localPrisma.user.findMany({
-            where: { tenantId },
-            select: { id: true }
-          });
-          const userIds = tenantUsers.map(u => u.id);
-          localWhere.userId = { in: userIds };
-        } else {
-          localWhere.tenantId = tenantId;
-        }
-      }
-      const localRecords = await localTable.findMany({ where: localWhere });
+      // Query all records for both sides
+      const localRecords = await localTable.findMany();
+      const cloudRecords = await cloudTable.findMany();
 
-      // ----------------------------------------------------
-      // Récupération des données Cloud pour comparaison
-      // ----------------------------------------------------
-      const cloudWhere: any = {};
-      if (model !== "permission" && tenantId) {
-        if (model === "auditLog") {
-          const tenantUsers = await cloudPrisma.user.findMany({
-            where: { tenantId },
-            select: { id: true }
-          });
-          const userIds = tenantUsers.map(u => u.id);
-          cloudWhere.userId = { in: userIds };
-        } else {
-          cloudWhere.tenantId = tenantId;
-        }
-      }
-      const cloudRecords = await cloudTable.findMany({ where: cloudWhere });
-
-      // Cartographie par ID pour des comparaisons rapides en O(1)
       const localMap = new Map(localRecords.map((r: any) => [r.id, r]));
       const cloudMap = new Map(cloudRecords.map((r: any) => [r.id, r]));
 
-      // ----------------------------------------------------
-      // 1. PUSH : Pousser les données locales créées ou plus récentes
-      // ----------------------------------------------------
+      // 1. PUSH
       for (const localItem of localRecords) {
         const cloudItem = cloudMap.get(localItem.id);
 
@@ -461,7 +420,6 @@ async function run() {
 
         if (shouldPush) {
           try {
-            // Assurer récursivement toutes ses clés étrangères sur le Cloud
             const relations = RELATION_MAP[model];
             if (relations) {
               for (const rel of relations) {
@@ -472,7 +430,6 @@ async function run() {
               }
             }
 
-            // Pousser vers la DB Cloud
             const { id: itemId, isSynced, ...cleanData } = localItem;
             await cloudTable.upsert({
               where: getUniqueWhere(model, localItem),
@@ -489,7 +446,6 @@ async function run() {
               );
             }
 
-            // Marquer comme synchronisé localement
             await localTable.update({
               where: { id: localItem.id },
               data: { isSynced: true },
@@ -511,9 +467,7 @@ async function run() {
         }
       }
 
-      // ----------------------------------------------------
-      // 2. PULL : Rapatrier les données Cloud créées ou plus récentes
-      // ----------------------------------------------------
+      // 2. PULL
       for (const cloudItem of cloudRecords) {
         const localItem = localMap.get(cloudItem.id) as any;
 
@@ -550,7 +504,6 @@ async function run() {
 
         if (shouldPull) {
           try {
-            // Assurer récursivement toutes ses clés étrangères sur le Local
             const relations = RELATION_MAP[model];
             if (relations) {
               for (const rel of relations) {
@@ -561,7 +514,6 @@ async function run() {
               }
             }
 
-            // Sauvegarder dans la DB locale
             const { id: itemId, isSynced, ...cleanData } = cloudItem;
             await localTable.upsert({
               where: getUniqueWhere(model, cloudItem),
@@ -578,7 +530,6 @@ async function run() {
               );
             }
 
-            // S'assurer que le cloud record est marqué isSynced = true
             if (!cloudItem.isSynced) {
               await cloudTable.update({
                 where: { id: cloudItem.id },
@@ -607,7 +558,7 @@ async function run() {
     }
   }
 
-  console.log("\n=== FINAL RECURSIVE SYNC REPORT ===");
+  console.log("\n=== FINAL RECURSIVE SYNC REPORT (SUPERADMIN) ===");
   console.log(JSON.stringify(report, null, 2));
 }
 

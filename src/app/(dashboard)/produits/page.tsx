@@ -19,7 +19,7 @@ import { TableLoading, TableEmpty } from "@/components/ui/TableStates";
 const UNITS = ["Pièce","Kg","Litre","Boîte","Carton","Sac","Bidon","Mètre","m²","m³"];
 const TAX_RATES = [0, 5.5, 9, 10, 19.25, 20];
 
-function ProductForm({ onClose, categories, product, suppliers }: { onClose: () => void; categories: any[]; product?: any; suppliers?: any[] }) {
+function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: { onClose: () => void; categories: any[]; product?: any; suppliers?: any[]; hasUnsynced?: boolean }) {
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { addToast } = useUIStore();
@@ -197,12 +197,20 @@ function ProductForm({ onClose, categories, product, suppliers }: { onClose: () 
             <label className="label">Description</label>
             <textarea {...register("description")} className="input h-20 resize-none" placeholder="Description optionnelle…" />
           </div>
+          {!product && hasUnsynced && (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs w-full">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>
+                La création de produit est temporairement désactivée car des modifications locales ne sont pas synchronisées.
+              </span>
+            </div>
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
             <button 
               type="submit" 
-              disabled={isPending} 
-              className="btn-primary flex items-center justify-center gap-2 min-w-[140px] transition-all disabled:opacity-70"
+              disabled={isPending || (!product && hasUnsynced)} 
+              className="btn-primary flex items-center justify-center gap-2 min-w-[140px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isPending ? (
                 <>
@@ -326,6 +334,7 @@ export default function ProduitsPage() {
   const [viewProduct, setViewProduct] = useState<any>(null);
   const [deleteItem, setDeleteItem] = useState<{id: string, name: string} | null>(null);
   const [exportLoading, setExportLoading] = useState<string | null>(null);
+  const [syncingNow, setSyncingNow] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { addToast } = useUIStore();
 
@@ -336,6 +345,7 @@ export default function ProduitsPage() {
 
   const products = data?.data || [];
   const categories = catData?.data || [];
+  const hasUnsynced = products.some((p: any) => p.isSynced === false);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -413,11 +423,51 @@ export default function ProduitsPage() {
             {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             Importer Excel
           </button>
-          <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 text-sm">
+          <button 
+            onClick={() => setShowForm(true)} 
+            disabled={hasUnsynced}
+            className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Plus className="w-4 h-4" /> Nouveau produit
           </button>
         </div>
       </div>
+
+      {hasUnsynced && (
+        <div className="flex items-center justify-between gap-3 text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm shadow-sm transition-all duration-300 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-xl text-amber-600">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-amber-900">Synchronisation requise</span>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Certains produits locaux ne sont pas synchronisés avec la version en ligne. La création de nouveaux produits est temporairement désactivée.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              setSyncingNow(true);
+              try {
+                const { SyncService } = await import("@/lib/sync-service");
+                await SyncService.syncAll();
+                await refetch();
+                addToast({ type: "success", title: "Synchronisation réussie !" });
+              } catch (e: any) {
+                addToast({ type: "error", title: "Erreur de synchronisation", message: e.message });
+              } finally {
+                setSyncingNow(false);
+              }
+            }}
+            disabled={syncingNow}
+            className="btn-primary text-xs bg-amber-600 hover:bg-amber-700 text-white border-none py-2 px-3 whitespace-nowrap flex items-center gap-1.5 shadow-sm disabled:opacity-75 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingNow ? "animate-spin" : ""}`} />
+            {syncingNow ? "Synchronisation..." : "Synchroniser maintenant"}
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3">
@@ -528,7 +578,7 @@ export default function ProduitsPage() {
         </table>
       </div>
 
-      {showForm && <ProductForm onClose={handleCloseForm} product={editingProduct} categories={categories} />}
+      {showForm && <ProductForm onClose={handleCloseForm} product={editingProduct} categories={categories} hasUnsynced={hasUnsynced} />}
       {viewProduct && <ProductDetailsModal product={viewProduct} onClose={() => setViewProduct(null)} />}
       {deleteItem && <DeleteConfirmModal item={deleteItem} onClose={() => setDeleteItem(null)} onConfirm={confirmDelete} isPending={isDeleting} />}
     </div>
