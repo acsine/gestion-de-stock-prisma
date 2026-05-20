@@ -8,6 +8,7 @@ import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, 
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useToast, ToastContainer } from "@/components/ui/Toast";
 
 export default function ModifierBonCommande({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -34,6 +35,7 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
     title: "",
     message: ""
   });
+  const { toasts, show: showToast, close: closeToast } = useToast();
 
   // Pre-load data from order
   useEffect(() => {
@@ -156,7 +158,9 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
         console.log("Error sharing", err);
       }
     } else {
-      alert("Le partage n'est pas supporté sur ce navigateur. Copiez l'URL.");
+      // Copy URL to clipboard and show toast instead of alert
+      navigator.clipboard.writeText(window.location.origin + `/commandes/${updatedOrder.id}`).catch(() => {});
+      showToast("Le partage n'est pas supporté. L'URL a été copiée !", "info");
     }
   };
 
@@ -291,6 +295,7 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 print:hidden">
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <div className="flex items-center gap-4">
         <Link href="/commandes" className="p-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-5 h-5" />

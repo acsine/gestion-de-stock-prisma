@@ -6,6 +6,7 @@ import {
   ShieldAlert, Send, LogOut, Loader2, MessageSquare, Sparkles, User, 
   CreditCard, Upload, CheckCircle2, ChevronRight, AlertCircle, HelpCircle, PhoneCall
 } from "lucide-react";
+import { ToastContainer, useToast } from "@/components/ui/Toast";
 
 interface Message {
   id: string;
@@ -26,6 +27,7 @@ export default function BlockedPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [checkingActiveTicket, setCheckingActiveTicket] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toasts, show: showToast, close: closeToast } = useToast();
   
   // States for subscription and payment
   const [selectedPlan, setSelectedPlan] = useState<{ name: string; price: number; label: string } | null>(null);
@@ -276,9 +278,9 @@ export default function BlockedPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Une erreur est survenue");
 
-        // Success! Redirect to active dashboard
-        alert(`Félicitations ! Votre formule ${selectedPlan.label} a été activée. Accès débloqué !`);
-        window.location.href = "/dashboard";
+        // Success! Show toast then redirect
+        showToast(`Félicitations ! Votre formule ${selectedPlan.label} a été activée. Accès débloqué !`, "success");
+        setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
       } catch (err: any) {
         setError(err.message || "La validation bancaire a échoué. Veuillez réessayer.");
         setAutoPaying(false);
@@ -296,6 +298,8 @@ export default function BlockedPage() {
   }
 
   return (
+    <>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
     <div className="min-h-screen w-full bg-white flex flex-col md:flex-row relative font-sans overflow-hidden">
       {/* Sleek dynamic colorful glassmorphism glow backdrops */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full filter blur-[120px] pointer-events-none" />
@@ -825,5 +829,7 @@ export default function BlockedPage() {
         </div>
 
     </div>
+  </>
   );
 }
+

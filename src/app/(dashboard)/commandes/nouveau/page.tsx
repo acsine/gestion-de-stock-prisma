@@ -8,9 +8,11 @@ import { Plus, Trash2, Save, ArrowLeft, Loader2, Printer, Share2, CheckCircle2, 
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useToast, ToastContainer } from "@/components/ui/Toast";
 
 export default function NouveauBonCommande() {
   const router = useRouter();
+  const { toasts, show: showToast, close: closeToast } = useToast();
   const { data: suppliersData } = useSuppliers();
   const { data: productsData } = useProducts();
   const { data: settingsData } = useSettings();
@@ -128,7 +130,8 @@ export default function NouveauBonCommande() {
         console.log("Error sharing", err);
       }
     } else {
-      alert("Le partage n'est pas supporté sur ce navigateur. Copiez l'URL.");
+      navigator.clipboard.writeText(window.location.origin + `/commandes/${createdOrder.id}`).catch(() => {});
+      showToast("Le partage n'est pas supporté. L'URL a été copiée !", "info");
     }
   };
 
@@ -136,6 +139,7 @@ export default function NouveauBonCommande() {
   if (createdOrder) {
     return (
       <>
+        <ToastContainer toasts={toasts} onClose={closeToast} />
         {/* Success View Screen (Hidden on print) */}
         <div className="print:hidden flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-300">
           <div className="text-center space-y-4">
@@ -235,6 +239,7 @@ export default function NouveauBonCommande() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 print:hidden">
+      <ToastContainer toasts={toasts} onClose={closeToast} />
       <div className="flex items-center gap-4">
         <Link href="/commandes" className="p-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-5 h-5" />
