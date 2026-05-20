@@ -182,9 +182,46 @@ export const userSchema = z.object({
   roleId: z.string().min(1, "Rôle requis"),
 });
 
+// =====================
+// LOGIN SCHEMA (email or phone)
+// =====================
 export const loginSchema = z.object({
-  email: z.string().email("Email invalide"),
+  loginType: z.enum(["email", "phone"]).default("email"),
+  email: z.string().optional(),
+  phoneDialCode: z.string().optional(),
+  phoneNumber: z.string().optional(),
   password: z.string().min(1, "Mot de passe requis"),
+}).superRefine((data, ctx) => {
+  if (data.loginType === "email") {
+    if (!data.email || !z.string().email().safeParse(data.email).success) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["email"], message: "Email invalide" });
+    }
+  } else {
+    if (!data.phoneDialCode) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["phoneDialCode"], message: "Code pays requis" });
+    }
+    if (!data.phoneNumber || data.phoneNumber.trim().length < 4) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["phoneNumber"], message: "Numéro de téléphone requis" });
+    }
+  }
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+// =====================
+// REGISTER COMPANY SCHEMA
+// =====================
+export const registerCompanySchema = z.object({
+  // Step 1 - Company
+  companyName: z.string().min(2, "Nom de l'entreprise requis (min 2 caractères)"),
+  companyPhone: z.string().min(5, "Numéro de téléphone requis"),
+  companyAddress: z.string().optional(),
+  companyLogo: z.string().optional(),
+  // Step 2 - Admin
+  adminName: z.string().min(2, "Nom complet requis"),
+  adminEmail: z.string().email("Email invalide"),
+  adminPassword: z.string().min(8, "Mot de passe: 8 caractères minimum"),
+});
+
+export type RegisterCompanyInput = z.infer<typeof registerCompanySchema>;
+

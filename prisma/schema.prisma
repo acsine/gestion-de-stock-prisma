@@ -16,7 +16,7 @@ model Tenant {
   name          String
   slug          String   @unique
   email         String   @unique
-  phone         String?
+  phone         String?  @unique
   address       String?
   logo          String?
   status        TenantStatus @default(PENDING)
@@ -71,6 +71,7 @@ model User {
   
   name          String
   email         String   @unique
+  phone         String?  @unique
   passwordHash  String
   roleId        String?
   role          Role?    @relation(fields: [roleId], references: [id])

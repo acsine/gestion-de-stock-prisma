@@ -1,35 +1,74 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { companyName, adminName, adminEmail, adminPassword } = body;
+    const {
+      companyName,
+      companyPhone,
+      companyAddress,
+      companyLogo,
+      adminName,
+      adminEmail,
+      adminPassword,
+    } = body;
 
-    if (!companyName || !adminName || !adminEmail || !adminPassword) {
-      return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 });
+    // Validate required fields
+    if (!companyName || !companyPhone || !adminName || !adminEmail || !adminPassword) {
+      return NextResponse.json(
+        { error: "Tous les champs obligatoires doivent être remplis" },
+        { status: 400 }
+      );
     }
 
-    // 1. Vérifier si l'entreprise ou l'email existe déjà
-    const existingTenant = await prisma.tenant.findUnique({ where: { email: adminEmail } });
-    if (existingTenant) return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
+    // Validate & normalize phone number (must be in international format e.g. +237699123456)
+    const parsedPhone = parsePhoneNumberFromString(companyPhone);
+    if (!parsedPhone || !parsedPhone.isValid()) {
+      return NextResponse.json(
+        { error: "Numéro de téléphone invalide. Vérifiez le code pays et le numéro." },
+        { status: 400 }
+      );
+    }
+    const normalizedPhone = parsedPhone.format("E.164"); // e.g. "+237699123456"
 
-    const slug = companyName.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
+    // Check if email already taken
+    const existingByEmail = await prisma.tenant.findUnique({ where: { email: adminEmail } });
+    if (existingByEmail) {
+      return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
+    }
 
-    // 2. Créer le Tenant et l'Utilisateur Admin dans une transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Créer le tenant
+    // Check if phone already taken
+    const existingByPhone = await prisma.tenant.findUnique({ where: { phone: normalizedPhone } });
+    if (existingByPhone) {
+      return NextResponse.json({ error: "Ce numéro de téléphone est déjà utilisé par une autre entreprise" }, { status: 409 });
+    }
+
+    const slug = companyName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/ /g, "-")
+      .replace(/[^\w-]+/g, "");
+
+    // Create Tenant + Admin User in one transaction
+    await prisma.$transaction(async (tx) => {
+      // Create tenant with all fields
       const tenant = await tx.tenant.create({
         data: {
           name: companyName,
           email: adminEmail,
+          phone: normalizedPhone,
+          address: companyAddress || null,
+          logo: companyLogo || null,
           slug,
           status: "PENDING",
         },
       });
 
-      // Créer un rôle ADMIN par défaut pour ce tenant
+      // Create default ADMIN role
       const adminRole = await tx.role.create({
         data: {
           name: "ADMIN",
@@ -38,27 +77,31 @@ export async function POST(req: Request) {
         },
       });
 
-      // Créer l'utilisateur admin
+      // Create admin user — also store phone so they can log in by phone
       const passwordHash = await bcrypt.hash(adminPassword, 10);
-      const user = await tx.user.create({
+      await tx.user.create({
         data: {
           name: adminName,
           email: adminEmail,
+          phone: normalizedPhone, // allows phone-based login
           passwordHash,
           tenantId: tenant.id,
           roleId: adminRole.id,
-          isActive: false, // Inactif jusqu'à validation du tenant
+          isActive: false, // inactive until tenant is validated by super-admin
         },
       });
 
-      return { tenant, user };
+      return tenant;
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Votre demande d'inscription a été envoyée. Un administrateur validera votre compte prochainement." 
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Votre demande d'inscription a été envoyée. Un administrateur validera votre compte prochainement.",
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("[TENANT REGISTER ERROR]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

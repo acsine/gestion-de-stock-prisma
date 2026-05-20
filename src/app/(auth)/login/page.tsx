@@ -4,42 +4,80 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, type LoginInput } from "@/lib/validations";
-import { Boxes, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import {
+  Boxes,
+  Eye,
+  EyeOff,
+  Loader2,
+  ArrowRight,
+  Mail,
+  Phone,
+  Globe,
+} from "lucide-react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
+// Country codes list (same as registration)
+const COUNTRY_CODES = [
+  { code: "+237", flag: "🇨🇲", label: "Cameroun" },
+  { code: "+225", flag: "🇨🇮", label: "Côte d'Ivoire" },
+  { code: "+221", flag: "🇸🇳", label: "Sénégal" },
+  { code: "+242", flag: "🇨🇬", label: "Congo" },
+  { code: "+243", flag: "🇨🇩", label: "RD Congo" },
+  { code: "+241", flag: "🇬🇦", label: "Gabon" },
+  { code: "+229", flag: "🇧🇯", label: "Bénin" },
+  { code: "+226", flag: "🇧🇫", label: "Burkina Faso" },
+  { code: "+223", flag: "🇲🇱", label: "Mali" },
+  { code: "+228", flag: "🇹🇬", label: "Togo" },
+  { code: "+234", flag: "🇳🇬", label: "Nigeria" },
+  { code: "+233", flag: "🇬🇭", label: "Ghana" },
+  { code: "+212", flag: "🇲🇦", label: "Maroc" },
+  { code: "+216", flag: "🇹🇳", label: "Tunisie" },
+  { code: "+213", flag: "🇩🇿", label: "Algérie" },
+  { code: "+20",  flag: "🇪🇬", label: "Égypte" },
+  { code: "+27",  flag: "🇿🇦", label: "Afrique du Sud" },
+  { code: "+33",  flag: "🇫🇷", label: "France" },
+  { code: "+32",  flag: "🇧🇪", label: "Belgique" },
+  { code: "+41",  flag: "🇨🇭", label: "Suisse" },
+  { code: "+1",   flag: "🇺🇸", label: "États-Unis" },
+  { code: "+44",  flag: "🇬🇧", label: "Royaume-Uni" },
+  { code: "+49",  flag: "🇩🇪", label: "Allemagne" },
+  { code: "+34",  flag: "🇪🇸", label: "Espagne" },
+  { code: "+39",  flag: "🇮🇹", label: "Italie" },
+  { code: "+351", flag: "🇵🇹", label: "Portugal" },
+  { code: "+55",  flag: "🇧🇷", label: "Brésil" },
+  { code: "+86",  flag: "🇨🇳", label: "Chine" },
+  { code: "+91",  flag: "🇮🇳", label: "Inde" },
+  { code: "+971", flag: "🇦🇪", label: "Émirats Arabes" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
-  });
+  // Toggle: "email" or "phone"
+  const [loginType, setLoginType] = useState<"email" | "phone">("email");
 
-  const onSubmit = async (data: LoginInput) => {
-    setError("");
-    const result = await signIn("credentials", {
-      email: data.email,
-      password: data.password,
-      redirect: false,
-    });
-    if (result?.error) {
-      setError("Email ou mot de passe incorrect");
-    } else {
-      router.push("/dashboard");
-      router.refresh();
-    }
-  };
+  // Email login
+  const [email, setEmail] = useState("");
 
+  // Phone login
+  const [dialCode, setDialCode] = useState("+237");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneInputError, setPhoneInputError] = useState("");
+
+  // Password
+  const [password, setPassword] = useState("");
+
+  // Background feature carousel
   const features = [
     { title: "Gérez votre stock", desc: "Suivez vos produits en temps réel, partout en Afrique." },
     { title: "Facturez en un clic", desc: "Générez des factures professionnelles instantanément." },
-    { title: "Synchro Cloud & Local", desc: "Travaillez même sans connexion, vos données sont en sécurité." }
+    { title: "Synchro Cloud & Local", desc: "Travaillez même sans connexion, vos données sont en sécurité." },
   ];
   const [featureIdx, setFeatureIdx] = useState(0);
 
@@ -50,31 +88,69 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, []);
 
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setPhoneInputError("");
+
+    let loginValue = "";
+
+    if (loginType === "email") {
+      if (!email.trim()) { setError("Email requis"); return; }
+      loginValue = email.trim().toLowerCase();
+    } else {
+      if (!phoneNumber.trim()) { setPhoneInputError("Numéro requis"); return; }
+      const full = `${dialCode}${phoneNumber.replace(/\s/g, "")}`;
+      const parsed = parsePhoneNumberFromString(full);
+      if (!parsed || !parsed.isValid()) {
+        setPhoneInputError("Numéro invalide pour ce code pays");
+        return;
+      }
+      loginValue = parsed.format("E.164"); // e.g. +237699123456
+    }
+
+    setIsSubmitting(true);
+    const result = await signIn("credentials", {
+      login: loginValue,
+      password,
+      redirect: false,
+    });
+
+    setIsSubmitting(false);
+
+    if (result?.error) {
+      setError(
+        loginType === "email"
+          ? "Email ou mot de passe incorrect"
+          : "Numéro de téléphone ou mot de passe incorrect"
+      );
+    } else {
+      router.push("/dashboard");
+      router.refresh();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
-      {/* Left Side: Illustration Dynamique */}
+      {/* ── Left Side: Illustration ── */}
       <div className="hidden lg:flex lg:w-1/2 bg-slate-950 relative items-center justify-center p-16 overflow-hidden">
-        <motion.div 
+        <motion.div
           key={featureIdx}
           initial={{ opacity: 0, scale: 1.1 }}
           animate={{ opacity: 0.4, scale: 1 }}
           transition={{ duration: 2 }}
           className="absolute inset-0"
         >
-          <Image 
-            src={featureIdx === 0 ? "/image/2.png" : featureIdx === 1 ? "/image/1.png" : "/image/3.png"} 
-            alt="Management Illustration" 
-            fill 
+          <Image
+            src={featureIdx === 0 ? "/image/2.png" : featureIdx === 1 ? "/image/1.png" : "/image/3.png"}
+            alt="Management Illustration"
+            fill
             className="object-cover"
           />
         </motion.div>
-        
+
         <div className="relative z-10 w-full max-w-lg">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
             <div className="inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-8">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30">
                 <Boxes className="text-white w-5 h-5" />
@@ -91,8 +167,8 @@ export default function LoginPage() {
                 className="space-y-6"
               >
                 <h2 className="text-6xl font-black text-white leading-tight">
-                  {features[featureIdx].title.split(" ").map((word, i) => (
-                    <span key={i} className={i === features[featureIdx].title.split(" ").length - 1 ? "text-blue-500" : ""}>
+                  {features[featureIdx].title.split(" ").map((word, i, arr) => (
+                    <span key={i} className={i === arr.length - 1 ? "text-blue-500" : ""}>
                       {word}{" "}
                     </span>
                   ))}
@@ -104,37 +180,61 @@ export default function LoginPage() {
             </div>
           </motion.div>
 
-          {/* Dots Indicator */}
+          {/* Dots */}
           <div className="flex gap-2">
             {features.map((_, i) => (
-              <div 
-                key={i} 
-                className={cn(
-                  "h-1.5 transition-all duration-500 rounded-full",
-                  i === featureIdx ? "w-10 bg-blue-500" : "w-2 bg-white/20"
-                )} 
+              <div
+                key={i}
+                className={cn("h-1.5 transition-all duration-500 rounded-full", i === featureIdx ? "w-10 bg-blue-500" : "w-2 bg-white/20")}
               />
             ))}
           </div>
         </div>
-        
-        <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent"></div>
+
+        <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
       </div>
 
-      {/* Right Side: Form */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:p-24 bg-mesh">
-        <motion.div 
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="max-w-md w-full"
-        >
+      {/* ── Right Side: Form ── */}
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-24">
+        <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} className="max-w-md w-full">
           <div className="mb-10">
             <h1 className="text-4xl font-black text-slate-900 mb-2">Bienvenue</h1>
             <p className="text-slate-500 font-medium">Connectez-vous pour continuer sur votre espace.</p>
           </div>
 
+          {/* ── Email / Phone Toggle Switch ── */}
+          <div className="flex items-center bg-slate-100 rounded-2xl p-1 mb-8 gap-1">
+            <button
+              type="button"
+              onClick={() => { setLoginType("email"); setError(""); setPhoneInputError(""); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300",
+                loginType === "email"
+                  ? "bg-white text-blue-600 shadow-md shadow-slate-200"
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <Mail className="w-4 h-4" />
+              Email
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLoginType("phone"); setError(""); setPhoneInputError(""); }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300",
+                loginType === "phone"
+                  ? "bg-white text-blue-600 shadow-md shadow-slate-200"
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <Phone className="w-4 h-4" />
+              Téléphone
+            </button>
+          </div>
+
+          {/* Error */}
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold rounded-xl"
@@ -143,28 +243,89 @@ export default function LoginPage() {
             </motion.div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Adresse email</label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400">@</div>
-                <input
-                  {...register("email")}
-                  type="email"
-                  placeholder="nom@exemple.com"
-                  className="input-premium pl-12"
-                  autoComplete="email"
-                />
-              </div>
-              {errors.email && <p className="text-rose-500 text-xs font-bold mt-1 ml-1">{errors.email.message}</p>}
-            </div>
+          <form onSubmit={onSubmit} className="space-y-6">
+            {/* ── Animated Login Field ── */}
+            <AnimatePresence mode="wait">
+              {loginType === "email" ? (
+                <motion.div
+                  key="email-field"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2"
+                >
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Adresse email
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 text-lg">@</div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="nom@exemple.com"
+                      className="input-premium pl-12"
+                      autoComplete="email"
+                    />
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="phone-field"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-2"
+                >
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Numéro de téléphone
+                  </label>
+                  <div className="flex gap-2">
+                    {/* Country code */}
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <select
+                        value={dialCode}
+                        onChange={(e) => { setDialCode(e.target.value); setPhoneInputError(""); }}
+                        className="appearance-none bg-white border border-slate-200 rounded-2xl pl-9 pr-4 h-[50px] text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer min-w-[130px]"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={c.code + c.label} value={c.code}>
+                            {c.flag} {c.code} {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Number */}
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => { setPhoneNumber(e.target.value); setPhoneInputError(""); }}
+                        placeholder="699 123 456"
+                        className="input-premium pl-12 w-full"
+                        autoComplete="tel"
+                      />
+                    </div>
+                  </div>
+                  {phoneInputError && (
+                    <p className="text-rose-500 text-xs font-bold ml-1">{phoneInputError}</p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
+            {/* ── Password ── */}
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Mot de passe</label>
               <div className="relative">
                 <input
-                  {...register("password")}
                   type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="input-premium pr-12"
                   autoComplete="current-password"
@@ -177,9 +338,9 @@ export default function LoginPage() {
                   {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {errors.password && <p className="text-rose-500 text-xs font-bold mt-1 ml-1">{errors.password.message}</p>}
             </div>
 
+            {/* ── Submit ── */}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -190,10 +351,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-
-
           <p className="mt-8 text-center text-slate-500 font-medium">
-            Pas encore de compte ? <Link href="/register-company" className="text-blue-600 font-bold hover:underline">Créer une entreprise</Link>
+            Pas encore de compte ?{" "}
+            <Link href="/register-company" className="text-blue-600 font-bold hover:underline">
+              Créer une entreprise
+            </Link>
           </p>
         </motion.div>
       </div>

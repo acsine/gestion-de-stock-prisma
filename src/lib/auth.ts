@@ -1,14 +1,14 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 
+// Accepts either email or full phone (e.g. "+237699123456")
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  login: z.string().min(1),
+  password: z.string().min(1),
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -17,7 +17,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        login: { label: "Email ou Téléphone", type: "text" },
         password: { label: "Mot de passe", type: "password" },
       },
       async authorize(credentials) {
@@ -28,33 +28,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          console.log("[Auth] Attempting login for:", parsed.data.email);
-          const user = await prisma.user.findUnique({
-            where: { email: parsed.data.email.toLowerCase() }, // Force lowercase search
-            include: { 
+          const { login, password } = parsed.data;
+          const loginValue = login.trim().toLowerCase();
+
+          console.log("[Auth] Attempting login for:", loginValue);
+
+          // Try to find user by email first, then by phone
+          let user = await prisma.user.findUnique({
+            where: { email: loginValue },
+            include: {
               role: { include: { permissions: true } },
-              tenant: { include: { license: true } }
-            }
+              tenant: { include: { license: true } },
+            },
           });
 
+          // If not found by email, try phone (stored as international format e.g. +237699...)
           if (!user) {
-            console.warn("[Auth] User not found:", parsed.data.email);
+            user = await prisma.user.findUnique({
+              where: { phone: loginValue },
+              include: {
+                role: { include: { permissions: true } },
+                tenant: { include: { license: true } },
+              },
+            });
+          }
+
+          if (!user) {
+            console.warn("[Auth] User not found:", loginValue);
             return null;
           }
 
-          const passwordMatch = await bcrypt.compare(
-            parsed.data.password,
-            user.passwordHash
-          );
-          
+          const passwordMatch = await bcrypt.compare(password, user.passwordHash);
           console.log("[Auth] Password match result:", passwordMatch);
-          
+
           if (!passwordMatch) {
-            console.warn("[Auth] Password mismatch for:", parsed.data.email);
+            console.warn("[Auth] Password mismatch for:", loginValue);
             return null;
           }
 
-          const canDownload = user.isSuperAdmin || user.tenant?.license?.canDownload || false;
+          const canDownload =
+            user.isSuperAdmin || user.tenant?.license?.canDownload || false;
 
           return {
             id: user.id,
@@ -64,7 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: user.name,
             email: user.email,
             role: user.role?.name || "VENDEUR",
-            permissions: user.role?.permissions?.map(p => p.code) || [],
+            permissions: user.role?.permissions?.map((p) => p.code) || [],
             mustChangePassword: user.mustChangePassword,
             isActive: user.isActive,
           };
