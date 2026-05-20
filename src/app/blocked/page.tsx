@@ -53,7 +53,7 @@ export default function BlockedPage() {
   useEffect(() => {
     async function verifyUserStatus() {
       try {
-        const res = await fetch("/api/users/check-status");
+        const res = await fetch("/api/users/check-status", { cache: "no-store" });
         if (res.ok) {
           const status = await res.json();
           if (status.active) {

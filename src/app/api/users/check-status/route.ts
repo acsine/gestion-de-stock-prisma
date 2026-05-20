@@ -3,11 +3,22 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantSubscription } from "@/lib/subscription";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await auth();
     if (!session || !session.user?.id) {
-      return NextResponse.json({ active: false, authenticated: false });
+      return NextResponse.json(
+        { active: false, authenticated: false },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+          }
+        }
+      );
     }
 
     const dbUser = await prisma.user.findUnique({
@@ -26,11 +37,28 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
-      active,
-      authenticated: true
-    });
+    return NextResponse.json(
+      {
+        active,
+        authenticated: true
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        }
+      }
+    );
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message },
+      { 
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        }
+      }
+    );
   }
 }
