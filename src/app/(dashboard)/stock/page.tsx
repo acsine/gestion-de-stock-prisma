@@ -1,10 +1,10 @@
 "use client";
 // src/app/(dashboard)/stock/page.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStockMovements, useCreateStockMovement } from "@/hooks/useQueries";
 import { useProducts } from "@/hooks/useProducts";
 import { useUIStore } from "@/stores/useUIStore";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { ArrowLeftRight, Plus, RefreshCw, ArrowUp, ArrowDown, X } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,9 +27,24 @@ function MovementForm({ onClose }: { onClose: () => void }) {
   const { data: prodData } = useProducts({ status: "ACTIF" });
   const { mutateAsync, isPending } = useCreateStockMovement();
   const { addToast } = useUIStore();
-  const { register, handleSubmit, control, formState: { errors } } = useForm<StockMovementInput>({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<StockMovementInput>({
     resolver: zodResolver(stockMovementSchema),
   });
+
+  const productId = watch("productId");
+  const type = watch("type");
+
+  useEffect(() => {
+    if (productId && type && prodData?.data) {
+      const product = prodData.data.find((p: any) => p.id === productId);
+      if (product) {
+        const isSaleOrReturn = type.startsWith("SORTIE_") || type === "ENTREE_RETOUR";
+        const price = isSaleOrReturn ? product.sellPrice : product.buyPrice;
+        setValue("unitPrice", price);
+      }
+    }
+  }, [productId, type, prodData, setValue]);
+
   const onSubmit = async (data: StockMovementInput) => {
     const res = await mutateAsync(data);
     if (res.error) { addToast({ type: "error", title: "Erreur", message: typeof res.error === "string" ? res.error : "Erreur" }); return; }
@@ -128,14 +143,33 @@ export default function StockPage() {
       </div>
       <div className="table-container">
         <table className="data-table">
-          <thead><tr><th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Prix Unit.</th><th>Référence</th><th>Utilisateur</th><th>Note</th></tr></thead>
+          <thead><tr><th>Date</th><th>Produit</th><th>Type</th><th>Quantité</th><th>Prix Unit.</th><th>Marge</th><th>Référence</th><th>Utilisateur</th><th>Note</th></tr></thead>
           <tbody>
             {isLoading ? (
-              <TableLoading colSpan={8} />
+              <TableLoading colSpan={9} />
             ) : movements.length === 0 ? (
-              <TableEmpty colSpan={8} message="Aucun mouvement trouvé" icon={ArrowLeftRight} />
+              <TableEmpty colSpan={9} message="Aucun mouvement trouvé" icon={ArrowLeftRight} />
             ) : movements.map((m: any) => {
               const isIn = m.type.startsWith("ENTREE");
+              const buyPrice = m.product?.buyPrice || 0;
+              const sellPrice = m.product?.sellPrice || 0;
+              const unitPrice = m.unitPrice ?? sellPrice;
+              const quantity = m.quantity || 0;
+
+              let margin = 0;
+              let hasMargin = false;
+
+              if (m.type === "SORTIE_VENTE") {
+                margin = (unitPrice - buyPrice) * quantity;
+                hasMargin = true;
+              } else if (m.type === "ENTREE_RETOUR") {
+                margin = - (unitPrice - buyPrice) * quantity;
+                hasMargin = true;
+              } else if (m.type === "SORTIE_PERTE" || m.type === "SORTIE_USAGE_INTERNE") {
+                margin = - buyPrice * quantity;
+                hasMargin = true;
+              }
+
               return (
                 <tr key={m.id}>
                   <td className="text-xs text-gray-500 whitespace-nowrap">{formatDate(m.createdAt)}</td>
@@ -143,6 +177,20 @@ export default function StockPage() {
                   <td><div className="flex items-center gap-1.5"><span className={`p-1 rounded-full ${isIn ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>{isIn ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}</span><span className="text-xs">{MOVEMENT_TYPES.find(t => t.value === m.type)?.label || m.type}</span></div></td>
                   <td className={`font-bold ${isIn ? "text-green-700" : "text-red-700"}`}>{isIn ? "+" : "-"}{m.quantity} {m.product?.unit}</td>
                   <td>{m.unitPrice ? formatCurrency(m.unitPrice) : "—"}</td>
+                  <td>
+                    {hasMargin ? (
+                      <span className={cn(
+                        "font-semibold text-xs px-2.5 py-1 rounded-full border",
+                        margin > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                        margin < 0 ? "bg-rose-50 text-rose-700 border-rose-200" : 
+                        "bg-slate-50 text-slate-600 border-slate-200"
+                      )}>
+                        {margin > 0 ? "+" : ""}{formatCurrency(margin)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
                   <td className="text-xs text-gray-500">{m.reference || "—"}</td>
                   <td className="text-xs text-gray-500">{m.user?.name}</td>
                   <td className="text-xs text-gray-400 max-w-32 truncate">{m.note || "—"}</td>
@@ -156,3 +204,4 @@ export default function StockPage() {
     </div>
   );
 }
+

@@ -29,7 +29,8 @@ export async function GET() {
     const [
       totalProducts, alertCount, ruptureCount,
       products, monthInvoices, todayInvoices,
-      recentInvoices, allInvoices, allTransactions
+      recentInvoices, allInvoices, allTransactions,
+      monthMovements
     ] = await Promise.all([
       prisma.product.count({ where: { ...baseWhere, status: "ACTIF" } }),
       prisma.alert.count({ where: { ...baseWhere, isRead: false } }),
@@ -51,6 +52,20 @@ export async function GET() {
       prisma.transaction.findMany({
         where: { ...baseWhere, date: { gte: sixMonthsAgo } },
         select: { amount: true, type: true, date: true }
+      }),
+      prisma.stockMovement.findMany({
+        where: {
+          ...baseWhere,
+          createdAt: { gte: startOfMonth }
+        },
+        include: {
+          product: {
+            select: {
+              buyPrice: true,
+              sellPrice: true
+            }
+          }
+        }
       })
     ]);
 
@@ -59,6 +74,22 @@ export async function GET() {
     const currentMonthExpenses = allTransactions
       .filter(tx => tx.type === "DEPENSE" && tx.date >= startOfMonth)
       .reduce((sum, tx) => sum + tx.amount, 0);
+
+    const movementMargin = monthMovements.reduce((sum, m) => {
+      const buyPrice = m.product?.buyPrice || 0;
+      const sellPrice = m.product?.sellPrice || 0;
+      const unitPrice = m.unitPrice ?? sellPrice;
+      const quantity = m.quantity || 0;
+
+      if (m.type === "SORTIE_VENTE") {
+        return sum + (unitPrice - buyPrice) * quantity;
+      } else if (m.type === "ENTREE_RETOUR") {
+        return sum - (unitPrice - buyPrice) * quantity;
+      } else if (m.type === "SORTIE_PERTE" || m.type === "SORTIE_USAGE_INTERNE") {
+        return sum - buyPrice * quantity;
+      }
+      return sum;
+    }, 0);
     
     const pendingInvoices = monthInvoices.filter((i) => i.total > i.paidAmount).length;
 
@@ -99,6 +130,7 @@ export async function GET() {
         monthRevenue,
         monthExpenses: currentMonthExpenses,
         monthProfit: monthRevenue - currentMonthExpenses,
+        movementMargin,
         revenueTrend,
         pendingInvoices,
         todayInvoices: todayInvoices.length,

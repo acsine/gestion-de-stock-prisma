@@ -1,19 +1,29 @@
+// src/app/(dashboard)/superadmin/support/page.tsx
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, MessageSquare, User, Send, CheckCircle2, RefreshCw, X, ChevronLeft } from "lucide-react";
+import { LifeBuoy, MessageSquare, User, Send, CheckCircle2, RefreshCw, X, ChevronLeft, Paperclip, Eye, ExternalLink } from "lucide-react";
 import { useTickets, useTicket, useSendMessage } from "@/hooks/useQueries";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/stores/useUIStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminSupportPage() {
+  const { addToast } = useUIStore();
+  const qc = useQueryClient();
   const { data: ticketsData, isLoading: isLoadingList } = useTickets();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: ticketDetail, isLoading: isLoadingDetail } = useTicket(selectedId || "");
   const { mutate: sendMessage } = useSendMessage();
   const [msg, setMsg] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+
+  // Upload States
+  const [chatFileUrl, setChatFileUrl] = useState<string | null>(null);
+  const [chatUploading, setChatUploading] = useState(false);
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
 
   const tickets = ticketsData?.data || [];
   const ticket = ticketDetail?.data;
@@ -23,11 +33,92 @@ export default function AdminSupportPage() {
     setMobileView("detail");
   };
 
+  const uploadFileToIK = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error("Erreur de chargement");
+    }
+
+    const data = await res.json();
+    return data.url || null;
+  };
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!msg.trim() || !selectedId) return;
-    sendMessage({ ticketId: selectedId, content: msg });
+    let finalContent = msg.trim();
+    if (chatFileUrl) {
+      finalContent += (finalContent ? "\n\n" : "") + `![Fichier](${chatFileUrl})`;
+    }
+    if (!finalContent || !selectedId) return;
+
+    sendMessage({ ticketId: selectedId, content: finalContent });
     setMsg("");
+    setChatFileUrl(null);
+  };
+
+  const renderMessageContent = (content: string, isAdminMessage: boolean) => {
+    // Regex for markdown images: ![alt](url)
+    const regex = /!\[(.*?)\]\((.*?)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      const matchIndex = match.index;
+      if (matchIndex > lastIndex) {
+        parts.push(content.substring(lastIndex, matchIndex));
+      }
+      parts.push({
+        type: "image",
+        alt: match[1],
+        url: match[2]
+      });
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    if (parts.length === 0) {
+      return <p className="text-xs md:text-sm leading-relaxed whitespace-pre-wrap break-words">{content}</p>;
+    }
+
+    return (
+      <div className="space-y-2 text-xs md:text-sm leading-relaxed whitespace-pre-wrap break-words">
+        {parts.map((part: any, idx: number) => {
+          if (typeof part === "string") {
+            return <span key={idx}>{part}</span>;
+          } else {
+            return (
+              <div 
+                key={idx} 
+                className="my-2 select-none group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-900/5 max-w-xs cursor-zoom-in"
+                onClick={() => setZoomImageUrl(part.url)}
+              >
+                <img
+                  src={part.url}
+                  alt={part.alt}
+                  className="max-h-40 w-full object-cover transition-all duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-all text-white">
+                  <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                    <Eye className="w-3.5 h-3.5" /> Agrandir
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        })}
+      </div>
+    );
   };
 
   return (
@@ -130,14 +221,15 @@ export default function AdminSupportPage() {
                           body: JSON.stringify({ ticketId: ticket.id }),
                         });
                         if (res.ok) {
-                          alert("Abonnement activé et client débloqué !");
+                          addToast({ type: "success", title: "Paiement Validé", message: "Abonnement activé et client débloqué !" });
+                          qc.invalidateQueries({ queryKey: ["tickets"] });
                           window.location.reload();
                         } else {
                           const err = await res.json();
-                          alert(err.error || "Une erreur est survenue");
+                          addToast({ type: "error", title: "Erreur", message: err.error || "Une erreur est survenue" });
                         }
                       } catch (err) {
-                        alert("Erreur réseau");
+                        addToast({ type: "error", title: "Erreur", message: "Erreur réseau" });
                       }
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
@@ -150,12 +242,12 @@ export default function AdminSupportPage() {
               <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 bg-slate-50/50">
                 {ticket.messages?.map((m: any) => (
                   <div key={m.id} className={cn("flex gap-2 md:gap-3", m.isAdmin ? "justify-end" : "")}>
-                    {!m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-slate-200 flex-shrink-0" />}
+                    {!m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-500 text-[8px] md:text-[10px] font-black uppercase">{ticket.user?.name?.[0] || "M"}</div>}
                     <div className={cn(
                       "p-3 md:p-4 rounded-xl md:rounded-2xl max-w-[85%] md:max-w-[80%]",
                       m.isAdmin ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20 rounded-tr-none" : "bg-white text-slate-700 border border-slate-100 shadow-sm rounded-tl-none"
                     )}>
-                      <p className="text-xs md:text-sm leading-relaxed">{m.content}</p>
+                      {renderMessageContent(m.content, m.isAdmin)}
                       <span className={cn(
                         "text-[8px] md:text-[10px] font-medium mt-2 block text-right",
                         m.isAdmin ? "text-blue-200" : "text-slate-400"
@@ -163,29 +255,124 @@ export default function AdminSupportPage() {
                         {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
                       </span>
                     </div>
-                    {m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-blue-700 flex-shrink-0" />}
+                    {m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-blue-700 flex-shrink-0 flex items-center justify-center text-white text-[8px] md:text-[10px] font-black uppercase">SUP</div>}
                   </div>
                 ))}
               </div>
 
+              {/* Live attachment preparation preview */}
+              {(chatFileUrl || chatUploading) && (
+                <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
+                  <div className="flex items-center gap-3">
+                    {chatUploading ? (
+                      <div className="w-10 h-10 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center">
+                        <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                      </div>
+                    ) : (
+                      <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-900 shadow-sm">
+                        <img src={chatFileUrl!} alt="Pièce jointe" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-xs font-bold text-slate-700">
+                        {chatUploading ? "Chargement du fichier..." : "Image prête à être envoyée"}
+                      </span>
+                      <p className="text-[10px] text-slate-400 font-medium">Sera jointe à votre réponse</p>
+                    </div>
+                  </div>
+                  {!chatUploading && (
+                    <button 
+                      type="button" 
+                      onClick={() => setChatFileUrl(null)} 
+                      className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="p-3 md:p-4 border-t border-slate-100 bg-white">
-                <form onSubmit={handleSend} className="relative">
-                  <input 
-                    type="text" 
-                    value={msg}
-                    onChange={(e) => setMsg(e.target.value)}
-                    placeholder="Répondre..." 
-                    className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                  <button type="submit" className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg md:rounded-xl hover:bg-blue-700 transition-all">
-                    <Send className="w-4 h-4 md:w-5 md:h-5" />
-                  </button>
+                <form onSubmit={handleSend} className="flex items-center gap-2">
+                  <label className={cn(
+                    "p-2.5 md:p-3.5 border border-slate-200 rounded-xl md:rounded-2xl cursor-pointer transition-all flex items-center justify-center flex-shrink-0",
+                    chatUploading ? "bg-slate-100 text-slate-300 cursor-not-allowed" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  )}>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={chatUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setChatUploading(true);
+                        try {
+                          const url = await uploadFileToIK(file);
+                          if (url) {
+                            setChatFileUrl(url);
+                          }
+                        } catch (err) {
+                          addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                        } finally {
+                          setChatUploading(false);
+                        }
+                      }}
+                    />
+                    <Paperclip className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                  </label>
+
+                  <div className="relative flex-1">
+                    <input 
+                      type="text" 
+                      value={msg}
+                      onChange={(e) => setMsg(e.target.value)}
+                      placeholder="Répondre..." 
+                      className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={chatUploading}
+                      className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg md:rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4 md:w-5 md:h-5" />
+                    </button>
+                  </div>
                 </form>
               </div>
             </>
           )}
         </div>
       </div>
+
+      {/* Lightbox / Zoom Overlay */}
+      {zoomImageUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setZoomImageUrl(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10"
+            onClick={() => setZoomImageUrl(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <img src={zoomImageUrl} alt="Reçu Agrandissement" className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
+            <div className="mt-4 flex justify-center gap-4">
+              <a 
+                href={zoomImageUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
+              >
+                Ouvrir en plein écran <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

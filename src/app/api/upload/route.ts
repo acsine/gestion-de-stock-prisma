@@ -1,7 +1,5 @@
 // src/app/api/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { auth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -16,24 +14,35 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Nom de fichier propre
-    const ext = file.name.split('.').pop();
-    const filename = `logo-${Date.now()}.${ext}`;
-    
-    // Chemin vers public/uploads
-    const uploadDir = join(process.cwd(), "public", "uploads");
-    
-    // S'assurer que le dossier existe
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (e) {}
+    const imageKitPrivate = "private_v/s4IdMvOPXJfZx0b5rnUq4eyQg=";
 
-    const path = join(uploadDir, filename);
-    await writeFile(path, buffer);
+    // Send file to ImageKit via standard Form Data
+    const ikFormData = new FormData();
+    const blob = new Blob([buffer], { type: file.type });
+    ikFormData.append("file", blob, file.name);
+    
+    // Clean and stamp filename
+    const sanitizedName = `file-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    ikFormData.append("fileName", sanitizedName);
 
+    const res = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + Buffer.from(imageKitPrivate + ":").toString("base64")
+      },
+      body: ikFormData
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("ImageKit upload error details:", errText);
+      return NextResponse.json({ error: "Erreur de chargement sur ImageKit" }, { status: 502 });
+    }
+
+    const ikData = await res.json();
     return NextResponse.json({ 
       success: true, 
-      url: `/uploads/${filename}` 
+      url: ikData.url // The direct ImageKit URL
     });
   } catch (error: any) {
     console.error("Upload error:", error);

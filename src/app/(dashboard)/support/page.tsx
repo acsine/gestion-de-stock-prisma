@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, Send, MessageSquare, Plus, RefreshCw, AlertCircle, X } from "lucide-react";
+import { LifeBuoy, Send, MessageSquare, Plus, RefreshCw, AlertCircle, X, Paperclip, Eye, ExternalLink } from "lucide-react";
 import { useTickets, useTicket, useCreateTicket, useSendMessage } from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatDistanceToNow } from "date-fns";
@@ -25,6 +25,12 @@ export default function SupportPage() {
   const [priority, setPriority] = useState("NORMALE");
   const [chatMsg, setChatMsg] = useState("");
 
+  // Upload States
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [chatFileUrl, setChatFileUrl] = useState<string | null>(null);
+  const [chatUploading, setChatUploading] = useState(false);
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+
   const tickets = ticketsData?.data || [];
   const ticket = ticketDetail?.data;
 
@@ -39,6 +45,23 @@ export default function SupportPage() {
     setSelectedId(id);
     setShowNew(false);
     setMobileView("detail");
+  };
+
+  const uploadFileToIK = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error("Erreur de chargement");
+    }
+
+    const data = await res.json();
+    return data.url || null;
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -67,9 +90,73 @@ export default function SupportPage() {
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatMsg.trim() || !selectedId) return;
-    sendMessage({ ticketId: selectedId, content: chatMsg });
+    let finalContent = chatMsg.trim();
+    if (chatFileUrl) {
+      finalContent += (finalContent ? "\n\n" : "") + `![Pièce Jointe](${chatFileUrl})`;
+    }
+    if (!finalContent || !selectedId) return;
+
+    sendMessage({ ticketId: selectedId, content: finalContent });
     setChatMsg("");
+    setChatFileUrl(null);
+  };
+
+  const renderMessageContent = (content: string, isAdminMessage: boolean) => {
+    // Regex for markdown images: ![alt](url)
+    const regex = /!\[(.*?)\]\((.*?)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      const matchIndex = match.index;
+      if (matchIndex > lastIndex) {
+        parts.push(content.substring(lastIndex, matchIndex));
+      }
+      parts.push({
+        type: "image",
+        alt: match[1],
+        url: match[2]
+      });
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    if (parts.length === 0) {
+      return <p className="text-xs md:text-sm leading-relaxed whitespace-pre-wrap break-words">{content}</p>;
+    }
+
+    return (
+      <div className="space-y-2 text-xs md:text-sm leading-relaxed whitespace-pre-wrap break-words">
+        {parts.map((part: any, idx: number) => {
+          if (typeof part === "string") {
+            return <span key={idx}>{part}</span>;
+          } else {
+            return (
+              <div 
+                key={idx} 
+                className="my-2 select-none group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-900/5 max-w-xs cursor-zoom-in"
+                onClick={() => setZoomImageUrl(part.url)}
+              >
+                <img
+                  src={part.url}
+                  alt={part.alt}
+                  className="max-h-40 w-full object-cover transition-all duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-all text-white">
+                  <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
+                    <Eye className="w-3.5 h-3.5" /> Agrandir
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        })}
+      </div>
+    );
   };
 
   return (
@@ -120,7 +207,9 @@ export default function SupportPage() {
                   )}>{t.status}</span>
                 </div>
                 <h4 className="text-sm font-bold text-slate-800 truncate">{t.subject}</h4>
-                <p className="text-[11px] text-slate-400 font-medium">{formatDistanceToNow(new Date(t.updatedAt), { addSuffix: true, locale: fr })}</p>
+                <p className="text-[11px] text-slate-400 font-medium">
+                  {formatDistanceToNow(new Date(t.updatedAt), { addSuffix: true, locale: fr })}
+                </p>
               </div>
             ))}
           </div>
@@ -134,7 +223,9 @@ export default function SupportPage() {
           {showNew ? (
             <div className="p-6 md:p-8 flex-1 overflow-y-auto">
               <div className="flex items-center gap-4 mb-6 md:hidden">
-                <button onClick={() => setMobileView("list")} className="p-2 bg-slate-100 rounded-lg text-slate-500"><X className="w-4 h-4" /></button>
+                <button type="button" onClick={() => setMobileView("list")} className="p-2 bg-slate-100 rounded-lg text-slate-500">
+                  <X className="w-4 h-4" />
+                </button>
                 <h2 className="font-bold text-slate-800">Nouveau Ticket</h2>
               </div>
               <h2 className="hidden md:block text-xl font-black text-slate-800 mb-6">Ouvrir une nouvelle demande</h2>
@@ -171,10 +262,52 @@ export default function SupportPage() {
                     className="w-full px-4 py-2 md:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="flex gap-3 md:gap-4">
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Image ou document (Optionnel)</label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl cursor-pointer text-xs font-bold text-slate-600 transition-all select-none">
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingFile}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingFile(true);
+                          try {
+                            const url = await uploadFileToIK(file);
+                            if (url) {
+                              setMessage((prev) => prev + (prev ? "\n\n" : "") + `![Capture](${url})`);
+                              addToast({ type: "success", title: "Fichier attaché", message: "Le justificatif a été inséré dans votre description." });
+                            }
+                          } catch (err) {
+                            addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                          } finally {
+                            setUploadingFile(false);
+                          }
+                        }}
+                      />
+                      {uploadingFile ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                          <span>Chargement...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip className="w-4 h-4 text-slate-500" />
+                          <span>Sélectionner une capture / reçu</span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 md:gap-4 pt-2">
                   <button 
                     type="submit"
-                    disabled={isCreating}
+                    disabled={isCreating || uploadingFile}
                     className="flex-1 py-3 md:py-4 bg-blue-600 text-white text-xs md:text-sm font-black uppercase tracking-widest rounded-xl md:rounded-2xl hover:bg-blue-700 disabled:opacity-50"
                   >
                     {isCreating ? "Création..." : "Envoyer"}
@@ -212,7 +345,7 @@ export default function SupportPage() {
                         "p-3 md:p-4 rounded-xl md:rounded-2xl max-w-[85%] md:max-w-[80%]",
                         !m.isAdmin ? "bg-white text-slate-700 border border-slate-100 shadow-sm rounded-tr-none" : "bg-blue-600 text-white shadow-lg shadow-blue-500/20 rounded-tl-none"
                       )}>
-                        <p className="text-xs md:text-sm leading-relaxed">{m.content}</p>
+                        {renderMessageContent(m.content, m.isAdmin)}
                         <span className={cn(
                           "text-[8px] md:text-[10px] font-medium mt-2 block text-right",
                           !m.isAdmin ? "text-slate-400" : "text-blue-200"
@@ -220,23 +353,89 @@ export default function SupportPage() {
                           {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
                         </span>
                       </div>
-                      {!m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-slate-200 flex-shrink-0" />}
+                      {!m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-500 text-[8px] md:text-[10px] font-black uppercase">{ticket.user?.name?.[0] || "M"}</div>}
                     </div>
                   ))}
                 </div>
 
+                {/* Live attachment preparation preview */}
+                {(chatFileUrl || chatUploading) && (
+                  <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-200">
+                    <div className="flex items-center gap-3">
+                      {chatUploading ? (
+                        <div className="w-10 h-10 rounded-lg bg-slate-200 border border-slate-300 flex items-center justify-center">
+                          <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                        </div>
+                      ) : (
+                        <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-900 shadow-sm">
+                          <img src={chatFileUrl!} alt="Pièce jointe" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-xs font-bold text-slate-700">
+                          {chatUploading ? "Chargement du fichier..." : "Image prête à être envoyée"}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium">Sera jointe à votre message</p>
+                      </div>
+                    </div>
+                    {!chatUploading && (
+                      <button 
+                        type="button" 
+                        onClick={() => setChatFileUrl(null)} 
+                        className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition-all"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="p-3 md:p-4 border-t border-slate-100 bg-white">
-                  <form onSubmit={handleSend} className="relative">
-                    <input 
-                      type="text" 
-                      value={chatMsg}
-                      onChange={(e) => setChatMsg(e.target.value)}
-                      placeholder="Répondre..." 
-                      className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                    />
-                    <button type="submit" className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg md:rounded-xl hover:bg-blue-700 transition-all">
-                      <Send className="w-4 h-4 md:w-5 md:h-5" />
-                    </button>
+                  <form onSubmit={handleSend} className="flex items-center gap-2">
+                    <label className={cn(
+                      "p-2.5 md:p-3.5 border border-slate-200 rounded-xl md:rounded-2xl cursor-pointer transition-all flex items-center justify-center flex-shrink-0",
+                      chatUploading ? "bg-slate-100 text-slate-300 cursor-not-allowed" : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                    )}>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        disabled={chatUploading}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setChatUploading(true);
+                          try {
+                            const url = await uploadFileToIK(file);
+                            if (url) {
+                              setChatFileUrl(url);
+                            }
+                          } catch (err) {
+                            addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                          } finally {
+                            setChatUploading(false);
+                          }
+                        }}
+                      />
+                      <Paperclip className="w-4 h-4 md:w-5 md:h-5 text-slate-600" />
+                    </label>
+
+                    <div className="relative flex-1">
+                      <input 
+                        type="text" 
+                        value={chatMsg}
+                        onChange={(e) => setChatMsg(e.target.value)}
+                        placeholder="Répondre..." 
+                        className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                      <button 
+                        type="submit" 
+                        disabled={chatUploading}
+                        className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-lg md:rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
+                      >
+                        <Send className="w-4 h-4 md:w-5 md:h-5" />
+                      </button>
+                    </div>
                   </form>
                 </div>
               </>
@@ -247,11 +446,40 @@ export default function SupportPage() {
                 <LifeBuoy className="w-8 h-8 md:w-12 md:h-12 opacity-20" />
               </div>
               <h3 className="text-sm md:text-lg font-black text-slate-400 uppercase tracking-widest text-center">Centre de Support</h3>
-              <p className="text-xs md:text-sm font-medium max-w-xs text-center mt-2">Sélectionnez une demande pour commencer.</p>
+              <p className="text-xs md:text-sm font-medium max-w-xs text-center mt-2">Sélectionnez une demande pour commencer ou créez-en une nouvelle.</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Lightbox / Zoom Overlay */}
+      {zoomImageUrl && (
+        <div 
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setZoomImageUrl(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10"
+            onClick={() => setZoomImageUrl(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <img src={zoomImageUrl} alt="Reçu Agrandissement" className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
+            <div className="mt-4 flex justify-center gap-4">
+              <a 
+                href={zoomImageUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
+              >
+                Ouvrir en plein écran <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

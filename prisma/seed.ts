@@ -10,20 +10,18 @@ async function main() {
   // 1. LICENCES
   console.log("📝 Configuration des licences...");
   const licenses = [
-    { name: "GRATUIT", price: 0, durationDays: 1, maxUsers: 2, maxProducts: 50, canDownload: false },
-    { name: "PROFESSIONNEL", price: 50000, durationDays: 365, maxUsers: 10, maxProducts: 5000, canDownload: true },
-    { name: "ENTREPRISE", price: 150000, durationDays: 365, maxUsers: 100, maxProducts: null, canDownload: true },
+    { id: "cmpcx409e0000h8cwiorm59cx", name: "GRATUIT", price: 0, durationDays: 1, maxUsers: 2, maxProducts: 50, canDownload: false },
+    { id: "cmpcx40nd0001h8cwygodxnza", name: "PROFESSIONNEL", price: 50000, durationDays: 365, maxUsers: 10, maxProducts: 5000, canDownload: true },
+    { id: "cmpcx40ud0002h8cwepjvs0do", name: "ENTREPRISE", price: 150000, durationDays: 365, maxUsers: 100, maxProducts: null, canDownload: true },
   ];
 
   for (const l of licenses) {
     await prisma.license.upsert({
-      where: { name: l.name },
+      where: { id: l.id },
       update: { ...l },
       create: { ...l },
     });
   }
-
-  const freeLicense = await prisma.license.findUnique({ where: { name: "GRATUIT" } });
 
   // 2. SUPER ADMINISTRATEUR (Gestionnaire global ThaborSolution)
   const superAdminPassword = await bcrypt.hash("SuperAdmin@2026", 12);
@@ -31,6 +29,7 @@ async function main() {
     where: { email: "superadmin@thaborsolution.com" },
     update: {},
     create: {
+      id: "cmpcx41sd0003h8cwd8t9bhwu",
       name: "Super Administrateur ThaborSolution",
       email: "superadmin@thaborsolution.com",
       passwordHash: superAdminPassword,
@@ -42,26 +41,28 @@ async function main() {
 
   // 3. PREMIER CLIENT MARCHAND (Default Tenant)
   console.log("🏢 Création du premier tenant marchand...");
+  const tenantId = "cmpcx43ab0005h8cwmb54vjgf";
   const tenant = await prisma.tenant.upsert({
     where: { slug: "thabor-merchant" },
-    update: { licenseId: freeLicense?.id },
+    update: { licenseId: "cmpcx409e0000h8cwiorm59cx" },
     create: {
+      id: tenantId,
       name: "Thabor Merchant Demo",
       slug: "thabor-merchant",
       email: "marchand@thaborsolution.com",
       status: "ACTIVE",
-      licenseId: freeLicense?.id,
+      licenseId: "cmpcx409e0000h8cwiorm59cx",
       trialEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
     },
   });
 
-  const tenantId = tenant.id;
-
   // 4. RÔLES DU MARCHAND
+  const adminRoleId = "cmpcx43p30007h8cw1yqkjxk3";
   const adminRole = await prisma.role.upsert({
     where: { tenantId_name: { tenantId, name: "ADMIN" } },
     update: {},
     create: { 
+      id: adminRoleId,
       name: "ADMIN", 
       tenantId,
       description: "Administrateur complet du magasin" 
@@ -74,11 +75,12 @@ async function main() {
     where: { email: "marchand@thaborsolution.com" },
     update: {},
     create: {
+      id: "cmpcx45b30009h8cwiffxi4lp",
       name: "Directeur Marchand",
       email: "marchand@thaborsolution.com",
       passwordHash: merchantPassword,
       tenantId,
-      roleId: adminRole.id,
+      roleId: adminRoleId,
       isActive: true,
       mustChangePassword: false,
     },

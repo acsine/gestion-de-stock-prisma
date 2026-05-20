@@ -8,11 +8,11 @@ export const SYNCABLE_MODELS = [
   "supplier",
   "customer",
   "product",
-  "stockMovement",
   "invoice",
   "invoiceItem",
   "purchaseOrder",
   "orderItem",
+  "stockMovement",
   "payment",
   "cashAccount",
   "transaction",
@@ -20,7 +20,8 @@ export const SYNCABLE_MODELS = [
   "payroll",
   "leave",
   "alert",
-  "setting"
+  "setting",
+  "auditLog"
 ];
 
 export type SyncableModel = typeof SYNCABLE_MODELS[number];

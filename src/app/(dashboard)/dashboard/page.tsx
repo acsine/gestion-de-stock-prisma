@@ -1,14 +1,15 @@
 "use client";
 // src/app/(dashboard)/dashboard/page.tsx
+import { useState, useEffect } from "react";
 import { useDashboard } from "@/hooks/useQueries";
-import { formatCurrency, formatDate, getInvoiceStatusBadge, getInvoiceStatusLabel } from "@/lib/utils";
+import { formatCurrency, formatDate, getInvoiceStatusBadge, getInvoiceStatusLabel, cn } from "@/lib/utils";
 import {
   Package, AlertTriangle, TrendingUp, Wallet, FileText,
-  ShoppingCart, RefreshCw, ArrowUpRight, ArrowDownRight,
+  ShoppingCart, RefreshCw, ArrowUpRight, ArrowDownRight, X, ArrowLeftRight
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-function StatCard({ title, value, sub, icon: Icon, color = "blue", trend }: any) {
+function StatCard({ title, value, sub, icon: Icon, color = "blue", trend, onClick }: any) {
   const colors: Record<string, string> = {
     blue: "bg-blue-50 text-blue-600",
     green: "bg-green-50 text-green-600",
@@ -17,7 +18,13 @@ function StatCard({ title, value, sub, icon: Icon, color = "blue", trend }: any)
     purple: "bg-purple-50 text-purple-600",
   };
   return (
-    <div className="card p-5">
+    <div 
+      onClick={onClick}
+      className={cn(
+        "card p-5 transition-all duration-300",
+        onClick && "cursor-pointer hover:shadow-xl hover:scale-[1.02] border border-blue-100/50 hover:border-blue-300 bg-white"
+      )}
+    >
       <div className="flex items-start justify-between">
         <div className={`p-2.5 rounded-xl ${colors[color]}`}>
           <Icon className="w-5 h-5" />
@@ -38,8 +45,185 @@ function StatCard({ title, value, sub, icon: Icon, color = "blue", trend }: any)
   );
 }
 
+function MarginDetailModal({ onClose }: { onClose: () => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+
+  useEffect(() => {
+    fetch("/api/dashboard/margin")
+      .then((r) => r.json())
+      .then((res) => {
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const movements = data?.movements || [];
+
+  const filteredMovements = movements.filter((m: any) => {
+    const matchesSearch = (m.productName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (m.productSku || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === "" || m.type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  const currentTotal = filteredMovements.reduce((sum: number, m: any) => sum + m.margin, 0);
+
+  const MOVEMENT_LABELS: Record<string, string> = {
+    SORTIE_VENTE: "Sortie — Vente",
+    ENTREE_RETOUR: "Entrée — Retour client",
+    SORTIE_PERTE: "Sortie — Perte / Casse",
+    SORTIE_USAGE_INTERNE: "Sortie — Usage interne"
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-slate-50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 font-sans">Détail de la Marge Bénéficiaire</h2>
+            <p className="text-xs text-gray-500 mt-1">Calculée sur les mouvements de stock du mois en cours</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200/70 text-gray-500 hover:text-gray-700 rounded-xl transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Filters & Summary */}
+        <div className="p-5 border-b border-gray-100 bg-slate-50/50 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Rechercher un produit</label>
+            <input 
+              type="text" 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="input text-sm bg-white" 
+              placeholder="Nom ou SKU..." 
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Type de mouvement</label>
+            <select 
+              value={typeFilter} 
+              onChange={(e) => setTypeFilter(e.target.value)} 
+              className="input text-sm bg-white"
+            >
+              <option value="">Tous les types</option>
+              <option value="SORTIE_VENTE">Ventes uniquement</option>
+              <option value="ENTREE_RETOUR">Retours clients</option>
+              <option value="SORTIE_PERTE">Pertes / Casse</option>
+              <option value="SORTIE_USAGE_INTERNE">Usage Interne</option>
+            </select>
+          </div>
+          <div className="bg-emerald-50/70 border border-emerald-100 p-3 rounded-xl flex flex-col justify-center h-full">
+            <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Total de la Marge Filtrée</span>
+            <span className={cn(
+              "text-lg font-black mt-0.5",
+              currentTotal >= 0 ? "text-emerald-700" : "text-rose-700"
+            )}>
+              {formatCurrency(currentTotal)}
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
+              <p className="text-sm text-gray-500">Chargement des détails de la marge...</p>
+            </div>
+          ) : filteredMovements.length === 0 ? (
+            <div className="text-center py-16">
+              <ArrowLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 font-medium">Aucun mouvement trouvé</p>
+              <p className="text-xs text-gray-400 mt-1">Essayez d'ajuster vos critères de recherche ou de filtre.</p>
+            </div>
+          ) : (
+            <div className="table-container border rounded-xl overflow-hidden">
+              <table className="data-table">
+                <thead className="bg-slate-50 text-slate-700 text-xs uppercase tracking-wider font-bold">
+                  <tr>
+                    <th>Date</th>
+                    <th>Produit</th>
+                    <th>Type</th>
+                    <th>Quantité</th>
+                    <th>Coût Achat</th>
+                    <th>Prix Vente</th>
+                    <th>Marge Unit.</th>
+                    <th>Marge Totale</th>
+                    <th>Par</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-sm">
+                  {filteredMovements.map((m: any) => {
+                    const unitMargin = m.type === "SORTIE_VENTE" ? (m.unitPrice - m.buyPrice) : 
+                                       m.type === "ENTREE_RETOUR" ? -(m.unitPrice - m.buyPrice) : 
+                                       -m.buyPrice;
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="text-xs text-gray-500 whitespace-nowrap">{formatDate(m.createdAt)}</td>
+                        <td>
+                          <div className="font-semibold text-gray-900">{m.productName}</div>
+                          <div className="text-xs text-gray-400 font-mono">{m.productSku}</div>
+                        </td>
+                        <td>
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border",
+                            m.type === "SORTIE_VENTE" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                            m.type === "ENTREE_RETOUR" ? "bg-blue-50 text-blue-700 border-blue-100" :
+                            "bg-rose-50 text-rose-700 border-rose-100"
+                          )}>
+                            {MOVEMENT_LABELS[m.type] || m.type}
+                          </span>
+                        </td>
+                        <td className="font-medium text-gray-900">{m.quantity} {m.productUnit}</td>
+                        <td className="text-gray-500">{formatCurrency(m.buyPrice)}</td>
+                        <td className="text-gray-500">
+                          {["SORTIE_VENTE", "ENTREE_RETOUR"].includes(m.type) ? formatCurrency(m.unitPrice) : "—"}
+                        </td>
+                        <td className={cn(
+                          "font-medium",
+                          unitMargin > 0 ? "text-emerald-600" : unitMargin < 0 ? "text-rose-600" : "text-gray-500"
+                        )}>
+                          {unitMargin > 0 ? "+" : ""}{formatCurrency(unitMargin)}
+                        </td>
+                        <td>
+                          <span className={cn(
+                            "font-bold px-2 py-0.5 rounded-full text-xs border",
+                            m.margin > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                            m.margin < 0 ? "bg-rose-50 text-rose-700 border-rose-200" : 
+                            "bg-slate-50 text-slate-600 border-slate-200"
+                          )}>
+                            {m.margin > 0 ? "+" : ""}{formatCurrency(m.margin)}
+                          </span>
+                        </td>
+                        <td className="text-xs text-gray-500 whitespace-nowrap">{m.user}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 bg-slate-50 flex justify-end">
+          <button onClick={onClose} className="btn-secondary px-5 py-2 font-bold rounded-xl text-sm">Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { data, isLoading, refetch } = useDashboard();
+  const [showMarginModal, setShowMarginModal] = useState(false);
   const stats = data?.data;
 
   const chartData = stats?.monthlyRevenue?.map((m: any) => ({
@@ -83,7 +267,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Factures du jour" value={stats?.todayInvoices || 0} icon={FileText} color="blue" sub={formatCurrency(stats?.todaySales || 0)} />
         <StatCard title="Factures en attente" value={stats?.pendingInvoices || 0} icon={FileText} color="yellow" sub="non soldées" />
-        <StatCard title="Commandes actives" value="—" icon={ShoppingCart} color="blue" />
+        <StatCard 
+          title="Marge s/ Mouvements" 
+          value={formatCurrency(stats?.movementMargin || 0)} 
+          icon={TrendingUp} 
+          color="green" 
+          sub="cliquer pour consulter en détail" 
+          onClick={() => setShowMarginModal(true)} 
+        />
         <StatCard title="Bénéfice du mois" value={formatCurrency((stats?.monthRevenue || 0) - (stats?.monthExpenses || 0))} icon={TrendingUp} color="green" />
       </div>
 
@@ -125,6 +316,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {showMarginModal && <MarginDetailModal onClose={() => setShowMarginModal(false)} />}
     </div>
   );
 }

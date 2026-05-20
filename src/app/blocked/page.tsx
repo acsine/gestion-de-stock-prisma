@@ -49,6 +49,25 @@ export default function BlockedPage() {
     scrollToBottom();
   }, [messages]);
 
+  // 0. Check real-time user activation status on page mount / reload
+  useEffect(() => {
+    async function verifyUserStatus() {
+      try {
+        const res = await fetch("/api/users/check-status");
+        if (res.ok) {
+          const status = await res.json();
+          if (status.active) {
+            // User is active, redirect to dashboard!
+            window.location.href = "/dashboard";
+          }
+        }
+      } catch (err) {
+        console.error("Erreur lors de la vérification du statut utilisateur", err);
+      }
+    }
+    verifyUserStatus();
+  }, []);
+
   // 1. Check if the user already has an active support ticket on load
   useEffect(() => {
     async function checkActiveTicket() {
@@ -87,6 +106,17 @@ export default function BlockedPage() {
       try {
         const newMessages = JSON.parse(event.data);
         setMessages(newMessages);
+
+        // Scan messages to check if the admin validated the manual payment
+        const validationMessage = newMessages.find((msg: any) => 
+          msg.isAdmin && msg.content.includes("PAIEMENT VALIDÉ")
+        );
+        if (validationMessage) {
+          // Automatic premium redirect after a 5 second delay so they can read the notification message!
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 5000);
+        }
       } catch (err) {
         console.error("Erreur lors du traitement SSE", err);
       }

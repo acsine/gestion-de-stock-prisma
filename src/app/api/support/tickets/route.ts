@@ -15,6 +15,7 @@ export async function GET() {
     include: {
       user: { select: { name: true, email: true } },
       tenant: { select: { name: true } },
+      messages: { orderBy: { createdAt: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
