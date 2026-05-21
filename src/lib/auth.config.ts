@@ -15,6 +15,9 @@ export const authConfig = {
   },
   providers: [],
   callbacks: {
+    authorized() {
+      return true; // Let middleware.ts handle all redirection logic
+    },
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
