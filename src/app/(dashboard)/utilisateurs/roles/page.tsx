@@ -10,9 +10,10 @@ import {
   useSeedPermissions 
 } from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
-import { Shield, Plus, RefreshCw, X, Check, Search, Lock, AlertCircle, Trash2, Edit2 } from "lucide-react";
+import { Shield, Plus, RefreshCw, X, Check, Search, Lock, AlertCircle, Trash2, Edit2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/locales/i18n";
+import Link from "next/link";
 
 export default function RolesPage() {
   const { t, language } = useTranslation();
@@ -127,7 +128,6 @@ export default function RolesPage() {
   };
 
   const isPending = editingRole ? updateRole.isPending : createRole.isPending;
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -136,6 +136,10 @@ export default function RolesPage() {
           <p className="text-gray-500 text-sm">{language === "fr" ? "Gérez les niveaux d'accès de vos employés" : "Manage your employees' access levels"}</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/utilisateurs" className="btn-secondary flex items-center gap-2 text-sm">
+            <Users className="w-4 h-4" />
+            <span>{language === "fr" ? "Utilisateurs" : "Users"}</span>
+          </Link>
           <button 
             onClick={handleSeed} 
             disabled={seedPerms.isPending}
@@ -149,7 +153,6 @@ export default function RolesPage() {
           </button>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rolesLoading ? (
           <div className="col-span-full py-20 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500" /></div>

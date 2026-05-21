@@ -160,11 +160,44 @@ export function useCreateTransaction() {
   });
 }
 
-export function useCashAccounts() {
+export function useCashAccounts(params?: { all?: boolean }) {
+  const query = new URLSearchParams();
+  if (params?.all) query.set("all", "true");
+
   return useQuery({
-    queryKey: ["accounts"],
-    queryFn: () => fetch("/api/finances/accounts").then((r) => r.json()),
+    queryKey: ["accounts", params],
+    queryFn: () => fetch(`/api/finances/accounts?${query}`).then((r) => r.json()),
     staleTime: 1000 * 60 * 10, // Cash accounts change rarely
+  });
+}
+
+export function useCreateCashAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; type: string; balance?: number; currency?: string; targetTenantId?: string }) =>
+      fetch("/api/finances/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+}
+
+export function useUpdateCashAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; type?: string; isActive?: boolean; balance?: number } }) =>
+      fetch(`/api/finances/accounts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+    },
   });
 }
 
@@ -549,6 +582,20 @@ export function useCreateUser() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 }
+
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      fetch(`/api/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
 
 // Tenants (SuperAdmin only)
 export function useTenants() {

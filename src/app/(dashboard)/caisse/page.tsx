@@ -10,6 +10,7 @@ import { ScanLine, Plus, Minus, Trash2, ShoppingCart, Check, X, Search, CreditCa
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "@/locales/i18n";
+import { useSession } from "next-auth/react";
 
 function Receipt({ invoice, settings, language }: { invoice: any; settings: any; language: string }) {
   if (!invoice) return null;
@@ -87,12 +88,24 @@ interface CartItem {
 
 export default function POSPage() {
   const { t, language } = useTranslation();
+  const { data: session } = useSession();
   const [barcode, setBarcode] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
   const [accountId, setAccountId] = useState("");
   const [customerId, setCustomerId] = useState("");
+
+  const userDrawerId = (session?.user as any)?.allowedCashAccountId;
+  const role = (session?.user as any)?.role;
+  const isDrawerLocked = !!userDrawerId && role !== "ADMIN" && role !== "SuperAdmin";
+
+  // Auto-set locked drawer accountId when available
+  useEffect(() => {
+    if (isDrawerLocked && userDrawerId) {
+      setAccountId(userDrawerId);
+    }
+  }, [isDrawerLocked, userDrawerId]);
   const [lastScanned, setLastScanned] = useState<any>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -272,7 +285,9 @@ export default function POSPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
-    if (!accountId && accounts.length > 0) {
+    if (isDrawerLocked && userDrawerId) {
+      setAccountId(userDrawerId);
+    } else if (!accountId && accounts.length > 0) {
       setAccountId(accounts[0].id); // Auto select first account if none selected
     }
     setShowCheckout(true);
@@ -582,8 +597,8 @@ export default function POSPage() {
       {/* Checkout Modal */}
       {showCheckout && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="p-5 bg-blue-600 text-white flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-visible">
+            <div className="p-5 bg-blue-600 text-white flex items-center justify-between rounded-t-2xl">
               <h2 className="text-xl font-bold flex items-center gap-2"><CreditCard className="w-6 h-6" /> {language === "fr" ? "Validation du paiement" : "Payment validation"}</h2>
               <button onClick={() => setShowCheckout(false)} className="hover:bg-white/20 p-1 rounded transition-colors"><X className="w-6 h-6" /></button>
             </div>
@@ -639,6 +654,7 @@ export default function POSPage() {
                     value={accountId}
                     onChange={setAccountId}
                     placeholder={language === "fr" ? "Où va l'argent ?" : "Where is the money going?"}
+                    disabled={isDrawerLocked}
                   />
                 </div>
               </div>

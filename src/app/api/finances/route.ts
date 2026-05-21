@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { transactionSchema } from "@/lib/validations";
+import { logActivity } from "@/lib/audit";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -103,6 +104,14 @@ export async function POST(req: NextRequest) {
     }
 
     return t;
+  });
+
+  await logActivity({
+    userId: (session.user as any).id,
+    action: "CREATE",
+    entity: "Transaction",
+    entityId: transaction.id,
+    newValue: transaction,
   });
 
   return NextResponse.json({ data: transaction, message: "Transaction enregistrée" }, { status: 201 });

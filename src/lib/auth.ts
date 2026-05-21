@@ -80,6 +80,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             permissions: user.role?.permissions?.map((p) => p.code) || [],
             mustChangePassword: user.mustChangePassword,
             isActive: user.isActive,
+            allowedCashAccountId: user.allowedCashAccountId,
           };
         } catch (error) {
           console.error("[Auth] Authorize error:", error);

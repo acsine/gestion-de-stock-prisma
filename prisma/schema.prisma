@@ -94,6 +94,8 @@ model User {
   employee       Employee? @relation("UserEmployee")
   tickets        Ticket[]
   ticketMessages TicketMessage[]
+  allowedCashAccountId String?
+  allowedCashAccount   CashAccount? @relation("UserCashAccount", fields: [allowedCashAccountId], references: [id])
 
   @@map("users")
 }
@@ -516,6 +518,7 @@ model CashAccount {
   remoteId  String?     @unique
 
   transactions Transaction[]
+  cashiers     User[]        @relation("UserCashAccount")
 
   @@map("cash_accounts")
 }

@@ -21,7 +21,17 @@ export async function GET() {
 
   const users = await prisma.user.findMany({
     where,
-    select: { id: true, name: true, email: true, role: { select: { id: true, name: true } }, isActive: true, lastLogin: true, createdAt: true },
+    select: { 
+      id: true, 
+      name: true, 
+      email: true, 
+      role: { select: { id: true, name: true } }, 
+      isActive: true, 
+      lastLogin: true, 
+      createdAt: true,
+      allowedCashAccountId: true,
+      allowedCashAccount: { select: { id: true, name: true } }
+    },
     orderBy: { name: "asc" },
   });
   return NextResponse.json({ data: users });
@@ -34,7 +44,7 @@ export async function POST(req: NextRequest) {
   const currentTenantId = (session.user as any).tenantId;
   const isSuper = (session.user as any).isSuperAdmin;
 
-  const { name, email, password, roleId, targetTenantId } = await req.json();
+  const { name, email, password, roleId, targetTenantId, employeeId, allowedCashAccountId } = await req.json();
   const finalTenantId = currentTenantId || targetTenantId;
 
   if (!finalTenantId) return NextResponse.json({ error: "Tenant ID requis" }, { status: 400 });
@@ -44,9 +54,30 @@ export async function POST(req: NextRequest) {
   if (existing) return NextResponse.json({ error: "Email déjà utilisé" }, { status: 409 });
   
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await prisma.user.create({
-    data: { name, email, passwordHash, roleId, tenantId: finalTenantId, mustChangePassword: true },
-    select: { id: true, name: true, email: true, role: { select: { name: true } }, isActive: true },
+  
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { name, email, passwordHash, roleId, tenantId: finalTenantId, mustChangePassword: true, allowedCashAccountId },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: { select: { name: true } }, 
+        isActive: true,
+        allowedCashAccountId: true
+      },
+    });
+
+    if (employeeId) {
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: { userId: user.id }
+      });
+    }
+
+    return user;
   });
-  return NextResponse.json({ data: user, message: "Utilisateur créé" }, { status: 201 });
+
+  return NextResponse.json({ data: result, message: "Utilisateur créé" }, { status: 201 });
 }
+

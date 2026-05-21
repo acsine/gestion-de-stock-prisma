@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
     { code: "orders.edit", name: "Modifier des bons de commande" },
     { code: "orders.delete", name: "Supprimer des bons de commande" },
     { code: "orders.receive", name: "Valider la réception (Encaisser)" },
+    { code: "pos.access", name: "Accès Session Commercial (POS)" },
+    { code: "invoices.view", name: "Voir les factures" },
+    { code: "invoices.create", name: "Créer des factures" },
+    { code: "clients.view", name: "Voir les clients" },
+    { code: "clients.manage", name: "Gérer les clients" },
     { code: "suppliers.view", name: "Voir les fournisseurs" },
     { code: "suppliers.create", name: "Créer des fournisseurs" },
     { code: "suppliers.edit", name: "Modifier des fournisseurs" },
@@ -47,6 +52,7 @@ export async function POST(req: NextRequest) {
     { code: "employees.manage", name: "Gérer les employés" },
     { code: "users.manage", name: "Gérer les utilisateurs et rôles" },
     { code: "settings.manage", name: "Gérer les paramètres" },
+    { code: "rapports.view", name: "Voir les rapports" },
   ];
 
   try {

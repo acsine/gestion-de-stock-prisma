@@ -16,6 +16,10 @@ export default auth((req) => {
     (!isLocalhost && pathname === "/") ||
     pathname.startsWith("/login") || 
     pathname.startsWith("/register-company") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/tickets/public") ||
+    pathname.startsWith("/api/support/public-tickets") ||
+    pathname.startsWith("/api/auth/forgot-password") ||
     pathname.startsWith("/api/tenants/register") ||
     pathname.startsWith("/api/debug") ||
     pathname.startsWith("/api/auth") ||
@@ -26,12 +30,13 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
   }
 
-  // 3. Allow Public Paths
+
+  // 4. Allow Public Paths
   if (isPublicPath) {
     return NextResponse.next();
   }
 
-  // 4. Protect All Other Paths
+  // 5. Protect All Other Paths
   if (!isLoggedIn) {
     // If it's an API route, return 401 instead of redirecting to login
     if (pathname.startsWith("/api")) {

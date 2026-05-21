@@ -104,7 +104,7 @@ export function SearchableSelect({
       >
         <span className="truncate text-sm font-medium">{displayLabel}</span>
         <div className="flex items-center gap-2 flex-shrink-0 border-l pl-2 border-gray-100">
-          {value && !allowAll && (
+          {value && !allowAll && !disabled && (
             <span
               onClick={handleClear}
               className="p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors"

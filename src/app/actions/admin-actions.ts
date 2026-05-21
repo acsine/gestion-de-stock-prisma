@@ -30,9 +30,27 @@ export async function getTenants() {
   return await prisma.tenant.findMany({
     include: { 
       license: true,
+      users: {
+        include: {
+          role: true
+        },
+        orderBy: { createdAt: "desc" }
+      },
       _count: { select: { users: true } }
     },
     orderBy: { createdAt: "desc" }
+  });
+}
+
+export async function toggleUserActiveStatus(userId: string, isActive: boolean) {
+  const session = await auth();
+  if (!(session?.user as any)?.isSuperAdmin) {
+    throw new Error("Accès refusé");
+  }
+
+  return await prisma.user.update({
+    where: { id: userId },
+    data: { isActive }
   });
 }
 

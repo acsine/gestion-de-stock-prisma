@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { logActivity } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -169,6 +170,19 @@ export async function POST(req: NextRequest) {
       });
 
       return inv;
+    });
+
+    await logActivity({
+      userId: (session.user as any).id,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: result.id,
+      newValue: {
+        number: result.number,
+        total: result.total,
+        paymentMethod: paymentMethod || "ESPECES",
+        accountId: accountId,
+      },
     });
 
     return NextResponse.json({ data: result, message: "Vente enregistrée avec succès" }, { status: 201 });

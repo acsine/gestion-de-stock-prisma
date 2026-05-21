@@ -12,8 +12,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Real-time check if the user is active in the database
   const dbUser = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { isActive: true, isSuperAdmin: true, tenantId: true }
+    select: { isActive: true, isSuperAdmin: true, tenantId: true, mustChangePassword: true }
   });
+
+  if (dbUser?.mustChangePassword) {
+    redirect("/force-password");
+  }
 
   const isSuper = dbUser?.isSuperAdmin || (session.user as any)?.isSuperAdmin;
 

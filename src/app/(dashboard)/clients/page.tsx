@@ -11,6 +11,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { customerSchema, type CustomerInput } from "@/lib/validations";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TableLoading, TableEmpty } from "@/components/ui/TableStates";
+import { PhoneInputWithValidation } from "@/components/ui/PhoneInputWithValidation";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 function DeleteConfirmModal({ onClose, onConfirm, name, isDeleting }: { onClose: () => void, onConfirm: () => void, name: string, isDeleting: boolean }) {
   const { t, language } = useTranslation();
@@ -121,7 +123,25 @@ function CustomerForm({ onClose, customer }: { onClose: () => void, customer?: a
             </div>
             <div>
               <label className="label text-xs font-bold text-gray-400 uppercase tracking-widest">{t.clients.modal.phone}</label>
-              <input {...register("phone")} className="input focus:ring-blue-500" placeholder="6xx xxx xxx" />
+              <Controller
+                name="phone"
+                control={control}
+                rules={{
+                  validate: (val) => {
+                    if (!val) return true; // Optional
+                    const parsed = parsePhoneNumberFromString(val);
+                    return (parsed && parsed.isValid()) || (language === "fr" ? "Numéro de téléphone invalide" : "Invalid phone number");
+                  }
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <PhoneInputWithValidation
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    error={error?.message}
+                    placeholder="Ex: 699 99 99 99"
+                  />
+                )}
+              />
             </div>
             <div>
               <label className="label text-xs font-bold text-gray-400 uppercase tracking-widest">{t.clients.modal.email}</label>

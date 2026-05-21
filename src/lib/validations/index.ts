@@ -176,10 +176,12 @@ export type TransactionInput = z.infer<typeof transactionSchema>;
 // USER SCHEMAS
 // =====================
 export const userSchema = z.object({
+  employeeId: z.string().min(1, "Employé requis"),
   name: z.string().min(2, "Nom requis"),
   email: z.string().email("Email invalide"),
   password: z.string().min(8, "Mot de passe: 8 caractères minimum").optional(),
   roleId: z.string().min(1, "Rôle requis"),
+  allowedCashAccountId: z.string().optional().nullable(),
 });
 
 // =====================

@@ -56,7 +56,7 @@ const COUNTRY_CODES = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -372,7 +372,12 @@ export default function LoginPage() {
 
             {/* ── Password ── */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.login.passwordLabel}</label>
+              <div className="flex items-center justify-between ml-1">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">{t.login.passwordLabel}</label>
+                <Link href="/forgot-password" className="text-xs font-bold text-blue-600 hover:underline">
+                  {language === "fr" ? "Mot de passe oublié ?" : "Forgot password?"}
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}

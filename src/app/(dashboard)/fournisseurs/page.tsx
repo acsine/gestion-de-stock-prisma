@@ -6,12 +6,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatCurrency } from "@/lib/utils";
 import { Building2, Plus, Search, RefreshCw, X, Loader2, Edit2, Trash2, CheckCircle2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supplierSchema } from "@/lib/validations";
 import { TableLoading, TableEmpty } from "@/components/ui/TableStates";
 import { usePermissions } from "@/components/auth/HasPermission";
 import { useTranslation } from "@/locales/i18n";
+import { PhoneInputWithValidation } from "@/components/ui/PhoneInputWithValidation";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
 
 function SupplierForm({ supplier, onClose, onEditSuccess }: { supplier?: any; onClose: () => void; onEditSuccess?: (name: string) => void }) {
   const qc = useQueryClient();
@@ -27,7 +30,7 @@ function SupplierForm({ supplier, onClose, onEditSuccess }: { supplier?: any; on
   
   const isPending = createMutation.isPending || updateMutation.isPending;
   
-  const { register, handleSubmit } = useForm<any>({ 
+  const { register, handleSubmit, control, formState: { errors } } = useForm<any>({ 
     resolver: zodResolver(supplierSchema), 
     defaultValues: supplier ? {
       name: supplier.name || "",
@@ -90,7 +93,25 @@ function SupplierForm({ supplier, onClose, onEditSuccess }: { supplier?: any; on
             </div>
             <div>
               <label className="label text-xs font-bold text-gray-500 uppercase">{language === "fr" ? "Téléphone" : "Phone"}</label>
-              <input {...register("phone")} className="input" placeholder="Ex: +237 699 99 99 99" />
+              <Controller
+                name="phone"
+                control={control}
+                rules={{
+                  validate: (val) => {
+                    if (!val) return true; // Optional, so allow empty values
+                    const parsed = parsePhoneNumberFromString(val);
+                    return (parsed && parsed.isValid()) || (language === "fr" ? "Numéro de téléphone invalide" : "Invalid phone number");
+                  }
+                }}
+                render={({ field, fieldState: { error } }) => (
+                  <PhoneInputWithValidation
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    error={error?.message}
+                    placeholder="Ex: 699 99 99 99"
+                  />
+                )}
+              />
             </div>
             <div>
               <label className="label text-xs font-bold text-gray-500 uppercase">Email</label>

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { LifeBuoy, MessageSquare, User, Send, CheckCircle2, RefreshCw, X, ChevronLeft, Paperclip, Eye, ExternalLink } from "lucide-react";
+import { LifeBuoy, MessageSquare, User, Send, CheckCircle2, RefreshCw, X, ChevronLeft, Paperclip, Eye, ExternalLink, KeyRound, Sparkles } from "lucide-react";
 import { useTickets, useTicket, useSendMessage } from "@/hooks/useQueries";
 import { formatDistanceToNow } from "date-fns";
 import { fr as frLocale } from "date-fns/locale";
@@ -242,6 +242,52 @@ export default function AdminSupportPage() {
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
                   >
                     {language === "fr" ? "Valider & Activer" : "Validate & Activate"}
+                  </button>
+                </div>
+              )}
+
+              {ticket.subject.startsWith("Mot de passe oublié - ") && ticket.status !== "RESOLU" && (
+                <div className="bg-blue-50 border-b border-blue-100 p-4 px-6 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-500/10 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 border border-blue-500/20">
+                      <KeyRound className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 mb-0.5">{language === "fr" ? "Demande de réinitialisation de mot de passe" : "Password reset request"}</h4>
+                      <p className="text-[10px] text-slate-500 font-medium leading-tight">
+                        {language === "fr"
+                          ? "L'utilisateur a perdu son mot de passe. Cliquez ci-contre pour réinitialiser son mot de passe à la valeur par défaut (12345678)."
+                          : "The user lost their password. Click the button to reset their password to the default value (12345678)."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(language === "fr"
+                        ? "Voulez-vous réinitialiser le mot de passe de cet utilisateur à '12345678' ?"
+                        : "Do you want to reset this user's password to '12345678'?")) return;
+                      try {
+                        const res = await fetch("/api/superadmin/support/reset-password", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ ticketId: ticket.id }),
+                        });
+                        if (res.ok) {
+                          addToast({ type: "success", title: language === "fr" ? "Mot de passe réinitialisé" : "Password Reset", message: language === "fr" ? "Le mot de passe a été défini à '12345678' !" : "Password has been set to '12345678'!" });
+                          qc.invalidateQueries({ queryKey: ["tickets"] });
+                          window.location.reload();
+                        } else {
+                          const err = await res.json();
+                          addToast({ type: "error", title: t.common.error, message: err.error || (language === "fr" ? "Une erreur est survenue" : "An error occurred") });
+                        }
+                      } catch (err) {
+                        addToast({ type: "error", title: t.common.error, message: language === "fr" ? "Erreur réseau" : "Network error" });
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-blue-500/10 hover:scale-[1.02]"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {language === "fr" ? "Réinitialiser" : "Reset"}
                   </button>
                 </div>
               )}

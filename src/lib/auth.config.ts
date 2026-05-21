@@ -18,7 +18,7 @@ export const authConfig = {
     authorized() {
       return true; // Let middleware.ts handle all redirection logic
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = (user as any).role;
         token.tenantId = (user as any).tenantId;
@@ -27,6 +27,12 @@ export const authConfig = {
         token.permissions = (user as any).permissions;
         token.mustChangePassword = (user as any).mustChangePassword;
         token.isActive = (user as any).isActive;
+        token.allowedCashAccountId = (user as any).allowedCashAccountId;
+      }
+      if (trigger === "update" && session) {
+        if (session.mustChangePassword !== undefined) {
+          token.mustChangePassword = session.mustChangePassword;
+        }
       }
       return token;
     },
@@ -40,6 +46,7 @@ export const authConfig = {
         (session.user as any).permissions = token.permissions || [];
         (session.user as any).mustChangePassword = token.mustChangePassword;
         (session.user as any).isActive = token.isActive;
+        (session.user as any).allowedCashAccountId = token.allowedCashAccountId;
       }
       return session;
     },
