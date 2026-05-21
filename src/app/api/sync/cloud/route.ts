@@ -114,6 +114,9 @@ function getUniqueWhere(modelName: string, item: any): any {
   if (modelName === "user" && item.email) {
     return { email: item.email };
   }
+  if (modelName === "permission" && item.code) {
+    return { code: item.code };
+  }
   if (modelName === "invoice" && item.number) {
     return { number: item.number };
   }
@@ -243,6 +246,27 @@ async function ensureRelationInCloud(modelName: string, id: string, cloudPrisma:
       create: { id: itemId, ...cleanData, ...extraFields },
     });
 
+    if (modelName === "role") {
+      const localRolePerms = (await prisma.$queryRawUnsafe(
+        `SELECT "A" FROM "_RolePermissions" WHERE "B" = $1`,
+        id
+      )) as { A: string }[];
+      const localPermIds = localRolePerms.map((p: any) => p.A);
+
+      await cloudPrisma.$executeRawUnsafe(
+        `DELETE FROM "_RolePermissions" WHERE "B" = $1`,
+        id
+      );
+
+      for (const permId of localPermIds) {
+        await cloudPrisma.$executeRawUnsafe(
+          `INSERT INTO "_RolePermissions" ("A", "B") VALUES ($1, $2)`,
+          permId,
+          id
+        );
+      }
+    }
+
     // Restaurer l'horodatage original pour contourner le hook @updatedAt de Prisma en ligne
     if (modelName !== "auditLog" && localRecord.updatedAt) {
       const tableName = getTableName(modelName);
@@ -311,6 +335,27 @@ async function ensureRelationInLocal(modelName: string, id: string, cloudPrisma:
       update: { ...cleanData, ...extraFields },
       create: { id: itemId, ...cleanData, ...extraFields },
     });
+
+    if (modelName === "role") {
+      const cloudRolePerms = (await cloudPrisma.$queryRawUnsafe(
+        `SELECT "A" FROM "_RolePermissions" WHERE "B" = $1`,
+        id
+      )) as { A: string }[];
+      const cloudPermIds = cloudRolePerms.map((p: any) => p.A);
+
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "_RolePermissions" WHERE "B" = $1`,
+        id
+      );
+
+      for (const permId of cloudPermIds) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "_RolePermissions" ("A", "B") VALUES ($1, $2)`,
+          permId,
+          id
+        );
+      }
+    }
 
     // Restaurer l'horodatage original localement pour contourner @updatedAt
     if (modelName !== "auditLog" && cloudRecord.updatedAt) {
@@ -436,7 +481,7 @@ export async function POST() {
           const cloudItem = cloudMap.get(localItem.id);
 
           // Si les données sont déjà sémantiquement identiques sur le Cloud, on ne pousse rien
-          if (cloudItem && areRecordsIdentical(localItem, cloudItem)) {
+          if (model !== "role" && cloudItem && areRecordsIdentical(localItem, cloudItem)) {
             // S'assurer que le flag isSynced est true localement
             if (!localItem.isSynced) {
               await localTable.update({
@@ -489,6 +534,27 @@ export async function POST() {
                 create: { id: itemId, ...cleanData, isSynced: true },
               });
 
+              if (model === "role") {
+                const localRolePerms = (await prisma.$queryRawUnsafe(
+                  `SELECT "A" FROM "_RolePermissions" WHERE "B" = $1`,
+                  localItem.id
+                )) as { A: string }[];
+                const localPermIds = localRolePerms.map((p: any) => p.A);
+
+                await cloudPrisma.$executeRawUnsafe(
+                  `DELETE FROM "_RolePermissions" WHERE "B" = $1`,
+                  localItem.id
+                );
+
+                for (const permId of localPermIds) {
+                  await cloudPrisma.$executeRawUnsafe(
+                    `INSERT INTO "_RolePermissions" ("A", "B") VALUES ($1, $2)`,
+                    permId,
+                    localItem.id
+                  );
+                }
+              }
+
               // Restaurer l'horodatage correct sur le Cloud
               if (model !== "auditLog") {
                 const tableName = getTableName(model);
@@ -529,7 +595,7 @@ export async function POST() {
           const localItem = localMap.get(cloudItem.id) as any;
 
           // Si les données sont déjà sémantiquement identiques localement, on ne rapatrie rien
-          if (localItem && areRecordsIdentical(localItem, cloudItem)) {
+          if (model !== "role" && localItem && areRecordsIdentical(localItem, cloudItem)) {
             // S'assurer que le flag isSynced est true localement et que updatedAt correspond
             if (!localItem.isSynced || (model !== "auditLog" && localItem.updatedAt?.getTime() !== cloudItem.updatedAt?.getTime())) {
               await localTable.update({
@@ -581,6 +647,27 @@ export async function POST() {
                 update: { ...cleanData, isSynced: true },
                 create: { id: itemId, ...cleanData, isSynced: true },
               });
+
+              if (model === "role") {
+                const cloudRolePerms = (await cloudPrisma.$queryRawUnsafe(
+                  `SELECT "A" FROM "_RolePermissions" WHERE "B" = $1`,
+                  cloudItem.id
+                )) as { A: string }[];
+                const cloudPermIds = cloudRolePerms.map((p: any) => p.A);
+
+                await prisma.$executeRawUnsafe(
+                  `DELETE FROM "_RolePermissions" WHERE "B" = $1`,
+                  cloudItem.id
+                );
+
+                for (const permId of cloudPermIds) {
+                  await prisma.$executeRawUnsafe(
+                    `INSERT INTO "_RolePermissions" ("A", "B") VALUES ($1, $2)`,
+                    permId,
+                    cloudItem.id
+                  );
+                }
+              }
 
               // Restaurer l'horodatage correct localement (Bypass @updatedAt de Prisma)
               if (model !== "auditLog") {

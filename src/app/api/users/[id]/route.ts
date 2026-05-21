@@ -25,6 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
     const dataToUpdate: any = {};
+    dataToUpdate.isSynced = false;
 
     if (body.isActive !== undefined) {
       dataToUpdate.isActive = body.isActive;

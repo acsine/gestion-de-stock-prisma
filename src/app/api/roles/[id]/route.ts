@@ -52,6 +52,7 @@ export async function PATCH(
       data: {
         name,
         description,
+        isSynced: false,
         is_head_departement: is_head_departement !== undefined ? !!is_head_departement : undefined,
         is_manager_sector: is_manager_sector !== undefined ? !!is_manager_sector : undefined,
         is_saler_role: is_saler_role !== undefined ? !!is_saler_role : undefined,
