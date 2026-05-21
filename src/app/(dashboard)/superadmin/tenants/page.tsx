@@ -5,8 +5,10 @@ import { useState, useEffect } from "react";
 import { getTenants, getLicenses, updateTenantLicense } from "@/app/actions/admin-actions";
 import { Landmark, CheckCircle, XCircle, Clock, ShieldCheck } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useTranslation } from "@/locales/i18n";
 
 export default function AdminTenantsPage() {
+  const { t, language } = useTranslation();
   const [tenants, setTenants] = useState<any[]>([]);
   const [licenses, setLicenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,14 +34,14 @@ export default function AdminTenantsPage() {
     label: `${l.name} (${l.price.toLocaleString()} F)`,
   }));
 
-  if (loading) return <div>Chargement...</div>;
+  if (loading) return <div>{t.actions.loading}</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2 sm:gap-3">
           <Landmark className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
-          <span>Gestion des Marchands & Applications</span>
+          <span>{language === "fr" ? "Gestion des Marchands & Applications" : "Merchant & Application Management"}</span>
         </h1>
       </div>
 
@@ -59,13 +61,13 @@ export default function AdminTenantsPage() {
                   <p className="text-sm text-slate-500 font-medium break-all">{tenant.email} • /{tenant.slug}</p>
                   <div className="flex flex-wrap items-center gap-3 mt-2">
                     {tenant.subscriptionActive ? (
-                      <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full border border-green-100">Actif</span>
+                      <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-black uppercase rounded-full border border-green-100">{t.common.active}</span>
                     ) : (
-                      <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-black uppercase rounded-full border border-red-100">Suspendu</span>
+                      <span className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] font-black uppercase rounded-full border border-red-100">{language === "fr" ? "Suspendu" : "Suspended"}</span>
                     )}
                     {isTrial ? (
                       <span className="flex items-center gap-1 text-[10px] font-black text-amber-600 uppercase italic">
-                        <Clock className="w-3 h-3" /> {isExpired ? "Essai Expiré" : "En Essai"}
+                        <Clock className="w-3 h-3" /> {isExpired ? (language === "fr" ? "Essai Expiré" : "Trial Expired") : (language === "fr" ? "En Essai" : "On Trial")}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-[10px] font-black text-blue-600 uppercase">
@@ -78,25 +80,25 @@ export default function AdminTenantsPage() {
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end lg:items-center gap-4 w-full lg:w-auto">
                 <div className="flex flex-col gap-1 flex-1 sm:flex-none">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Modifier Licence</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Modifier Licence" : "Edit License"}</label>
                   <SearchableSelect
                     options={licenseOptions}
                     value={tenant.licenseId || ""}
                     onChange={(val) => handleUpdate(tenant.id, val, tenant.subscriptionActive)}
-                    placeholder="Sélectionner Licence"
+                    placeholder={language === "fr" ? "Sélectionner Licence" : "Select License"}
                     className="w-full min-w-[160px] text-xs font-bold"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1 flex-1 sm:flex-none">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Action</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">{t.actions.actions}</label>
                   <button 
                     onClick={() => handleUpdate(tenant.id, tenant.licenseId, !tenant.subscriptionActive)}
                     className={`p-3 rounded-xl text-xs font-black uppercase transition-all w-full text-center ${
                       tenant.subscriptionActive ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"
                     }`}
                   >
-                    {tenant.subscriptionActive ? "Suspendre" : "Réactiver"}
+                    {tenant.subscriptionActive ? (language === "fr" ? "Suspendre" : "Suspend") : (language === "fr" ? "Réactiver" : "Reactivate")}
                   </button>
                 </div>
               </div>

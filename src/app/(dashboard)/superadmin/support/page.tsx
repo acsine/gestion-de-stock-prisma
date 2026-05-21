@@ -5,12 +5,15 @@ import { useState } from "react";
 import { LifeBuoy, MessageSquare, User, Send, CheckCircle2, RefreshCw, X, ChevronLeft, Paperclip, Eye, ExternalLink } from "lucide-react";
 import { useTickets, useTicket, useSendMessage } from "@/hooks/useQueries";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/useUIStore";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "@/locales/i18n";
 
 export default function AdminSupportPage() {
+  const { t, language } = useTranslation();
   const { addToast } = useUIStore();
   const qc = useQueryClient();
   const { data: ticketsData, isLoading: isLoadingList } = useTickets();
@@ -43,7 +46,7 @@ export default function AdminSupportPage() {
     });
 
     if (!res.ok) {
-      throw new Error("Erreur de chargement");
+      throw new Error(language === "fr" ? "Erreur de chargement" : "Upload error");
     }
 
     const data = await res.json();
@@ -110,7 +113,7 @@ export default function AdminSupportPage() {
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-all text-white">
                   <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
-                    <Eye className="w-3.5 h-3.5" /> Agrandir
+                    <Eye className="w-3.5 h-3.5" /> {language === "fr" ? "Agrandir" : "Enlarge"}
                   </div>
                 </div>
               </div>
@@ -126,7 +129,7 @@ export default function AdminSupportPage() {
       <div className="flex items-center justify-between px-2 md:px-0">
         <h1 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3">
           <LifeBuoy className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
-          Support Marchands
+          {language === "fr" ? "Support Marchands" : "Merchant Support"}
         </h1>
       </div>
 
@@ -137,30 +140,30 @@ export default function AdminSupportPage() {
           mobileView === "detail" ? "hidden md:flex" : "flex"
         )}>
           <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Tickets</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Tickets" : "Tickets"}</span>
             <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{tickets.length}</span>
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoadingList ? (
               <div className="flex justify-center p-8"><RefreshCw className="w-6 h-6 animate-spin text-blue-600" /></div>
-            ) : tickets.map((t: any) => (
+            ) : tickets.map((tk: any) => (
               <div 
-                key={t.id} 
-                onClick={() => handleSelectTicket(t.id)}
+                key={tk.id} 
+                onClick={() => handleSelectTicket(tk.id)}
                 className={cn(
                   "p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-all",
-                  selectedId === t.id ? "border-l-4 border-l-blue-600 bg-blue-50/20" : ""
+                  selectedId === tk.id ? "border-l-4 border-l-blue-600 bg-blue-50/20" : ""
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{t.id.slice(-5)}</span>
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{tk.id.slice(-5)}</span>
                   <span className={cn(
                     "text-[10px] font-black uppercase",
-                    t.priority === "URGENTE" ? "text-red-500" : "text-slate-400"
-                  )}>{t.priority}</span>
+                    tk.priority === "URGENTE" ? "text-red-500" : "text-slate-400"
+                  )}>{tk.priority}</span>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800 truncate">{t.subject}</h4>
-                <p className="text-[11px] text-slate-500 font-medium">{t.user?.name} • {t.tenant?.name}</p>
+                <h4 className="text-sm font-bold text-slate-800 truncate">{tk.subject}</h4>
+                <p className="text-[11px] text-slate-500 font-medium">{tk.user?.name} • {tk.tenant?.name}</p>
               </div>
             ))}
           </div>
@@ -174,7 +177,7 @@ export default function AdminSupportPage() {
           {!selectedId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-300 p-8">
               <MessageSquare className="w-12 h-12 md:w-16 md:h-16 mb-4 opacity-20" />
-              <p className="font-bold text-sm md:text-base text-center">Sélectionnez un ticket pour voir la conversation</p>
+              <p className="font-bold text-sm md:text-base text-center">{language === "fr" ? "Sélectionnez un ticket pour voir la conversation" : "Select a ticket to view the conversation"}</p>
             </div>
           ) : isLoadingDetail ? (
             <div className="flex-1 flex items-center justify-center"><RefreshCw className="w-10 h-10 animate-spin text-blue-600" /></div>
@@ -205,15 +208,19 @@ export default function AdminSupportPage() {
                       <CheckCircle2 className="w-5 h-5 animate-pulse" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-slate-800 mb-0.5">Demande de validation d'abonnement</h4>
+                      <h4 className="text-xs font-black text-slate-800 mb-0.5">{language === "fr" ? "Demande de validation d'abonnement" : "Subscription validation request"}</h4>
                       <p className="text-[10px] text-slate-500 font-medium leading-tight">
-                        Le client a chargé son justificatif de dépôt Orange Money. Cliquez ci-contre après vérification pour activer sa licence.
+                        {language === "fr"
+                          ? "Le client a chargé son justificatif de dépôt Orange Money. Cliquez ci-contre après vérification pour activer sa licence."
+                          : "The client has uploaded their Orange Money deposit receipt. Click the button after verification to activate their license."}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={async () => {
-                      if (!confirm("Voulez-vous valider ce paiement et activer l'abonnement du client ?")) return;
+                      if (!confirm(language === "fr"
+                        ? "Voulez-vous valider ce paiement et activer l'abonnement du client ?"
+                        : "Do you want to validate this payment and activate the client's subscription?")) return;
                       try {
                         const res = await fetch("/api/superadmin/tenants/activate", {
                           method: "POST",
@@ -221,20 +228,20 @@ export default function AdminSupportPage() {
                           body: JSON.stringify({ ticketId: ticket.id }),
                         });
                         if (res.ok) {
-                          addToast({ type: "success", title: "Paiement Validé", message: "Abonnement activé et client débloqué !" });
+                          addToast({ type: "success", title: language === "fr" ? "Paiement Validé" : "Payment Validated", message: language === "fr" ? "Abonnement activé et client débloqué !" : "Subscription activated and client unblocked!" });
                           qc.invalidateQueries({ queryKey: ["tickets"] });
                           window.location.reload();
                         } else {
                           const err = await res.json();
-                          addToast({ type: "error", title: "Erreur", message: err.error || "Une erreur est survenue" });
+                          addToast({ type: "error", title: t.common.error, message: err.error || (language === "fr" ? "Une erreur est survenue" : "An error occurred") });
                         }
                       } catch (err) {
-                        addToast({ type: "error", title: "Erreur", message: "Erreur réseau" });
+                        addToast({ type: "error", title: t.common.error, message: language === "fr" ? "Erreur réseau" : "Network error" });
                       }
                     }}
                     className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
                   >
-                    Valider & Activer
+                    {language === "fr" ? "Valider & Activer" : "Validate & Activate"}
                   </button>
                 </div>
               )}
@@ -252,7 +259,7 @@ export default function AdminSupportPage() {
                         "text-[8px] md:text-[10px] font-medium mt-2 block text-right",
                         m.isAdmin ? "text-blue-200" : "text-slate-400"
                       )}>
-                        {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
+                        {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: language === "fr" ? frLocale : enUS })}
                       </span>
                     </div>
                     {m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-blue-700 flex-shrink-0 flex items-center justify-center text-white text-[8px] md:text-[10px] font-black uppercase">SUP</div>}
@@ -270,14 +277,16 @@ export default function AdminSupportPage() {
                       </div>
                     ) : (
                       <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-900 shadow-sm">
-                        <img src={chatFileUrl!} alt="Pièce jointe" className="w-full h-full object-cover" />
+                        <img src={chatFileUrl!} alt={language === "fr" ? "Pièce jointe" : "Attachment"} className="w-full h-full object-cover" />
                       </div>
                     )}
                     <div>
                       <span className="text-xs font-bold text-slate-700">
-                        {chatUploading ? "Chargement du fichier..." : "Image prête à être envoyée"}
+                        {chatUploading
+                          ? (language === "fr" ? "Chargement du fichier..." : "Uploading file...")
+                          : (language === "fr" ? "Image prête à être envoyée" : "Image ready to send")}
                       </span>
-                      <p className="text-[10px] text-slate-400 font-medium">Sera jointe à votre réponse</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{language === "fr" ? "Sera jointe à votre réponse" : "Will be attached to your reply"}</p>
                     </div>
                   </div>
                   {!chatUploading && (
@@ -313,7 +322,7 @@ export default function AdminSupportPage() {
                             setChatFileUrl(url);
                           }
                         } catch (err) {
-                          addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                          addToast({ type: "error", title: t.common.error, message: language === "fr" ? "Impossible de charger l'image" : "Unable to upload the image" });
                         } finally {
                           setChatUploading(false);
                         }
@@ -327,7 +336,7 @@ export default function AdminSupportPage() {
                       type="text" 
                       value={msg}
                       onChange={(e) => setMsg(e.target.value)}
-                      placeholder="Répondre..." 
+                      placeholder={language === "fr" ? "Répondre..." : "Reply..."} 
                       className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     />
                     <button 
@@ -359,7 +368,7 @@ export default function AdminSupportPage() {
           </button>
           
           <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <img src={zoomImageUrl} alt="Reçu Agrandissement" className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
+            <img src={zoomImageUrl} alt={language === "fr" ? "Reçu Agrandissement" : "Receipt Enlarged"} className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
             <div className="mt-4 flex justify-center gap-4">
               <a 
                 href={zoomImageUrl} 
@@ -367,7 +376,7 @@ export default function AdminSupportPage() {
                 rel="noopener noreferrer" 
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
               >
-                Ouvrir en plein écran <ExternalLink className="w-4 h-4" />
+                {language === "fr" ? "Ouvrir en plein écran" : "Open fullscreen"} <ExternalLink className="w-4 h-4" />
               </a>
             </div>
           </div>

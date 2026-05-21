@@ -4,8 +4,10 @@
 import { useState } from "react";
 import { executeRawSql } from "@/app/actions/admin-actions";
 import { Database, Play, AlertCircle, Loader2 } from "lucide-react";
+import { useTranslation } from "@/locales/i18n";
 
 export default function SqlConsolePage() {
+  const { t, language } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,11 +30,11 @@ export default function SqlConsolePage() {
       if (res.success) {
         setResults(Array.isArray(res.data) ? res.data : [{ result: res.data }]);
       } else {
-        setError(res.error || "Une erreur est survenue");
+        setError(res.error || (language === "fr" ? "Une erreur est survenue" : "An error occurred"));
       }
     } catch (err: any) {
       console.error("SQL Console: Fatal error:", err);
-      setError(err.message || "Erreur d'exécution");
+      setError(err.message || (language === "fr" ? "Erreur d'exécution" : "Execution error"));
     } finally {
       console.log("SQL Console: Execution finished.");
       setLoading(false);
@@ -44,22 +46,22 @@ export default function SqlConsolePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
           <Database className="w-8 h-8 text-blue-600" />
-          Console SQL (Maintenance)
+          {language === "fr" ? "Console SQL (Maintenance)" : "SQL Console (Maintenance)"}
         </h1>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="p-4 bg-slate-900 flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Requête SQL</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{language === "fr" ? "Requête SQL" : "SQL Query"}</span>
           <button 
             onClick={handleRun}
             disabled={loading}
             className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20 active:scale-95"
           >
             {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Exécution...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {language === "fr" ? "Exécution..." : "Running..."}</>
             ) : (
-              <><Play className="w-4 h-4" /> Exécuter</>
+              <><Play className="w-4 h-4" /> {language === "fr" ? "Exécuter" : "Run"}</>
             )}
           </button>
         </div>
@@ -81,9 +83,9 @@ export default function SqlConsolePage() {
       {results && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Résultats</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{language === "fr" ? "Résultats" : "Results"}</span>
             <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-              {results.length} ligne(s)
+              {results.length} {language === "fr" ? "ligne(s)" : "row(s)"}
             </span>
           </div>
           <div className="overflow-x-auto">
@@ -113,7 +115,7 @@ export default function SqlConsolePage() {
             </table>
             {results.length === 0 && (
               <div className="p-8 text-center text-slate-400 text-sm font-medium italic">
-                Aucun résultat ou opération réussie (Insert/Update)
+                {language === "fr" ? "Aucun résultat ou opération réussie (Insert/Update)" : "No results or operation succeeded (Insert/Update)"}
               </div>
             )}
           </div>

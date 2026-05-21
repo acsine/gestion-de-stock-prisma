@@ -1,25 +1,29 @@
 "use client";
 // src/app/(dashboard)/produits/page.tsx
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useImportProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatCurrency, getStockStatus } from "@/lib/utils";
+import { useTranslation } from "@/locales/i18n";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, type ProductInput } from "@/lib/validations";
 import {
   Plus, Search, Upload, Download, Package, RefreshCw,
-  Edit2, Trash2, X, ChevronDown, Filter, FileText, Eye, AlertTriangle, Camera, ImageIcon, Check
+  Edit2, Trash2, X, ChevronDown, Filter, FileText, Eye, AlertTriangle, Camera, ImageIcon, Check, Printer
 } from "lucide-react";
 import { downloadReport } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TableLoading, TableEmpty } from "@/components/ui/TableStates";
+import { BarcodePrintModal, type BarcodePrintItem } from "@/components/ui/BarcodePrintModal";
 
 const UNITS = ["Pièce","Kg","Litre","Boîte","Carton","Sac","Bidon","Mètre","m²","m³"];
 const TAX_RATES = [0, 5.5, 9, 10, 19.25, 20];
 
-function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: { onClose: () => void; categories: any[]; product?: any; suppliers?: any[]; hasUnsynced?: boolean }) {
+function ProductForm({ onClose, categories, product, suppliers, hasUnsynced, onSuccess }: { onClose: () => void; categories: any[]; product?: any; suppliers?: any[]; hasUnsynced?: boolean; onSuccess?: (product: any, isNew: boolean) => void }) {
+  const { t, language } = useTranslation();
   const { mutateAsync: createProduct, isPending: isCreating } = useCreateProduct();
   const { mutateAsync: updateProduct, isPending: isUpdating } = useUpdateProduct();
   const { addToast } = useUIStore();
@@ -43,12 +47,12 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
       const res = await fetch("/api/upload", { method: "POST", body: formData }).then(r => r.json());
       if (res.url) {
         setValue("imageUrl", res.url);
-        addToast({ type: "success", title: "Image chargée" });
+        addToast({ type: "success", title: language === "fr" ? "Image chargée" : "Image uploaded" });
       } else {
-        addToast({ type: "error", title: "Erreur d'upload", message: res.error });
+        addToast({ type: "error", title: language === "fr" ? "Erreur d'upload" : "Upload error", message: res.error });
       }
     } catch {
-      addToast({ type: "error", title: "Erreur de connexion" });
+      addToast({ type: "error", title: language === "fr" ? "Erreur de connexion" : "Connection error" });
     } finally {
       setUploading(false);
     }
@@ -57,15 +61,26 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
   const onSubmit = async (data: ProductInput) => {
     try {
       if (product) {
-        await updateProduct({ id: product.id, data });
-        addToast({ type: "success", title: "Produit mis à jour !" });
+        const res = await updateProduct({ id: product.id, data });
+        if (res.error) {
+          addToast({ type: "error", title: t.common.error, message: res.error });
+          return;
+        }
+        addToast({ type: "success", title: t.products.modal.updateSuccess });
+        onClose();
+        if (onSuccess) onSuccess(res.data || product, false);
       } else {
-        await createProduct(data);
-        addToast({ type: "success", title: "Produit créé !" });
+        const res = await createProduct(data);
+        if (res.error) {
+          addToast({ type: "error", title: t.common.error, message: res.error });
+          return;
+        }
+        addToast({ type: "success", title: t.products.modal.saveSuccess });
+        onClose();
+        if (onSuccess) onSuccess(res.data, true);
       }
-      onClose();
-    } catch (res: any) {
-      addToast({ type: "error", title: "Erreur", message: "Une erreur est survenue" });
+    } catch {
+      addToast({ type: "error", title: t.common.error, message: language === "fr" ? "Une erreur est survenue" : "An error occurred" });
     }
   };
 
@@ -73,7 +88,7 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-lg font-bold text-gray-900">{product ? "Modifier le produit" : "Nouveau produit"}</h2>
+          <h2 className="text-lg font-bold text-gray-900">{product ? t.products.modal.editTitle : t.products.modal.addTitle}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
@@ -95,7 +110,7 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
                 <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                   {uploading ? <RefreshCw className="w-8 h-8 animate-spin" /> : <Camera className="w-8 h-8" />}
                 </div>
-                <span className="text-sm font-medium text-gray-600">Ajouter une photo</span>
+                <span className="text-sm font-medium text-gray-600">{language === "fr" ? "Ajouter une photo" : "Add a photo"}</span>
                 <span className="text-xs text-gray-400 mt-1">PNG, JPG ou GIF (max 5MB)</span>
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={uploading} />
               </label>
@@ -104,19 +119,19 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">SKU / Référence *</label>
+              <label className="label">{t.products.table.sku} *</label>
               <input {...register("sku")} className="input" placeholder="PROD-001" />
               {errors.sku && <p className="text-red-500 text-xs mt-1">{errors.sku.message}</p>}
             </div>
             <div>
-              <label className="label">Nom du produit *</label>
-              <input {...register("name")} className="input" placeholder="Nom du produit" />
+              <label className="label">{t.products.modal.name}</label>
+              <input {...register("name")} className="input" placeholder={language === "fr" ? "Nom du produit" : "Product name"} />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Catégorie *</label>
+              <label className="label">{t.products.modal.category}</label>
               <Controller
                 name="categoryId"
                 control={control}
@@ -125,15 +140,15 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
                     options={categories.map((c) => ({ value: c.id, label: c.name }))}
                     value={field.value || ""}
                     onChange={field.onChange}
-                    placeholder="Sélectionner une catégorie…"
-                    searchPlaceholder="Rechercher une catégorie…"
+                    placeholder={language === "fr" ? "Sélectionner une catégorie…" : "Select a category…"}
+                    searchPlaceholder={language === "fr" ? "Rechercher une catégorie…" : "Search category…"}
                   />
                 )}
               />
               {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId.message}</p>}
             </div>
             <div>
-              <label className="label">Unité</label>
+              <label className="label">{t.products.modal.unit}</label>
               <Controller
                 name="unit"
                 control={control}
@@ -142,7 +157,7 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
                     options={UNITS.map((u) => ({ value: u, label: u }))}
                     value={field.value || "Pièce"}
                     onChange={field.onChange}
-                    placeholder="Sélectionner…"
+                    placeholder={t.actions.select}
                   />
                 )}
               />
@@ -150,17 +165,17 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="label">Prix achat (FCFA) *</label>
+              <label className="label">{language === "fr" ? "Prix achat (FCFA) *" : "Buy price (FCFA) *"}</label>
               <input {...register("buyPrice", { valueAsNumber: true })} type="number" className="input" placeholder="0" />
               {errors.buyPrice && <p className="text-red-500 text-xs mt-1">{errors.buyPrice.message}</p>}
             </div>
             <div>
-              <label className="label">Prix vente (FCFA) *</label>
+              <label className="label">{language === "fr" ? "Prix vente (FCFA) *" : "Sell price (FCFA) *"}</label>
               <input {...register("sellPrice", { valueAsNumber: true })} type="number" className="input" placeholder="0" />
               {errors.sellPrice && <p className="text-red-500 text-xs mt-1">{errors.sellPrice.message}</p>}
             </div>
             <div>
-              <label className="label">TVA (%)</label>
+              <label className="label">{language === "fr" ? "TVA (%)" : "VAT (%)"}</label>
               <Controller
                 name="taxRate"
                 control={control}
@@ -177,36 +192,38 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="label">Stock min</label>
+              <label className="label">{t.products.table.minStock}</label>
               <input {...register("minStock", { valueAsNumber: true })} type="number" className="input" placeholder="5" />
             </div>
             <div>
-              <label className="label">Stock max</label>
+              <label className="label">{language === "fr" ? "Stock max" : "Max stock"}</label>
               <input {...register("maxStock", { valueAsNumber: true })} type="number" className="input" placeholder="100" />
             </div>
             <div>
-              <label className="label">Emplacement</label>
+              <label className="label">{language === "fr" ? "Emplacement" : "Location"}</label>
               <input {...register("location")} className="input" placeholder="Rayon A-1" />
             </div>
           </div>
           <div>
-            <label className="label">Code-barres</label>
-            <input {...register("barcode")} className="input" placeholder="Laisser vide pour générer auto." />
+            <label className="label">{t.products.modal.barcode}</label>
+            <input {...register("barcode")} className="input" placeholder={language === "fr" ? "Laisser vide pour générer auto." : "Leave empty to generate auto."} />
           </div>
           <div>
-            <label className="label">Description</label>
-            <textarea {...register("description")} className="input h-20 resize-none" placeholder="Description optionnelle…" />
+            <label className="label">{t.products.modal.description}</label>
+            <textarea {...register("description")} className="input h-20 resize-none" placeholder={language === "fr" ? "Description optionnelle…" : "Optional description…"} />
           </div>
           {!product && hasUnsynced && (
             <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs w-full">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span>
-                La création de produit est temporairement désactivée car des modifications locales ne sont pas synchronisées.
+                {language === "fr" 
+                  ? "La création de produit est temporairement désactivée car des modifications locales ne sont pas synchronisées."
+                  : "Product creation is temporarily disabled because local changes are not synchronized."}
               </span>
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t.actions.cancel}</button>
             <button 
               type="submit" 
               disabled={isPending || (!product && hasUnsynced)} 
@@ -215,12 +232,12 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
               {isPending ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Enregistrement...</span>
+                  <span>{t.actions.saving}</span>
                 </>
               ) : (
                 <>
                   {product ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                  <span>{product ? "Mettre à jour" : "Créer le produit"}</span>
+                  <span>{product ? t.actions.save : t.products.addProduct}</span>
                 </>
               )}
             </button>
@@ -232,12 +249,16 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced }: {
 }
 
 function ProductDetailsModal({ product, onClose }: { product: any, onClose: () => void }) {
+  const { t, language } = useTranslation();
   if (!product) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b bg-gray-50">
-          <h2 className="text-lg font-bold flex items-center gap-2"><Package className="w-5 h-5 text-blue-600"/> Détails du produit</h2>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-600"/> 
+            {language === "fr" ? "Détails du produit" : "Product Details"}
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-4">
@@ -248,38 +269,38 @@ function ProductDetailsModal({ product, onClose }: { product: any, onClose: () =
           )}
           <div>
             <h3 className="text-xl font-bold">{product.name}</h3>
-            <p className="text-sm text-gray-500 font-mono mt-1">SKU: {product.sku} | Code-barres: {product.barcode || "N/A"}</p>
+            <p className="text-sm text-gray-500 font-mono mt-1">SKU: {product.sku} | {t.products.modal.barcode}: {product.barcode || "N/A"}</p>
           </div>
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Catégorie</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.category}</p>
               <p className="font-medium mt-0.5 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full inline-block" style={{ background: product.category?.color || "#ccc" }}></span>
                 {product.category?.name || "N/A"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Statut</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.status}</p>
               <p className="font-medium mt-0.5">{product.status}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Prix d'Achat</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.buyPrice}</p>
               <p className="font-medium mt-0.5">{formatCurrency(product.buyPrice)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Prix de Vente</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.sellPrice}</p>
               <p className="font-medium text-blue-700 mt-0.5">{formatCurrency(product.sellPrice)}</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Stock Actuel</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.stock}</p>
               <p className="font-bold text-lg mt-0.5">{product.currentStock} <span className="text-sm font-normal text-gray-500">{product.unit}</span></p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase font-bold">Min</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.table.minStock}</p>
               <p className="font-medium mt-0.5">{product.minStock}</p>
             </div>
             <div>
@@ -289,7 +310,7 @@ function ProductDetailsModal({ product, onClose }: { product: any, onClose: () =
           </div>
           {product.description && (
             <div className="pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-400 uppercase font-bold">Description</p>
+              <p className="text-xs text-gray-400 uppercase font-bold">{t.products.modal.description}</p>
               <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{product.description}</p>
             </div>
           )}
@@ -300,6 +321,7 @@ function ProductDetailsModal({ product, onClose }: { product: any, onClose: () =
 }
 
 function DeleteConfirmModal({ item, onClose, onConfirm, isPending }: { item: {id: string, name: string}, onClose: () => void, onConfirm: () => void, isPending: boolean }) {
+  const { t, language } = useTranslation();
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -307,16 +329,17 @@ function DeleteConfirmModal({ item, onClose, onConfirm, isPending }: { item: {id
           <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-8 h-8" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Confirmer la suppression</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{language === "fr" ? "Confirmer la suppression" : "Confirm deletion"}</h2>
           <p className="text-gray-500 text-sm">
-            Êtes-vous sûr de vouloir supprimer le produit <strong className="text-gray-900">"{item.name}"</strong> ? Cette action est irréversible.
+            {language === "fr" ? "Êtes-vous sûr de vouloir supprimer le produit" : "Are you sure you want to delete the product"}{" "}
+            <strong className="text-gray-900">"{item.name}"</strong> ? {t.products.modal.deleteWarning}
           </p>
         </div>
         <div className="p-4 bg-gray-50 flex gap-3">
-          <button onClick={onClose} disabled={isPending} className="flex-1 btn-secondary py-2.5">Annuler</button>
+          <button onClick={onClose} disabled={isPending} className="flex-1 btn-secondary py-2.5">{t.actions.cancel}</button>
           <button onClick={onConfirm} disabled={isPending} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors py-2.5 flex items-center justify-center gap-2">
             {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-            Supprimer
+            {t.actions.delete}
           </button>
         </div>
       </div>
@@ -325,7 +348,15 @@ function DeleteConfirmModal({ item, onClose, onConfirm, isPending }: { item: {id
 }
 
 export default function ProduitsPage() {
+  const { t, language } = useTranslation();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const term = searchParams?.get("search") || "";
+    setSearch(term);
+  }, [searchParams]);
+
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -337,6 +368,9 @@ export default function ProduitsPage() {
   const [syncingNow, setSyncingNow] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { addToast } = useUIStore();
+
+  const [printItems, setPrintItems] = useState<BarcodePrintItem[]>([]);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const { data, isLoading, isFetching, refetch } = useProducts({ search, categoryId: categoryFilter, status: statusFilter });
   const { data: catData } = useCategories();
@@ -353,9 +387,9 @@ export default function ProduitsPage() {
     setImporting(true);
     try {
       const res = await importProducts(file);
-      addToast({ type: "success", title: "Import terminé", message: res.message });
+      addToast({ type: "success", title: language === "fr" ? "Import terminé" : "Import finished", message: res.message });
     } catch {
-      addToast({ type: "error", title: "Erreur d'import" });
+      addToast({ type: "error", title: language === "fr" ? "Erreur d'import" : "Import error" });
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -366,9 +400,9 @@ export default function ProduitsPage() {
     setExportLoading(format);
     try {
       await downloadReport({ type: "stock", format }, "rapport-stock");
-      addToast({ type: "success", title: "Rapport exporté" });
+      addToast({ type: "success", title: language === "fr" ? "Rapport exporté" : "Report exported" });
     } catch {
-      addToast({ type: "error", title: "Erreur d'export" });
+      addToast({ type: "error", title: language === "fr" ? "Erreur d'export" : "Export error" });
     } finally {
       setExportLoading(null);
     }
@@ -377,8 +411,8 @@ export default function ProduitsPage() {
   const confirmDelete = async () => {
     if (!deleteItem) return;
     const res = await deleteProduct(deleteItem.id);
-    if (res.error) addToast({ type: "error", title: "Erreur", message: res.error });
-    else addToast({ type: "success", title: "Produit supprimé" });
+    if (res.error) addToast({ type: "error", title: t.common.error, message: res.error });
+    else addToast({ type: "success", title: language === "fr" ? "Produit supprimé" : "Product deleted" });
     setDeleteItem(null);
   };
 
@@ -396,8 +430,8 @@ export default function ProduitsPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produits</h1>
-          <p className="text-gray-500 text-sm">{data?.total || 0} produit(s) au total</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.nav.products}</h1>
+          <p className="text-gray-500 text-sm">{data?.total || 0} {t.products.registeredProducts}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -421,14 +455,14 @@ export default function ProduitsPage() {
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             {importing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            Importer Excel
+            {language === "fr" ? "Importer Excel" : "Import Excel"}
           </button>
           <button 
             onClick={() => setShowForm(true)} 
             disabled={hasUnsynced}
             className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Plus className="w-4 h-4" /> Nouveau produit
+            <Plus className="w-4 h-4" /> {t.products.addProduct}
           </button>
         </div>
       </div>
@@ -440,9 +474,11 @@ export default function ProduitsPage() {
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-amber-900">Synchronisation requise</span>
+              <span className="font-bold text-amber-900">{language === "fr" ? "Synchronisation requise" : "Synchronization required"}</span>
               <p className="text-xs text-amber-700 mt-0.5">
-                Certains produits locaux ne sont pas synchronisés avec la version en ligne. La création de nouveaux produits est temporairement désactivée.
+                {language === "fr" 
+                  ? "Certains produits locaux ne sont pas synchronisés avec la version en ligne. La création de nouveaux produits est temporairement désactivée."
+                  : "Some local products are not synchronized with the online version. Product creation is temporarily disabled."}
               </p>
             </div>
           </div>
@@ -453,9 +489,9 @@ export default function ProduitsPage() {
                 const { SyncService } = await import("@/lib/sync-service");
                 await SyncService.syncAll();
                 await refetch();
-                addToast({ type: "success", title: "Synchronisation réussie !" });
+                addToast({ type: "success", title: language === "fr" ? "Synchronisation réussie !" : "Synchronization successful!" });
               } catch (e: any) {
-                addToast({ type: "error", title: "Erreur de synchronisation", message: e.message });
+                addToast({ type: "error", title: language === "fr" ? "Erreur de synchronisation" : "Synchronization error", message: e.message });
               } finally {
                 setSyncingNow(false);
               }
@@ -464,7 +500,7 @@ export default function ProduitsPage() {
             className="btn-primary text-xs bg-amber-600 hover:bg-amber-700 text-white border-none py-2 px-3 whitespace-nowrap flex items-center gap-1.5 shadow-sm disabled:opacity-75 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncingNow ? "animate-spin" : ""}`} />
-            {syncingNow ? "Synchronisation..." : "Synchroniser maintenant"}
+            {syncingNow ? (language === "fr" ? "Synchronisation..." : "Synchronizing...") : (language === "fr" ? "Synchroniser maintenant" : "Synchronize now")}
           </button>
         </div>
       )}
@@ -473,29 +509,29 @@ export default function ProduitsPage() {
       <div className="card p-4 flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par nom ou SKU…" className="input pl-9" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.products.searchPlaceholder} className="input pl-9" />
         </div>
         <SearchableSelect
           options={categories.map((c: any) => ({ value: c.id, label: c.name }))}
           value={categoryFilter}
           onChange={setCategoryFilter}
-          placeholder="Toutes catégories"
-          searchPlaceholder="Rechercher catégorie…"
+          placeholder={t.products.categoryFilter}
+          searchPlaceholder={language === "fr" ? "Rechercher catégorie…" : "Search category…"}
           allowAll
-          allLabel="Toutes catégories"
+          allLabel={t.products.categoryFilter}
           className="w-48"
         />
         <SearchableSelect
           options={[
-            { value: "ACTIF", label: "Actif" },
-            { value: "INACTIF", label: "Inactif" },
-            { value: "ARCHIVE", label: "Archivé" },
+            { value: "ACTIF", label: language === "fr" ? "Actif" : "Active" },
+            { value: "INACTIF", label: language === "fr" ? "Inactif" : "Inactive" },
+            { value: "ARCHIVE", label: language === "fr" ? "Archivé" : "Archived" },
           ]}
           value={statusFilter}
           onChange={setStatusFilter}
-          placeholder="Tous statuts"
+          placeholder={language === "fr" ? "Tous statuts" : "All statuses"}
           allowAll
-          allLabel="Tous statuts"
+          allLabel={language === "fr" ? "Tous statuts" : "All statuses"}
           className="w-40"
         />
         <button onClick={() => refetch()} disabled={isFetching} className="btn-secondary p-2">
@@ -508,21 +544,21 @@ export default function ProduitsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Produit</th>
-              <th>Catégorie</th>
-              <th>Stock</th>
-              <th>Prix achat</th>
-              <th>Prix vente</th>
-              <th>Statut</th>
-              <th>Actions</th>
+              <th>{t.products.table.sku}</th>
+              <th>{language === "fr" ? "Produit" : "Product"}</th>
+              <th>{t.products.table.category}</th>
+              <th>{t.products.table.stock}</th>
+              <th>{t.products.table.buyPrice}</th>
+              <th>{t.products.table.sellPrice}</th>
+              <th>{t.products.table.status}</th>
+              <th>{t.actions.actions}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <TableLoading colSpan={8} />
             ) : products.length === 0 ? (
-              <TableEmpty colSpan={8} message="Aucun produit trouvé" icon={Package} />
+              <TableEmpty colSpan={8} message={language === "fr" ? "Aucun produit trouvé" : "No products found"} icon={Package} />
             ) : products.map((p: any) => {
               const stockStatus = getStockStatus(p.currentStock, p.minStock, p.maxStock);
               return (
@@ -562,11 +598,28 @@ export default function ProduitsPage() {
                   </td>
                   <td>
                     <div className="flex items-center gap-1">
-                      <button title="Détails" onClick={() => setViewProduct(p)} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                      <button title="Modifier" onClick={() => handleEdit(p)} className="p-1.5 hover:bg-blue-50 rounded text-blue-600 transition-colors">
+                      <button title={language === "fr" ? "Détails" : "Details"} onClick={() => setViewProduct(p)} className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button title={language === "fr" ? "Modifier" : "Edit"} onClick={() => handleEdit(p)} className="p-1.5 hover:bg-blue-50 rounded text-blue-600 transition-colors">
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button title="Supprimer" onClick={() => setDeleteItem({ id: p.id, name: p.name })} className="p-1.5 hover:bg-red-50 rounded text-red-500 transition-colors">
+                      <button 
+                        title={language === "fr" ? "Imprimer le code-barres" : "Print barcode"} 
+                        onClick={() => {
+                          setPrintItems([{
+                            id: p.id,
+                            name: p.name,
+                            sku: p.sku,
+                            barcode: p.barcode || p.sku,
+                            sellPrice: p.sellPrice,
+                            quantity: 1
+                          }]);
+                          setIsPrintModalOpen(true);
+                        }} 
+                        className="p-1.5 hover:bg-slate-100 rounded text-blue-600 transition-colors"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button title={language === "fr" ? "Supprimer" : "Delete"} onClick={() => setDeleteItem({ id: p.id, name: p.name })} className="p-1.5 hover:bg-red-50 rounded text-red-500 transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -578,9 +631,35 @@ export default function ProduitsPage() {
         </table>
       </div>
 
-      {showForm && <ProductForm onClose={handleCloseForm} product={editingProduct} categories={categories} hasUnsynced={hasUnsynced} />}
+      {showForm && (
+        <ProductForm 
+          onClose={handleCloseForm} 
+          product={editingProduct} 
+          categories={categories} 
+          hasUnsynced={hasUnsynced} 
+          onSuccess={(prod, isNew) => {
+            if (isNew) {
+              setPrintItems([{
+                id: prod.id,
+                name: prod.name,
+                sku: prod.sku,
+                barcode: prod.barcode || prod.sku,
+                sellPrice: prod.sellPrice,
+                quantity: 1
+              }]);
+              setIsPrintModalOpen(true);
+            }
+          }}
+        />
+      )}
       {viewProduct && <ProductDetailsModal product={viewProduct} onClose={() => setViewProduct(null)} />}
       {deleteItem && <DeleteConfirmModal item={deleteItem} onClose={() => setDeleteItem(null)} onConfirm={confirmDelete} isPending={isDeleting} />}
+      
+      <BarcodePrintModal 
+        isOpen={isPrintModalOpen} 
+        onClose={() => setIsPrintModalOpen(false)} 
+        initialItems={printItems} 
+      />
     </div>
   );
 }

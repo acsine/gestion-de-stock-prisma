@@ -6,11 +6,14 @@ import { LifeBuoy, Send, MessageSquare, Plus, RefreshCw, AlertCircle, X, Papercl
 import { useTickets, useTicket, useCreateTicket, useSendMessage } from "@/hooks/useQueries";
 import { useUIStore } from "@/stores/useUIStore";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useTranslation } from "@/locales/i18n";
 
 export default function SupportPage() {
+  const { t, language } = useTranslation();
   const { addToast } = useUIStore();
   const { data: ticketsData, isLoading: isLoadingList } = useTickets();
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
@@ -34,11 +37,13 @@ export default function SupportPage() {
   const tickets = ticketsData?.data || [];
   const ticket = ticketDetail?.data;
 
+  const dateLocale = language === "fr" ? frLocale : enUS;
+
   const priorityOptions = [
-    { value: "BASSE", label: "Basse" },
-    { value: "NORMALE", label: "Normale" },
-    { value: "HAUTE", label: "Haute" },
-    { value: "URGENTE", label: "Urgente" },
+    { value: "BASSE", label: language === "fr" ? "Basse" : "Low" },
+    { value: "NORMALE", label: language === "fr" ? "Normale" : "Normal" },
+    { value: "HAUTE", label: language === "fr" ? "Haute" : "High" },
+    { value: "URGENTE", label: language === "fr" ? "Urgente" : "Urgent" },
   ];
 
   const handleSelectTicket = (id: string) => {
@@ -70,11 +75,15 @@ export default function SupportPage() {
     createTicket({ subject, message, priority }, {
       onSuccess: (res) => {
         if (res.error) {
-          addToast({ type: "error", title: "Erreur", message: res.error });
+          addToast({ type: "error", title: t.common.error, message: res.error });
           return;
         }
         if (res.data?.id) {
-          addToast({ type: "success", title: "Ticket créé", message: "Votre demande a été envoyée." });
+          addToast({
+            type: "success",
+            title: language === "fr" ? "Ticket créé" : "Ticket created",
+            message: language === "fr" ? "Votre demande a été envoyée." : "Your request has been sent.",
+          });
           setShowNew(false);
           setSubject("");
           setMessage("");
@@ -83,7 +92,11 @@ export default function SupportPage() {
         }
       },
       onError: (err: any) => {
-        addToast({ type: "error", title: "Erreur", message: "Erreur lors de la création du ticket" });
+        addToast({
+          type: "error",
+          title: t.common.error,
+          message: language === "fr" ? "Erreur lors de la création du ticket" : "Error creating ticket",
+        });
       }
     });
   };
@@ -148,7 +161,7 @@ export default function SupportPage() {
                 />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-all text-white">
                   <div className="flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider">
-                    <Eye className="w-3.5 h-3.5" /> Agrandir
+                    <Eye className="w-3.5 h-3.5" /> {language === "fr" ? "Agrandir" : "Enlarge"}
                   </div>
                 </div>
               </div>
@@ -164,13 +177,13 @@ export default function SupportPage() {
       <div className="flex items-center justify-between px-2 md:px-0">
         <h1 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3">
           <LifeBuoy className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
-          Support
+          {language === "fr" ? "Support" : "Support"}
         </h1>
         <button 
           onClick={() => { setShowNew(true); setMobileView("detail"); }}
           className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-blue-600 text-white text-[10px] md:text-sm font-black uppercase tracking-widest rounded-xl md:rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
         >
-          <Plus className="w-4 h-4 md:w-5 md:h-5" /> Nouveau
+          <Plus className="w-4 h-4 md:w-5 md:h-5" /> {language === "fr" ? "Nouveau" : "New"}
         </button>
       </div>
 
@@ -181,34 +194,34 @@ export default function SupportPage() {
           mobileView === "detail" ? "hidden md:flex" : "flex"
         )}>
           <div className="p-4 border-b border-slate-100 bg-slate-50">
-            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Mes Demandes</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Mes Demandes" : "My Requests"}</span>
           </div>
           <div className="flex-1 overflow-y-auto">
             {isLoadingList ? (
               <div className="flex justify-center p-8"><RefreshCw className="w-6 h-6 animate-spin text-blue-600" /></div>
             ) : tickets.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
-                <p className="text-sm font-bold">Aucun ticket ouvert</p>
+                <p className="text-sm font-bold">{language === "fr" ? "Aucun ticket ouvert" : "No open tickets"}</p>
               </div>
-            ) : tickets.map((t: any) => (
+            ) : tickets.map((tk: any) => (
               <div 
-                key={t.id} 
-                onClick={() => handleSelectTicket(t.id)}
+                key={tk.id} 
+                onClick={() => handleSelectTicket(tk.id)}
                 className={cn(
                   "p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-all",
-                  selectedId === t.id ? "border-l-4 border-l-blue-600 bg-blue-50/20" : ""
+                  selectedId === tk.id ? "border-l-4 border-l-blue-600 bg-blue-50/20" : ""
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{t.id.slice(-5)}</span>
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">{tk.id.slice(-5)}</span>
                   <span className={cn(
                     "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
-                    t.status === 'OUVERT' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'
-                  )}>{t.status}</span>
+                    tk.status === 'OUVERT' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'
+                  )}>{tk.status}</span>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800 truncate">{t.subject}</h4>
+                <h4 className="text-sm font-bold text-slate-800 truncate">{tk.subject}</h4>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {formatDistanceToNow(new Date(t.updatedAt), { addSuffix: true, locale: fr })}
+                  {formatDistanceToNow(new Date(tk.updatedAt), { addSuffix: true, locale: dateLocale })}
                 </p>
               </div>
             ))}
@@ -226,45 +239,45 @@ export default function SupportPage() {
                 <button type="button" onClick={() => setMobileView("list")} className="p-2 bg-slate-100 rounded-lg text-slate-500">
                   <X className="w-4 h-4" />
                 </button>
-                <h2 className="font-bold text-slate-800">Nouveau Ticket</h2>
+                <h2 className="font-bold text-slate-800">{language === "fr" ? "Nouveau Ticket" : "New Ticket"}</h2>
               </div>
-              <h2 className="hidden md:block text-xl font-black text-slate-800 mb-6">Ouvrir une nouvelle demande</h2>
+              <h2 className="hidden md:block text-xl font-black text-slate-800 mb-6">{language === "fr" ? "Ouvrir une nouvelle demande" : "Open a new request"}</h2>
               <form onSubmit={handleCreate} className="space-y-4 md:space-y-6 max-w-2xl">
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Sujet du problème</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">{t.support.modal.subject}</label>
                   <input 
                     type="text" 
                     required
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Ex: Problème d'impression..."
+                    placeholder={language === "fr" ? "Ex: Problème d'impression..." : "E.g.: Printing issue..."}
                     className="w-full px-4 py-2 md:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Priorité</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">{language === "fr" ? "Priorité" : "Priority"}</label>
                   <SearchableSelect
                     options={priorityOptions}
                     value={priority}
                     onChange={setPriority}
-                    placeholder="Priorité"
+                    placeholder={language === "fr" ? "Priorité" : "Priority"}
                     className="w-full font-bold"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Description détaillée</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">{language === "fr" ? "Description détaillée" : "Detailed description"}</label>
                   <textarea 
                     required
                     rows={4}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Décrivez votre problème ici..."
+                    placeholder={language === "fr" ? "Décrivez votre problème ici..." : "Describe your issue here..."}
                     className="w-full px-4 py-2 md:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Image ou document (Optionnel)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">{language === "fr" ? "Image ou document (Optionnel)" : "Image or document (Optional)"}</label>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl cursor-pointer text-xs font-bold text-slate-600 transition-all select-none">
                       <input 
@@ -280,10 +293,18 @@ export default function SupportPage() {
                             const url = await uploadFileToIK(file);
                             if (url) {
                               setMessage((prev) => prev + (prev ? "\n\n" : "") + `![Capture](${url})`);
-                              addToast({ type: "success", title: "Fichier attaché", message: "Le justificatif a été inséré dans votre description." });
+                              addToast({
+                                type: "success",
+                                title: language === "fr" ? "Fichier attaché" : "File attached",
+                                message: language === "fr" ? "Le justificatif a été inséré dans votre description." : "The attachment has been inserted into your description.",
+                              });
                             }
                           } catch (err) {
-                            addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                            addToast({
+                              type: "error",
+                              title: t.common.error,
+                              message: language === "fr" ? "Impossible de charger l'image" : "Unable to load image",
+                            });
                           } finally {
                             setUploadingFile(false);
                           }
@@ -292,12 +313,12 @@ export default function SupportPage() {
                       {uploadingFile ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                          <span>Chargement...</span>
+                          <span>{language === "fr" ? "Chargement..." : "Uploading..."}</span>
                         </>
                       ) : (
                         <>
                           <Paperclip className="w-4 h-4 text-slate-500" />
-                          <span>Sélectionner une capture / reçu</span>
+                          <span>{language === "fr" ? "Sélectionner une capture / reçu" : "Select a screenshot / receipt"}</span>
                         </>
                       )}
                     </label>
@@ -310,14 +331,16 @@ export default function SupportPage() {
                     disabled={isCreating || uploadingFile}
                     className="flex-1 py-3 md:py-4 bg-blue-600 text-white text-xs md:text-sm font-black uppercase tracking-widest rounded-xl md:rounded-2xl hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {isCreating ? "Création..." : "Envoyer"}
+                    {isCreating
+                      ? (language === "fr" ? "Création..." : "Creating...")
+                      : (language === "fr" ? "Envoyer" : "Send")}
                   </button>
                   <button 
                     type="button"
                     onClick={() => { setShowNew(false); setMobileView("list"); }}
                     className="px-4 md:px-8 py-3 md:py-4 bg-slate-100 text-slate-600 text-xs md:text-sm font-black uppercase tracking-widest rounded-xl md:rounded-2xl hover:bg-slate-200"
                   >
-                    Annuler
+                    {t.actions.cancel}
                   </button>
                 </div>
               </form>
@@ -350,7 +373,7 @@ export default function SupportPage() {
                           "text-[8px] md:text-[10px] font-medium mt-2 block text-right",
                           !m.isAdmin ? "text-slate-400" : "text-blue-200"
                         )}>
-                          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: fr })}
+                          {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: dateLocale })}
                         </span>
                       </div>
                       {!m.isAdmin && <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-500 text-[8px] md:text-[10px] font-black uppercase">{ticket.user?.name?.[0] || "M"}</div>}
@@ -368,14 +391,16 @@ export default function SupportPage() {
                         </div>
                       ) : (
                         <div className="relative w-10 h-10 rounded-lg border border-slate-200 overflow-hidden bg-slate-900 shadow-sm">
-                          <img src={chatFileUrl!} alt="Pièce jointe" className="w-full h-full object-cover" />
+                          <img src={chatFileUrl!} alt={language === "fr" ? "Pièce jointe" : "Attachment"} className="w-full h-full object-cover" />
                         </div>
                       )}
                       <div>
                         <span className="text-xs font-bold text-slate-700">
-                          {chatUploading ? "Chargement du fichier..." : "Image prête à être envoyée"}
+                          {chatUploading
+                            ? (language === "fr" ? "Chargement du fichier..." : "Uploading file...")
+                            : (language === "fr" ? "Image prête à être envoyée" : "Image ready to send")}
                         </span>
-                        <p className="text-[10px] text-slate-400 font-medium">Sera jointe à votre message</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{language === "fr" ? "Sera jointe à votre message" : "Will be attached to your message"}</p>
                       </div>
                     </div>
                     {!chatUploading && (
@@ -411,7 +436,11 @@ export default function SupportPage() {
                               setChatFileUrl(url);
                             }
                           } catch (err) {
-                            addToast({ type: "error", title: "Erreur", message: "Impossible de charger l'image" });
+                            addToast({
+                              type: "error",
+                              title: t.common.error,
+                              message: language === "fr" ? "Impossible de charger l'image" : "Unable to load image",
+                            });
                           } finally {
                             setChatUploading(false);
                           }
@@ -425,7 +454,7 @@ export default function SupportPage() {
                         type="text" 
                         value={chatMsg}
                         onChange={(e) => setChatMsg(e.target.value)}
-                        placeholder="Répondre..." 
+                        placeholder={language === "fr" ? "Répondre..." : "Reply..."} 
                         className="w-full pl-4 pr-12 py-3 md:py-4 bg-slate-50 border border-slate-200 rounded-xl md:rounded-2xl text-xs md:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                       />
                       <button 
@@ -445,8 +474,8 @@ export default function SupportPage() {
               <div className="w-16 h-16 md:w-24 md:h-24 bg-slate-50 rounded-full flex items-center justify-center mb-4 md:mb-6">
                 <LifeBuoy className="w-8 h-8 md:w-12 md:h-12 opacity-20" />
               </div>
-              <h3 className="text-sm md:text-lg font-black text-slate-400 uppercase tracking-widest text-center">Centre de Support</h3>
-              <p className="text-xs md:text-sm font-medium max-w-xs text-center mt-2">Sélectionnez une demande pour commencer ou créez-en une nouvelle.</p>
+              <h3 className="text-sm md:text-lg font-black text-slate-400 uppercase tracking-widest text-center">{language === "fr" ? "Centre de Support" : "Support Center"}</h3>
+              <p className="text-xs md:text-sm font-medium max-w-xs text-center mt-2">{language === "fr" ? "Sélectionnez une demande pour commencer ou créez-en une nouvelle." : "Select a request to begin or create a new one."}</p>
             </div>
           )}
         </div>
@@ -466,7 +495,7 @@ export default function SupportPage() {
           </button>
           
           <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <img src={zoomImageUrl} alt="Reçu Agrandissement" className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
+            <img src={zoomImageUrl} alt={language === "fr" ? "Reçu Agrandissement" : "Receipt Enlarged"} className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
             <div className="mt-4 flex justify-center gap-4">
               <a 
                 href={zoomImageUrl} 
@@ -474,7 +503,7 @@ export default function SupportPage() {
                 rel="noopener noreferrer" 
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
               >
-                Ouvrir en plein écran <ExternalLink className="w-4 h-4" />
+                {language === "fr" ? "Ouvrir en plein écran" : "Open fullscreen"} <ExternalLink className="w-4 h-4" />
               </a>
             </div>
           </div>

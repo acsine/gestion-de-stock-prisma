@@ -5,11 +5,14 @@ import { useState } from "react";
 import { CreditCard, CheckCircle, ExternalLink, Filter, RefreshCw, X, Eye, ShieldAlert, Sparkles } from "lucide-react";
 import { useTickets } from "@/hooks/useQueries";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { fr as frLocale } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "@/stores/useUIStore";
+import { useTranslation } from "@/locales/i18n";
 
 export default function AdminPaymentsPage() {
+  const { t, language } = useTranslation();
   const { addToast } = useUIStore();
   const qc = useQueryClient();
   const { data: ticketsData, isLoading, isRefetching } = useTickets();
@@ -35,7 +38,7 @@ export default function AdminPaymentsPage() {
   };
 
   const handleValidate = async (ticketId: string) => {
-    if (!confirm("Voulez-vous valider ce paiement et activer l'abonnement du client ?")) return;
+    if (!confirm(language === "fr" ? "Voulez-vous valider ce paiement et activer l'abonnement du client ?" : "Do you want to validate this payment and activate the client's subscription?")) return;
     setIsValidatingId(ticketId);
     try {
       const res = await fetch("/api/superadmin/tenants/activate", {
@@ -49,22 +52,22 @@ export default function AdminPaymentsPage() {
       if (res.ok) {
         addToast({
           type: "success",
-          title: "Paiement validé !",
-          message: data.message || "L'abonnement a été activé avec succès.",
+          title: language === "fr" ? "Paiement validé !" : "Payment validated!",
+          message: data.message || (language === "fr" ? "L'abonnement a été activé avec succès." : "The subscription has been activated successfully."),
         });
         qc.invalidateQueries({ queryKey: ["tickets"] });
       } else {
         addToast({
           type: "error",
-          title: "Erreur de validation",
-          message: data.error || "Une erreur est survenue lors de l'activation.",
+          title: language === "fr" ? "Erreur de validation" : "Validation error",
+          message: data.error || (language === "fr" ? "Une erreur est survenue lors de l'activation." : "An error occurred during activation."),
         });
       }
     } catch (err) {
       addToast({
         type: "error",
-        title: "Erreur réseau",
-        message: "Impossible de joindre le serveur de validation.",
+        title: language === "fr" ? "Erreur réseau" : "Network error",
+        message: language === "fr" ? "Impossible de joindre le serveur de validation." : "Unable to reach the validation server.",
       });
     } finally {
       setIsValidatingId(null);
@@ -76,7 +79,7 @@ export default function AdminPaymentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
           <CreditCard className="w-8 h-8 text-blue-600 animate-pulse" />
-          Validation des Paiements Manuels
+          {language === "fr" ? "Validation des Paiements Manuels" : "Manual Payment Validation"}
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
@@ -86,7 +89,7 @@ export default function AdminPaymentsPage() {
                 filterStatus === "ALL" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              Tous ({paymentTickets.length})
+              {language === "fr" ? "Tous" : "All"} ({paymentTickets.length})
             </button>
             <button
               onClick={() => setFilterStatus("OUVERT")}
@@ -94,7 +97,7 @@ export default function AdminPaymentsPage() {
                 filterStatus === "OUVERT" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              En attente ({paymentTickets.filter((t: any) => t.status === "OUVERT").length})
+              {language === "fr" ? "En attente" : "Pending"} ({paymentTickets.filter((t: any) => t.status === "OUVERT").length})
             </button>
             <button
               onClick={() => setFilterStatus("RESOLU")}
@@ -102,13 +105,13 @@ export default function AdminPaymentsPage() {
                 filterStatus === "RESOLU" ? "bg-white text-slate-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              Validés ({paymentTickets.filter((t: any) => t.status === "RESOLU").length})
+              {language === "fr" ? "Validés" : "Validated"} ({paymentTickets.filter((t: any) => t.status === "RESOLU").length})
             </button>
           </div>
           <button 
             onClick={() => qc.invalidateQueries({ queryKey: ["tickets"] })}
             className="p-2 bg-slate-100 border border-slate-200 rounded-xl hover:bg-slate-200 text-slate-600 transition-all flex items-center justify-center"
-            title="Rafraîchir"
+            title={language === "fr" ? "Rafraîchir" : "Refresh"}
           >
             <RefreshCw className={`w-4 h-4 ${(isLoading || isRefetching) ? "animate-spin" : ""}`} />
           </button>
@@ -119,26 +122,26 @@ export default function AdminPaymentsPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center p-12 text-slate-400">
             <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-4" />
-            <p className="text-sm font-bold">Chargement des demandes de paiement...</p>
+            <p className="text-sm font-bold">{language === "fr" ? "Chargement des demandes de paiement..." : "Loading payment requests..."}</p>
           </div>
         ) : filteredTickets.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-16 text-slate-400">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
               <Sparkles className="w-8 h-8 opacity-20 text-blue-600" />
             </div>
-            <p className="text-sm font-bold">Aucune demande de paiement trouvée dans cette catégorie.</p>
+            <p className="text-sm font-bold">{language === "fr" ? "Aucune demande de paiement trouvée dans cette catégorie." : "No payment requests found in this category."}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Client & Date</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entreprise</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Formule demandée</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Justificatif</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Statut</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Action</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Client & Date" : "Client & Date"}</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Entreprise" : "Company"}</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Formule demandée" : "Requested Plan"}</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Justificatif" : "Receipt"}</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Statut" : "Status"}</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">{language === "fr" ? "Action" : "Action"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,7 +157,7 @@ export default function AdminPaymentsPage() {
                         <div className="font-bold text-slate-800 text-sm">{t.user?.name}</div>
                         <div className="text-xs text-slate-400 font-medium">{t.user?.email}</div>
                         <div className="text-[10px] text-slate-400 font-medium mt-1">
-                          Créé {formatDistanceToNow(new Date(t.createdAt), { addSuffix: true, locale: fr })}
+                          {language === "fr" ? "Créé" : "Created"} {formatDistanceToNow(new Date(t.createdAt), { addSuffix: true, locale: language === "fr" ? frLocale : enUS })}
                         </div>
                       </td>
                       <td className="p-4">
@@ -178,13 +181,13 @@ export default function AdminPaymentsPage() {
                       <td className="p-4">
                         {receiptUrl ? (
                           <div className="relative group w-12 h-12 rounded-lg border border-slate-200 overflow-hidden bg-slate-900 shadow-sm cursor-pointer select-none" onClick={() => setZoomImageUrl(receiptUrl)}>
-                            <img src={receiptUrl} alt="Reçu" className="w-full h-full object-cover group-hover:opacity-75 transition-all" />
+                            <img src={receiptUrl} alt={language === "fr" ? "Reçu" : "Receipt"} className="w-full h-full object-cover group-hover:opacity-75 transition-all" />
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-all text-white">
                               <Eye className="w-4 h-4" />
                             </div>
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-400 font-medium italic">Aucun reçu trouvé</span>
+                          <span className="text-xs text-slate-400 font-medium italic">{language === "fr" ? "Aucun reçu trouvé" : "No receipt found"}</span>
                         )}
                       </td>
                       <td className="p-4">
@@ -193,7 +196,7 @@ export default function AdminPaymentsPage() {
                             ? "bg-slate-50 text-slate-500 border-slate-200" 
                             : "bg-emerald-50 text-emerald-600 border-emerald-100"
                         }`}>
-                          {t.status === "RESOLU" ? "VALIDÉ" : "EN ATTENTE"}
+                          {t.status === "RESOLU" ? (language === "fr" ? "VALIDÉ" : "VALIDATED") : (language === "fr" ? "EN ATTENTE" : "PENDING")}
                         </span>
                       </td>
                       <td className="p-4">
@@ -208,11 +211,11 @@ export default function AdminPaymentsPage() {
                             ) : (
                               <CheckCircle className="w-3.5 h-3.5" />
                             )}
-                            Valider
+                            {language === "fr" ? "Valider" : "Validate"}
                           </button>
                         ) : (
                           <span className="text-xs text-slate-400 font-bold uppercase flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5 text-slate-300" /> Prêt
+                            <CheckCircle className="w-3.5 h-3.5 text-slate-300" /> {language === "fr" ? "Prêt" : "Done"}
                           </span>
                         )}
                       </td>
@@ -230,11 +233,12 @@ export default function AdminPaymentsPage() {
           <ShieldAlert className="w-6 h-6" />
         </div>
         <div>
-          <h4 className="text-sm font-black text-blue-900 uppercase tracking-wide">Validation des Dépôts Manuels</h4>
+          <h4 className="text-sm font-black text-blue-900 uppercase tracking-wide">{language === "fr" ? "Validation des Dépôts Manuels" : "Manual Deposit Validation"}</h4>
           <p className="text-xs text-blue-700 mt-1 leading-relaxed font-medium">
-            Cette interface extrait directement les justificatifs de dépôt Orange Money / Mobile Money déposés par les utilisateurs depuis la page de blocage. 
-            Vérifiez l'exactitude de la capture reçue en cliquant sur la miniature, puis cliquez sur <strong>Valider</strong>. 
-            L'utilisateur sera automatiquement débloqué et sa licence activée.
+            {language === "fr"
+              ? <>Cette interface extrait directement les justificatifs de dépôt Orange Money / Mobile Money déposés par les utilisateurs depuis la page de blocage. Vérifiez l&apos;exactitude de la capture reçue en cliquant sur la miniature, puis cliquez sur <strong>Valider</strong>. L&apos;utilisateur sera automatiquement débloqué et sa licence activée.</>
+              : <>This interface directly extracts Orange Money / Mobile Money deposit receipts submitted by users from the blocking page. Verify the accuracy of the received screenshot by clicking on the thumbnail, then click <strong>Validate</strong>. The user will be automatically unblocked and their license activated.</>
+            }
           </p>
         </div>
       </div>
@@ -253,7 +257,7 @@ export default function AdminPaymentsPage() {
           </button>
           
           <div className="max-w-4xl max-h-[85vh] relative overflow-hidden rounded-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <img src={zoomImageUrl} alt="Reçu Agrandissement" className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
+            <img src={zoomImageUrl} alt={language === "fr" ? "Reçu Agrandissement" : "Receipt Enlarged"} className="max-w-full max-h-[75vh] object-contain rounded-xl border border-white/10 bg-slate-950" />
             <div className="mt-4 flex justify-center gap-4">
               <a 
                 href={zoomImageUrl} 
@@ -261,7 +265,7 @@ export default function AdminPaymentsPage() {
                 rel="noopener noreferrer" 
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2"
               >
-                Ouvrir en plein écran <ExternalLink className="w-4 h-4" />
+                {language === "fr" ? "Ouvrir en plein écran" : "Open fullscreen"} <ExternalLink className="w-4 h-4" />
               </a>
             </div>
           </div>

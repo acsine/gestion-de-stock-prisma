@@ -40,7 +40,16 @@ export async function POST(req: NextRequest) {
 
   if (role !== "ADMIN" && !isSuper) return NextResponse.json({ error: "Permission refusée" }, { status: 403 });
 
-  const { name, description, permissionIds, targetTenantId } = await req.json();
+  const { 
+    name, 
+    description, 
+    permissionIds, 
+    targetTenantId,
+    is_head_departement,
+    is_manager_sector,
+    is_saler_role,
+    is_unique
+  } = await req.json();
   const finalTenantId = tenantId || targetTenantId;
 
   if (!finalTenantId) return NextResponse.json({ error: "Tenant ID requis" }, { status: 400 });
@@ -52,6 +61,10 @@ export async function POST(req: NextRequest) {
         tenantId: finalTenantId,
         name,
         description,
+        is_head_departement: !!is_head_departement,
+        is_manager_sector: !!is_manager_sector,
+        is_saler_role: !!is_saler_role,
+        is_unique: !!is_unique,
         permissions: {
           connect: (permissionIds || []).map((id: string) => ({ id }))
         }

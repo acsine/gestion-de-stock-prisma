@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { downloadReport } from "@/lib/utils";
 import { useUIStore } from "@/stores/useUIStore";
+import { useTranslation } from "@/locales/i18n";
 
 interface ReportCardProps {
   id: string;
@@ -24,35 +25,44 @@ interface ReportCardProps {
 }
 
 export default function RapportsPage() {
+  const { t, language } = useTranslation();
   const { addToast } = useUIStore();
   const [loading, setLoading] = useState<Record<string, boolean>>({});
 
   const reports: ReportCardProps[] = [
     {
       id: "inventory",
-      title: "Rapport d'Inventaire",
-      description: "État actuel des stocks, valeurs d'achat et de vente, et alertes de stock bas.",
+      title: language === "fr" ? "Rapport d'Inventaire" : "Inventory Report",
+      description: language === "fr" 
+        ? "État actuel des stocks, valeurs d'achat et de vente, et alertes de stock bas." 
+        : "Current stock levels, purchase and sales values, and low stock alerts.",
       icon: Package,
       color: "blue"
     },
     {
       id: "sales",
-      title: "Rapport des Ventes",
-      description: "Analyse détaillée des ventes, produits les plus vendus et marges bénéficiaires.",
+      title: language === "fr" ? "Rapport des Ventes" : "Sales Report",
+      description: language === "fr" 
+        ? "Analyse détaillée des ventes, produits les plus vendus et marges bénéficiaires." 
+        : "Detailed sales analysis, top-selling products, and profit margins.",
       icon: TrendingUp,
       color: "green"
     },
     {
       id: "finance",
-      title: "État Financier",
-      description: "Résumé des revenus, dépenses et solde global des caisses.",
+      title: language === "fr" ? "État Financier" : "Financial Statement",
+      description: language === "fr" 
+        ? "Résumé des revenus, dépenses et solde global des caisses." 
+        : "Summary of revenues, expenses, and overall cash registers balance.",
       icon: BarChart3,
       color: "purple"
     },
     {
       id: "customers",
-      title: "Fiche Clients",
-      description: "Liste des clients, balance de crédit et historique des transactions.",
+      title: language === "fr" ? "Fiche Clients" : "Customer Statement",
+      description: language === "fr" 
+        ? "Liste des clients, balance de crédit et historique des transactions." 
+        : "List of customers, credit balance, and transaction history.",
       icon: Users,
       color: "orange"
     }
@@ -63,13 +73,17 @@ export default function RapportsPage() {
     setLoading(prev => ({ ...prev, [key]: true }));
     try {
       await downloadReport({ type: id, format }, `rapport_${id}_${new Date().toISOString().split('T')[0]}`);
-      addToast({ type: "success", title: "Téléchargement terminé", message: "Le rapport a été généré avec succès." });
+      addToast({
+        type: "success",
+        title: language === "fr" ? "Téléchargement terminé" : "Download complete",
+        message: language === "fr" ? "Le rapport a été généré avec succès." : "The report has been generated successfully."
+      });
     } catch (error: any) {
       console.error("Download error:", error);
       addToast({ 
         type: "error", 
-        title: "Erreur", 
-        message: error.message || "Impossible de générer le rapport pour le moment." 
+        title: t.common.error, 
+        message: error.message || (language === "fr" ? "Impossible de générer le rapport pour le moment." : "Unable to generate the report at this moment.")
       });
     } finally {
       setLoading(prev => ({ ...prev, [key]: false }));
@@ -79,8 +93,14 @@ export default function RapportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">Rapports & Statistiques</h1>
-        <p className="text-gray-500">Générez et téléchargez des rapports détaillés sur votre activité.</p>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {language === "fr" ? "Rapports & Statistiques" : "Reports & Statistics"}
+        </h1>
+        <p className="text-gray-500">
+          {language === "fr" 
+            ? "Générez et téléchargez des rapports détaillés sur votre activité." 
+            : "Generate and download detailed reports on your business activity."}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -102,7 +122,7 @@ export default function RapportsPage() {
               <div className="mt-8 flex items-center justify-between gap-4 pt-6 border-t border-gray-100">
                 <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
                   <Calendar className="w-3.5 h-3.5" />
-                  Mis à jour en temps réel
+                  {language === "fr" ? "Mis à jour en temps réel" : "Updated in real-time"}
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -143,8 +163,14 @@ export default function RapportsPage() {
           <ArrowRight className="w-5 h-5" />
         </div>
         <div>
-          <h4 className="font-bold text-amber-900">Besoin d'un rapport personnalisé ?</h4>
-          <p className="text-sm text-amber-700 mt-1">Vous pouvez demander des rapports spécifiques (par employé, par catégorie de stock, etc.) en contactant l'administrateur système.</p>
+          <h4 className="font-bold text-amber-900">
+            {language === "fr" ? "Besoin d'un rapport personnalisé ?" : "Need a custom report?"}
+          </h4>
+          <p className="text-sm text-amber-700 mt-1">
+            {language === "fr" 
+              ? "Vous pouvez demander des rapports spécifiques (par employé, par catégorie de stock, etc.) en contactant l'administrateur système." 
+              : "You can request specific reports (by employee, stock category, etc.) by contacting the system administrator."}
+          </p>
         </div>
       </div>
     </div>

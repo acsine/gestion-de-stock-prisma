@@ -7,6 +7,7 @@ import {
   CreditCard, Upload, CheckCircle2, ChevronRight, AlertCircle, HelpCircle, PhoneCall
 } from "lucide-react";
 import { ToastContainer, useToast } from "@/components/ui/Toast";
+import { useTranslation } from "@/locales/i18n";
 
 interface Message {
   id: string;
@@ -20,6 +21,7 @@ interface Message {
 
 export default function BlockedPage() {
   const { data: session } = useSession();
+  const { t, language } = useTranslation();
   const [activeTab, setActiveTab] = useState<"chat" | "pricing">("pricing");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -279,10 +281,13 @@ export default function BlockedPage() {
         if (!res.ok) throw new Error(data.error || "Une erreur est survenue");
 
         // Success! Show toast then redirect
-        showToast(`Félicitations ! Votre formule ${selectedPlan.label} a été activée. Accès débloqué !`, "success");
+        const successMsg = language === "fr" 
+          ? `Félicitations ! Votre formule ${selectedPlan.label} a été activée. Accès débloqué !`
+          : `Congratulations! Your plan ${selectedPlan.label} has been activated. Access restored!`;
+        showToast(successMsg, "success");
         setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
       } catch (err: any) {
-        setError(err.message || "La validation bancaire a échoué. Veuillez réessayer.");
+        setError(err.message || (language === "fr" ? "La validation bancaire a échoué. Veuillez réessayer." : "Bank validation failed. Please try again."));
         setAutoPaying(false);
       }
     }, 3000);
@@ -292,7 +297,9 @@ export default function BlockedPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-        <p className="text-sm font-semibold text-slate-500">Chargement de votre espace...</p>
+        <p className="text-sm font-semibold text-slate-500">
+          {language === "fr" ? "Chargement de votre espace..." : "Loading your workspace..."}
+        </p>
       </div>
     );
   }
@@ -300,21 +307,23 @@ export default function BlockedPage() {
   return (
     <>
       <ToastContainer toasts={toasts} onClose={closeToast} />
-    <div className="min-h-screen w-full bg-white flex flex-col md:flex-row relative font-sans overflow-hidden">
-      {/* Sleek dynamic colorful glassmorphism glow backdrops */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full filter blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full filter blur-[120px] pointer-events-none" />
+      <div className="min-h-screen w-full bg-white flex flex-col md:flex-row relative font-sans overflow-hidden">
+        {/* Sleek dynamic colorful glassmorphism glow backdrops */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 rounded-full filter blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full filter blur-[120px] pointer-events-none" />
 
-      {/* Left Side: Dynamic Human Information / Blocked Notice */}
-      <div className="w-full md:w-80 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-8 flex flex-col justify-between flex-shrink-0 relative z-10 h-auto md:h-screen">
+        {/* Left Side: Dynamic Human Information / Blocked Notice */}
+        <div className="w-full md:w-80 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 p-8 flex flex-col justify-between flex-shrink-0 relative z-10 h-auto md:h-screen">
           <div>
             <div className="w-12 h-12 bg-rose-500/10 text-rose-600 rounded-2xl flex items-center justify-center mb-6 border border-rose-500/20">
               <ShieldAlert className="w-6 h-6" />
             </div>
 
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-3">Compte Bloqué</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-3">
+              {t.blocked.title}
+            </h1>
             <p className="text-slate-500 font-medium text-xs leading-relaxed mb-6">
-              Bonjour <strong>{session?.user?.name || "Utilisateur"}</strong>. Votre espace est inactif ou votre licence a expiré. Vous devez souscrire ou contacter l'assistance.
+              {language === "fr" ? "Bonjour" : "Hello"} <strong>{session?.user?.name || "Utilisateur"}</strong>. {t.blocked.desc1} {t.blocked.desc2}
             </p>
 
             <div className="space-y-3">
@@ -324,9 +333,13 @@ export default function BlockedPage() {
                     <CreditCard className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-black text-slate-800 mb-1">Abonnement Express</h4>
+                    <h4 className="text-xs font-black text-slate-800 mb-1">
+                      {language === "fr" ? "Abonnement Express" : "Express Subscription"}
+                    </h4>
                     <p className="text-[10px] text-slate-400 leading-normal">
-                      Sélectionnez une formule annuelle et payez par Orange Money ou Carte pour réactiver vos accès instantanément.
+                      {language === "fr" 
+                        ? "Sélectionnez une formule annuelle et payez par Orange Money ou Carte pour réactiver vos accès instantanément." 
+                        : "Select an annual plan and pay via Orange Money or Credit Card to instantly restore your access."}
                     </p>
                   </div>
                 </div>
@@ -339,7 +352,7 @@ export default function BlockedPage() {
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors"
             >
-              <LogOut className="w-4 h-4" /> Se déconnecter
+              <LogOut className="w-4 h-4" /> {t.nav.logout}
             </button>
             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Thabor Solution</span>
           </div>
@@ -359,7 +372,7 @@ export default function BlockedPage() {
                     : "border-transparent text-slate-400 hover:text-slate-700"
                 }`}
               >
-                1. Tarifs & Abonnements
+                {language === "fr" ? "1. Tarifs & Abonnements" : "1. Pricing & Subscriptions"}
               </button>
               <button
                 onClick={() => setActiveTab("chat")}
@@ -369,7 +382,7 @@ export default function BlockedPage() {
                     : "border-transparent text-slate-400 hover:text-slate-700"
                 }`}
               >
-                2. Assistance en direct
+                {language === "fr" ? "2. Assistance en direct" : "2. Live Support"}
                 {messages.length > 0 && (
                   <span className="absolute top-3 -right-2 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
                 )}
@@ -379,7 +392,7 @@ export default function BlockedPage() {
             {activeTicketId && (
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-600 bg-green-50 border border-green-100 px-2.5 py-1 rounded-full">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                Discussion Active
+                {language === "fr" ? "Discussion Active" : "Active Chat"}
               </span>
             )}
           </div>
@@ -394,9 +407,13 @@ export default function BlockedPage() {
                   // Grid selection of plans
                   <div className="space-y-8 animate-in fade-in duration-300">
                     <div className="text-center max-w-md mx-auto">
-                      <h2 className="text-xl font-black text-slate-900 mb-2">Choisissez votre formule</h2>
+                      <h2 className="text-xl font-black text-slate-900 mb-2">
+                        {language === "fr" ? "Choisissez votre formule" : "Choose your plan"}
+                      </h2>
                       <p className="text-slate-400 font-medium text-xs">
-                        Trouvez le forfait parfait pour piloter les stocks et les ventes de votre commerce.
+                        {language === "fr" 
+                          ? "Trouvez le forfait parfait pour piloter les stocks et les ventes de votre commerce." 
+                          : "Find the perfect package to drive your store's inventory and sales."}
                       </p>
                     </div>
 
@@ -404,77 +421,101 @@ export default function BlockedPage() {
                       {/* GRATUIT PLAN */}
                       <div className="bg-white border border-slate-200 hover:border-slate-350 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-sm relative group hover:scale-[1.01]">
                         <div>
-                          <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase bg-slate-100 px-2.5 py-1 rounded-md">Débutant</span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">Formule Gratuit</h3>
-                          <p className="text-slate-400 text-[10px] mt-1">Idéal pour tester l'interface</p>
+                          <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase bg-slate-100 px-2.5 py-1 rounded-md">
+                            {language === "fr" ? "Débutant" : "Beginner"}
+                          </span>
+                          <h3 className="text-lg font-black text-slate-800 mt-4">
+                            {language === "fr" ? "Formule Gratuit" : "Free Plan"}
+                          </h3>
+                          <p className="text-slate-400 text-[10px] mt-1">
+                            {language === "fr" ? "Idéal pour tester l'interface" : "Ideal for testing the interface"}
+                          </p>
                           <div className="my-6">
                             <span className="text-2xl font-black text-slate-900">0 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> / 1 jour</span>
+                            <span className="text-slate-400 text-xs font-semibold"> 
+                              {language === "fr" ? " / 1 jour" : " / 1 day"}
+                            </span>
                           </div>
                           <ul className="space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ 2 Utilisateurs max</li>
-                            <li className="flex items-center gap-2">✓ 50 Produits max</li>
-                            <li className="flex items-center gap- gap-2 text-slate-400 line-through">✗ Téléchargements</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "2 Utilisateurs max" : "2 Users max"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "50 Produits max" : "50 Products max"}</li>
+                            <li className="flex items-center gap-2 text-slate-400 line-through">✗ {language === "fr" ? "Téléchargements" : "Downloads"}</li>
                           </ul>
                         </div>
                         <button
-                          onClick={() => setSelectedPlan({ name: "GRATUIT", price: 0, label: "Gratuit" })}
+                          onClick={() => setSelectedPlan({ name: "GRATUIT", price: 0, label: language === "fr" ? "Gratuit" : "Free" })}
                           className="w-full mt-8 py-3.5 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all"
                         >
-                          Choisir Gratuit
+                          {language === "fr" ? "Choisir Gratuit" : "Choose Free"}
                         </button>
                       </div>
 
                       {/* PROFESSIONNEL PLAN */}
                       <div className="bg-white border-2 border-blue-600 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-md relative group hover:scale-[1.01]">
                         <span className="absolute top-0 right-6 -translate-y-1/2 bg-blue-600 text-white text-[9px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-md">
-                          Recommandé
+                          {language === "fr" ? "Recommandé" : "Recommended"}
                         </span>
                         <div>
-                          <span className="text-[9px] font-black tracking-widest text-blue-600 uppercase bg-blue-50 px-2.5 py-1 rounded-md">Commerce</span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">Professionnel</h3>
-                          <p className="text-slate-400 text-[10px] mt-1">Pour les commerces en pleine croissance</p>
+                          <span className="text-[9px] font-black tracking-widest text-blue-600 uppercase bg-blue-50 px-2.5 py-1 rounded-md">
+                            {language === "fr" ? "Commerce" : "Business"}
+                          </span>
+                          <h3 className="text-lg font-black text-slate-800 mt-4">
+                            {language === "fr" ? "Professionnel" : "Professional"}
+                          </h3>
+                          <p className="text-slate-400 text-[10px] mt-1">
+                            {language === "fr" ? "Pour les commerces en pleine croissance" : "For growing businesses"}
+                          </p>
                           <div className="my-6">
                             <span className="text-2xl font-black text-slate-900">50 000 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> / an</span>
+                            <span className="text-slate-400 text-xs font-semibold"> 
+                              {language === "fr" ? " / an" : " / year"}
+                            </span>
                           </div>
                           <ul className="space-y-2 border-t border-blue-50 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ 10 Utilisateurs max</li>
-                            <li className="flex items-center gap-2">✓ 5 000 Produits max</li>
-                            <li className="flex items-center gap-2">✓ Téléchargements activés</li>
-                            <li className="flex items-center gap-2">✓ Support Standard</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "10 Utilisateurs max" : "10 Users max"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "5 000 Produits max" : "5,000 Products max"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Téléchargements activés" : "Downloads enabled"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Support Standard" : "Standard Support"}</li>
                           </ul>
                         </div>
                         <button
-                          onClick={() => setSelectedPlan({ name: "PROFESSIONNEL", price: 50000, label: "Professionnel" })}
+                          onClick={() => setSelectedPlan({ name: "PROFESSIONNEL", price: 50000, label: language === "fr" ? "Professionnel" : "Professional" })}
                           className="w-full mt-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-blue-500/20"
                         >
-                          Choisir Pro
+                          {language === "fr" ? "Choisir Pro" : "Choose Pro"}
                         </button>
                       </div>
 
                       {/* PLAN ENTREPRISE */}
                       <div className="bg-white border border-slate-200 hover:border-slate-350 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-sm relative group hover:scale-[1.01]">
                         <div>
-                          <span className="text-[9px] font-black tracking-widest text-indigo-600 uppercase bg-indigo-50 px-2.5 py-1 rounded-md">Multi-magasin</span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">Entreprise</h3>
-                          <p className="text-slate-400 text-[10px] mt-1">Puissance maximale et illimité</p>
+                          <span className="text-[9px] font-black tracking-widest text-indigo-600 uppercase bg-indigo-50 px-2.5 py-1 rounded-md">
+                            {language === "fr" ? "Multi-magasin" : "Multi-store"}
+                          </span>
+                          <h3 className="text-lg font-black text-slate-800 mt-4">
+                            {language === "fr" ? "Entreprise" : "Enterprise"}
+                          </h3>
+                          <p className="text-slate-400 text-[10px] mt-1">
+                            {language === "fr" ? "Puissance maximale et illimité" : "Maximum power & unlimited"}
+                          </p>
                           <div className="my-6">
                             <span className="text-2xl font-black text-slate-900">150 000 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> / an</span>
+                            <span className="text-slate-400 text-xs font-semibold"> 
+                              {language === "fr" ? " / an" : " / year"}
+                            </span>
                           </div>
                           <ul className="space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ 100 Utilisateurs max</li>
-                            <li className="flex items-center gap-2">✓ Produits Illimités</li>
-                            <li className="flex items-center gap-2">✓ Options de téléchargement</li>
-                            <li className="flex items-center gap-2">✓ Support VIP 24/7</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "100 Utilisateurs max" : "100 Users max"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Produits Illimités" : "Unlimited Products"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Options de téléchargement" : "Download options"}</li>
+                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Support VIP 24/7" : "24/7 VIP Support"}</li>
                           </ul>
                         </div>
                         <button
-                          onClick={() => setSelectedPlan({ name: "ENTREPRISE", price: 150000, label: "Entreprise" })}
+                          onClick={() => setSelectedPlan({ name: "ENTREPRISE", price: 150000, label: language === "fr" ? "Entreprise" : "Enterprise" })}
                           className="w-full mt-8 py-3.5 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all"
                         >
-                          Choisir Entreprise
+                          {language === "fr" ? "Choisir Entreprise" : "Choose Enterprise"}
                         </button>
                       </div>
                     </div>
@@ -486,12 +527,14 @@ export default function BlockedPage() {
                       onClick={() => { setSelectedPlan(null); setPaymentMethod(null); }}
                       className="text-xs font-black text-slate-400 hover:text-slate-800 uppercase tracking-widest flex items-center gap-1"
                     >
-                      ← Retour aux forfaits
+                      {language === "fr" ? "← Retour aux forfaits" : "← Back to plans"}
                     </button>
 
                     <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider">Formule choisie</span>
+                        <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider">
+                          {language === "fr" ? "Formule choisie" : "Selected Plan"}
+                        </span>
                         <h3 className="text-base font-black text-slate-800">{selectedPlan.label}</h3>
                       </div>
                       <div className="text-right">
@@ -502,7 +545,9 @@ export default function BlockedPage() {
                     {!paymentMethod ? (
                       // Choose automatic vs manual
                       <div className="space-y-4">
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center my-4">Moyen de paiement</h4>
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center my-4">
+                          {language === "fr" ? "Moyen de paiement" : "Payment Method"}
+                        </h4>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <button
@@ -510,9 +555,11 @@ export default function BlockedPage() {
                             className="bg-white border border-slate-200 hover:border-blue-500 rounded-3xl p-6 text-center transition-all group flex flex-col items-center justify-center"
                           >
                             <CreditCard className="w-8 h-8 text-blue-600 mb-3 group-hover:scale-105 transition-transform" />
-                            <span className="text-xs font-black text-slate-800">Paiement Automatique</span>
+                            <span className="text-xs font-black text-slate-800">
+                              {language === "fr" ? "Paiement Automatique" : "Automatic Payment"}
+                            </span>
                             <span className="text-[10px] text-slate-400 mt-1 leading-normal">
-                              Carte Bancaire - Activation immédiate
+                              {language === "fr" ? "Carte Bancaire - Activation immédiate" : "Credit Card - Immediate activation"}
                             </span>
                           </button>
 
@@ -521,9 +568,11 @@ export default function BlockedPage() {
                             className="bg-white border border-slate-200 hover:border-blue-500 rounded-3xl p-6 text-center transition-all group flex flex-col items-center justify-center"
                           >
                             <PhoneCall className="w-8 h-8 text-emerald-600 mb-3 group-hover:scale-105 transition-transform" />
-                            <span className="text-xs font-black text-slate-800">Paiement Manuel</span>
+                            <span className="text-xs font-black text-slate-800">
+                              {language === "fr" ? "Paiement Manuel" : "Manual Payment"}
+                            </span>
                             <span className="text-[10px] text-slate-400 mt-1 leading-normal">
-                              Dépôt Orange Money - Validation admin
+                              {language === "fr" ? "Dépôt Orange Money - Validation admin" : "Orange Money Deposit - Admin validation"}
                             </span>
                           </button>
                         </div>
@@ -532,21 +581,29 @@ export default function BlockedPage() {
                       // Automatic payment simulation checkout
                       <form onSubmit={handleAutoPaymentSubmit} className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 space-y-4">
                         <h3 className="text-base font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-blue-600" /> Saisir vos coordonnées bancaires
+                          <CreditCard className="w-5 h-5 text-blue-600" /> {language === "fr" ? "Saisir vos coordonnées bancaires" : "Enter your credit card details"}
                         </h3>
 
                         {autoPaying ? (
                           <div className="py-12 flex flex-col items-center justify-center text-center gap-4 animate-in fade-in duration-300">
                             <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
                             <div>
-                              <h4 className="text-sm font-black text-slate-800">Validation bancaire en cours...</h4>
-                              <p className="text-[10px] text-slate-400 mt-1">Veuillez patienter pendant la validation de la transaction sécurisée.</p>
+                              <h4 className="text-sm font-black text-slate-800">
+                                {language === "fr" ? "Validation bancaire en cours..." : "Bank validation in progress..."}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                {language === "fr" 
+                                  ? "Veuillez patienter pendant la validation de la transaction sécurisée." 
+                                  : "Please wait while the secure transaction is processed."}
+                              </p>
                             </div>
                           </div>
                         ) : (
                           <>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Numéro de carte</label>
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                                {language === "fr" ? "Numéro de carte" : "Card number"}
+                              </label>
                               <input
                                 type="text"
                                 required
@@ -559,7 +616,9 @@ export default function BlockedPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Date d'expiration</label>
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                                  {language === "fr" ? "Date d'expiration" : "Expiration date"}
+                                </label>
                                 <input
                                   type="text"
                                   required
@@ -570,7 +629,9 @@ export default function BlockedPage() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">Code CVC</label>
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                                  {language === "fr" ? "Code CVC" : "CVC Code"}
+                                </label>
                                 <input
                                   type="text"
                                   required
@@ -591,7 +652,7 @@ export default function BlockedPage() {
                               type="submit"
                               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition-all duration-300"
                             >
-                              Confirmer et Payer {selectedPlan.price.toLocaleString("fr-FR")} XAF
+                              {language === "fr" ? "Confirmer et Payer" : "Confirm and Pay"} {selectedPlan.price.toLocaleString("fr-FR")} XAF
                             </button>
                           </>
                         )}
@@ -600,21 +661,25 @@ export default function BlockedPage() {
                       // Manual Orange Money Payment Workflow
                       <form onSubmit={handleManualPaymentSubmit} className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 space-y-5">
                         <div className="text-center p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                          <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-2">Instructions Dépôt Orange Money</h4>
+                          <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-2">
+                            {language === "fr" ? "Instructions Dépôt Orange Money" : "Orange Money Deposit Instructions"}
+                          </h4>
                           <p className="text-[11px] text-emerald-700 font-medium leading-relaxed">
-                            Veuillez effectuer un transfert Orange Money d'un montant de **{selectedPlan.price.toLocaleString("fr-FR")} XAF** au numéro ci-dessous :
+                            {language === "fr" 
+                              ? `Veuillez effectuer un transfert Orange Money d'un montant de **${selectedPlan.price.toLocaleString("fr-FR")} XAF** au numéro ci-dessous :`
+                              : `Please transfer Orange Money of amount **${selectedPlan.price.toLocaleString("fr-FR")} XAF** to the number below:`}
                           </p>
                           <div className="text-xl font-black text-emerald-950 my-2 select-all cursor-pointer" title="Copier le numéro">
                             699 259 366
                           </div>
                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                            Destinataire : Thabor Solution
+                            {language === "fr" ? "Destinataire : Thabor Solution" : "Recipient: Thabor Solution"}
                           </p>
                         </div>
 
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">
-                            Justificatif de paiement (Capture d'écran)
+                            {language === "fr" ? "Justificatif de paiement (Capture d'écran)" : "Payment Proof (Screenshot)"}
                           </label>
                           
                           <div className="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-6 text-center transition-all bg-slate-50/50 cursor-pointer relative group">
@@ -629,19 +694,27 @@ export default function BlockedPage() {
                             {uploadingFile ? (
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-                                <span className="text-xs font-semibold text-slate-400">Fichier en cours de chargement...</span>
+                                <span className="text-xs font-semibold text-slate-400">
+                                  {language === "fr" ? "Fichier en cours de chargement..." : "File uploading..."}
+                                </span>
                               </div>
                             ) : screenshotFile ? (
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                                 <span className="text-xs font-bold text-slate-800">{screenshotFile.name}</span>
-                                <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-150">Justificatif chargé</span>
+                                <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-150">
+                                  {language === "fr" ? "Justificatif chargé" : "Proof loaded"}
+                                </span>
                               </div>
                             ) : (
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <Upload className="w-8 h-8 text-slate-400 group-hover:scale-105 transition-transform" />
-                                <span className="text-xs font-bold text-slate-600">Sélectionnez ou glissez la capture d'écran</span>
-                                <span className="text-[9px] text-slate-400 leading-normal">Fichiers PNG, JPG ou JPEG acceptés</span>
+                                <span className="text-xs font-bold text-slate-600">
+                                  {language === "fr" ? "Sélectionnez ou glissez la capture d'écran" : "Select or drag the screenshot"}
+                                </span>
+                                <span className="text-[9px] text-slate-400 leading-normal">
+                                  {language === "fr" ? "Fichiers PNG, JPG ou JPEG acceptés" : "PNG, JPG or JPEG files accepted"}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -659,12 +732,12 @@ export default function BlockedPage() {
                           {loading ? (
                             <>
                               <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Transmission en cours...</span>
+                              <span>{language === "fr" ? "Transmission en cours..." : "Transmission in progress..."}</span>
                             </>
                           ) : (
                             <>
                               <Send className="w-3.5 h-3.5" />
-                              <span>Envoyer le justificatif à l'administrateur</span>
+                              <span>{language === "fr" ? "Envoyer le justificatif à l'administrateur" : "Send proof to administrator"}</span>
                             </>
                           )}
                         </button>
@@ -685,10 +758,12 @@ export default function BlockedPage() {
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                         <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
-                          Assistance Thabor Solution
+                          {language === "fr" ? "Assistance Thabor Solution" : "Thabor Solution Support"}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-bold">Flux en direct SSE activé</span>
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        {language === "fr" ? "Flux en direct SSE activé" : "Live SSE flow enabled"}
+                      </span>
                     </div>
 
                     {/* Chat message list container */}
@@ -696,7 +771,9 @@ export default function BlockedPage() {
                       {messages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center p-6">
                           <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
-                          <p className="text-xs text-slate-400">Connexion sécurisée en direct...</p>
+                          <p className="text-xs text-slate-400">
+                            {language === "fr" ? "Connexion sécurisée en direct..." : "Secure live connection..."}
+                          </p>
                         </div>
                       ) : (
                         messages.map((msg) => {
@@ -755,7 +832,7 @@ export default function BlockedPage() {
                         type="text"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Écrivez un message ici..."
+                        placeholder={language === "fr" ? "Écrivez un message ici..." : "Write a message here..."}
                         className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-300"
                         required
                       />
@@ -776,22 +853,28 @@ export default function BlockedPage() {
                       <MessageSquare className="w-8 h-8" />
                     </div>
 
-                    <h2 className="text-xl font-black text-slate-900 mb-2">Entrer en contact</h2>
+                    <h2 className="text-xl font-black text-slate-900 mb-2">
+                      {language === "fr" ? "Entrer en contact" : "Get in Touch"}
+                    </h2>
                     <p className="text-slate-500 font-medium text-xs leading-relaxed mb-8">
-                      Laissez un message à l'administrateur système ci-dessous. Dès que vous validerez, une session de chat en direct s'ouvrira pour suivre votre demande de réactivation.
+                      {language === "fr" 
+                        ? "Laissez un message à l'administrateur système ci-dessous. Dès que vous validerez, une session de chat en direct s'ouvrira pour suivre votre demande de réactivation." 
+                        : "Leave a message to the system administrator below. Once submitted, a live chat session will open to track your reactivation request."}
                     </p>
 
                     <form onSubmit={handleFirstMessageSubmit} className="space-y-4 text-left">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                          Votre Message
+                          {language === "fr" ? "Votre Message" : "Your Message"}
                         </label>
                         <textarea
                           value={message}
                           onChange={(e) => setMessage(e.target.value)}
                           required
                           rows={4}
-                          placeholder="Expliquez la situation ou posez votre question pour réactiver votre accès..."
+                          placeholder={language === "fr" 
+                            ? "Expliquez la situation ou posez votre question pour réactiver votre accès..." 
+                            : "Explain the situation or ask your question to reactivate your access..."}
                           className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-xs font-semibold focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white placeholder-slate-400 resize-none transition-all duration-300"
                         />
                       </div>
@@ -810,12 +893,12 @@ export default function BlockedPage() {
                         {loading ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Connexion en cours...</span>
+                            <span>{language === "fr" ? "Connexion en cours..." : "Connecting..."}</span>
                           </>
                         ) : (
                           <>
                             <Send className="w-3.5 h-3.5" />
-                            <span>Envoyer et Ouvrir le Chat</span>
+                            <span>{language === "fr" ? "Envoyer et Ouvrir le Chat" : "Send & Open Chat"}</span>
                           </>
                         )}
                       </button>
@@ -828,8 +911,7 @@ export default function BlockedPage() {
           </div>
         </div>
 
-    </div>
-  </>
+      </div>
+    </>
   );
 }
-

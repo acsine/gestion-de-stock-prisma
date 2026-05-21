@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useDashboard } from "@/hooks/useQueries";
 import { formatCurrency, formatDate, getInvoiceStatusBadge, getInvoiceStatusLabel, cn } from "@/lib/utils";
+import { useTranslation } from "@/locales/i18n";
 import {
   Package, AlertTriangle, TrendingUp, Wallet, FileText,
   ShoppingCart, RefreshCw, ArrowUpRight, ArrowDownRight, X, ArrowLeftRight
@@ -46,6 +47,7 @@ function StatCard({ title, value, sub, icon: Icon, color = "blue", trend, onClic
 }
 
 function MarginDetailModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -73,10 +75,10 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
   const currentTotal = filteredMovements.reduce((sum: number, m: any) => sum + m.margin, 0);
 
   const MOVEMENT_LABELS: Record<string, string> = {
-    SORTIE_VENTE: "Sortie — Vente",
-    ENTREE_RETOUR: "Entrée — Retour client",
-    SORTIE_PERTE: "Sortie — Perte / Casse",
-    SORTIE_USAGE_INTERNE: "Sortie — Usage interne"
+    SORTIE_VENTE: t.dashboard.marginModal.types.SORTIE_VENTE,
+    ENTREE_RETOUR: t.dashboard.marginModal.types.ENTREE_RETOUR,
+    SORTIE_PERTE: t.dashboard.marginModal.types.SORTIE_PERTE,
+    SORTIE_USAGE_INTERNE: t.dashboard.marginModal.types.SORTIE_USAGE_INTERNE
   };
 
   return (
@@ -85,8 +87,8 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-slate-50">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 font-sans">Détail de la Marge Bénéficiaire</h2>
-            <p className="text-xs text-gray-500 mt-1">Calculée sur les mouvements de stock du mois en cours</p>
+            <h2 className="text-xl font-bold text-gray-900 font-sans">{t.dashboard.marginModal.title}</h2>
+            <p className="text-xs text-gray-500 mt-1">{t.dashboard.marginModal.subtitle}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200/70 text-gray-500 hover:text-gray-700 rounded-xl transition-colors">
             <X className="w-5 h-5" />
@@ -96,31 +98,31 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
         {/* Filters & Summary */}
         <div className="p-5 border-b border-gray-100 bg-slate-50/50 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Rechercher un produit</label>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">{t.actions.search}</label>
             <input 
               type="text" 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="input text-sm bg-white" 
-              placeholder="Nom ou SKU..." 
+              placeholder={t.dashboard.marginModal.searchPlaceholder} 
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Type de mouvement</label>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">{t.dashboard.marginModal.typeLabel}</label>
             <select 
               value={typeFilter} 
               onChange={(e) => setTypeFilter(e.target.value)} 
               className="input text-sm bg-white"
             >
-              <option value="">Tous les types</option>
-              <option value="SORTIE_VENTE">Ventes uniquement</option>
-              <option value="ENTREE_RETOUR">Retours clients</option>
-              <option value="SORTIE_PERTE">Pertes / Casse</option>
-              <option value="SORTIE_USAGE_INTERNE">Usage Interne</option>
+              <option value="">{t.dashboard.marginModal.allTypes}</option>
+              <option value="SORTIE_VENTE">{t.dashboard.marginModal.salesOnly}</option>
+              <option value="ENTREE_RETOUR">{t.dashboard.marginModal.returnsOnly}</option>
+              <option value="SORTIE_PERTE">{t.dashboard.marginModal.lossesOnly}</option>
+              <option value="SORTIE_USAGE_INTERNE">{t.dashboard.marginModal.internalOnly}</option>
             </select>
           </div>
           <div className="bg-emerald-50/70 border border-emerald-100 p-3 rounded-xl flex flex-col justify-center h-full">
-            <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Total de la Marge Filtrée</span>
+            <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">{t.dashboard.marginModal.filteredTotal}</span>
             <span className={cn(
               "text-lg font-black mt-0.5",
               currentTotal >= 0 ? "text-emerald-700" : "text-rose-700"
@@ -135,28 +137,28 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16">
               <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-              <p className="text-sm text-gray-500">Chargement des détails de la marge...</p>
+              <p className="text-sm text-gray-500">{t.actions.loading}</p>
             </div>
           ) : filteredMovements.length === 0 ? (
             <div className="text-center py-16">
               <ArrowLeftRight className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500 font-medium">Aucun mouvement trouvé</p>
-              <p className="text-xs text-gray-400 mt-1">Essayez d'ajuster vos critères de recherche ou de filtre.</p>
+              <p className="text-gray-500 font-medium">{t.dashboard.marginModal.noMovement}</p>
+              <p className="text-xs text-gray-400 mt-1">{t.dashboard.marginModal.noMovementSub}</p>
             </div>
           ) : (
             <div className="table-container border rounded-xl overflow-hidden">
               <table className="data-table">
                 <thead className="bg-slate-50 text-slate-700 text-xs uppercase tracking-wider font-bold">
                   <tr>
-                    <th>Date</th>
-                    <th>Produit</th>
-                    <th>Type</th>
-                    <th>Quantité</th>
-                    <th>Coût Achat</th>
-                    <th>Prix Vente</th>
-                    <th>Marge Unit.</th>
-                    <th>Marge Totale</th>
-                    <th>Par</th>
+                    <th>{t.dashboard.marginModal.table.date}</th>
+                    <th>{t.dashboard.marginModal.table.product}</th>
+                    <th>{t.dashboard.marginModal.table.type}</th>
+                    <th>{t.dashboard.marginModal.table.qty}</th>
+                    <th>{t.dashboard.marginModal.table.buyCost}</th>
+                    <th>{t.dashboard.marginModal.table.sellPrice}</th>
+                    <th>{t.dashboard.marginModal.table.unitMargin}</th>
+                    <th>{t.dashboard.marginModal.table.totalMargin}</th>
+                    <th>{t.dashboard.marginModal.table.by}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
@@ -214,7 +216,7 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
         
         {/* Footer */}
         <div className="p-4 border-t border-gray-100 bg-slate-50 flex justify-end">
-          <button onClick={onClose} className="btn-secondary px-5 py-2 font-bold rounded-xl text-sm">Fermer</button>
+          <button onClick={onClose} className="btn-secondary px-5 py-2 font-bold rounded-xl text-sm">{t.actions.close}</button>
         </div>
       </div>
     </div>
@@ -222,6 +224,7 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function DashboardPage() {
+  const { t, language } = useTranslation();
   const { data, isLoading, refetch } = useDashboard();
   const [showMarginModal, setShowMarginModal] = useState(false);
   const stats = data?.data;
@@ -237,7 +240,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-          <p className="text-gray-500">Chargement du tableau de bord…</p>
+          <p className="text-gray-500">{t.dashboard.loading}</p>
         </div>
       </div>
     );
@@ -248,55 +251,57 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
-          <p className="text-gray-500 text-sm mt-0.5">Bienvenue — {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            {t.dashboard.welcome} — {new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
         </div>
         <button onClick={() => refetch()} disabled={isLoading} className="btn-secondary flex items-center gap-2 text-sm">
           <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          Actualiser
+          {t.actions.refresh}
         </button>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Produits actifs" value={stats?.totalProducts || 0} icon={Package} color="blue" sub="en catalogue" />
-        <StatCard title="Alertes stock" value={stats?.alertCount || 0} icon={AlertTriangle} color={stats?.alertCount > 0 ? "red" : "green"} sub={`${stats?.ruptures || 0} ruptures`} />
-        <StatCard title="CA du mois" value={formatCurrency(stats?.monthRevenue || 0)} icon={TrendingUp} color="green" trend={stats?.revenueTrend} />
-        <StatCard title="Valeur du stock" value={formatCurrency(stats?.totalStockValue || 0)} icon={Wallet} color="purple" sub="prix d'achat" />
+        <StatCard title={t.dashboard.activeProducts} value={stats?.totalProducts || 0} icon={Package} color="blue" sub={t.dashboard.inCatalog} />
+        <StatCard title={t.dashboard.stockAlerts} value={stats?.alertCount || 0} icon={AlertTriangle} color={stats?.alertCount > 0 ? "red" : "green"} sub={`${stats?.ruptures || 0} ${t.dashboard.ruptures}`} />
+        <StatCard title={t.dashboard.monthlyRevenue} value={formatCurrency(stats?.monthRevenue || 0)} icon={TrendingUp} color="green" trend={stats?.revenueTrend} />
+        <StatCard title={t.dashboard.stockValue} value={formatCurrency(stats?.totalStockValue || 0)} icon={Wallet} color="purple" sub={t.dashboard.buyPrice} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Factures du jour" value={stats?.todayInvoices || 0} icon={FileText} color="blue" sub={formatCurrency(stats?.todaySales || 0)} />
-        <StatCard title="Factures en attente" value={stats?.pendingInvoices || 0} icon={FileText} color="yellow" sub="non soldées" />
+        <StatCard title={t.dashboard.todayInvoices} value={stats?.todayInvoices || 0} icon={FileText} color="blue" sub={formatCurrency(stats?.todaySales || 0)} />
+        <StatCard title={t.dashboard.pendingInvoices} value={stats?.pendingInvoices || 0} icon={FileText} color="yellow" sub={t.dashboard.unpaid} />
         <StatCard 
-          title="Marge s/ Mouvements" 
+          title={t.dashboard.movementMargin} 
           value={formatCurrency(stats?.movementMargin || 0)} 
           icon={TrendingUp} 
           color="green" 
-          sub="cliquer pour consulter en détail" 
+          sub={t.dashboard.marginSub} 
           onClick={() => setShowMarginModal(true)} 
         />
-        <StatCard title="Bénéfice du mois" value={formatCurrency((stats?.monthRevenue || 0) - (stats?.monthExpenses || 0))} icon={TrendingUp} color="green" />
+        <StatCard title={t.dashboard.monthlyProfit} value={formatCurrency((stats?.monthRevenue || 0) - (stats?.monthExpenses || 0))} icon={TrendingUp} color="green" />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Évolution CA & Dépenses (6 mois)</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.evolutionChart}</h3>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={chartData} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} />
               <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => formatCurrency(v)} />
-              <Bar dataKey="recettes" name="Recettes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="depenses" name="Dépenses" fill="#f97316" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="recettes" name={t.dashboard.revenue} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="depenses" name={t.dashboard.expenses} fill="#f97316" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* Recent invoices */}
         <div className="card p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Dernières factures</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">{t.dashboard.recentInvoices}</h3>
           <div className="space-y-2">
             {(stats?.recentInvoices || []).slice(0, 5).map((inv: any) => (
               <div key={inv.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
@@ -311,7 +316,7 @@ export default function DashboardPage() {
               </div>
             ))}
             {(!stats?.recentInvoices || stats.recentInvoices.length === 0) && (
-              <p className="text-sm text-gray-400 text-center py-8">Aucune facture récente</p>
+              <p className="text-sm text-gray-400 text-center py-8">{t.dashboard.noRecentInvoices}</p>
             )}
           </div>
         </div>
@@ -321,3 +326,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

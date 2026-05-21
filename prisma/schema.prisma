@@ -110,6 +110,11 @@ model Role {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  is_head_departement Boolean      @default(false)
+  is_manager_sector    Boolean      @default(false)
+  is_saler_role        Boolean      @default(false)
+  is_unique            Boolean      @default(false)
+
   isSynced    Boolean      @default(false)
   remoteId    String?      @unique
 

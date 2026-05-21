@@ -2,6 +2,7 @@
 // src/app/(dashboard)/alertes/page.tsx
 import { useAlerts } from "@/hooks/useQueries";
 import { formatDate } from "@/lib/utils";
+import { useTranslation } from "@/locales/i18n";
 import { Bell, AlertTriangle, AlertOctagon, TrendingDown, RefreshCw } from "lucide-react";
 
 const alertIcons: Record<string, any> = {
@@ -21,6 +22,7 @@ const alertColors: Record<string, string> = {
 };
 
 export default function AlertesPage() {
+  const { t, language } = useTranslation();
   const { data, isLoading, refetch } = useAlerts();
   const alerts = data?.data || [];
 
@@ -28,11 +30,13 @@ export default function AlertesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Alertes de stock</h1>
-          <p className="text-gray-500 text-sm">{alerts.length} alerte(s) active(s)</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.alertes.title}</h1>
+          <p className="text-gray-500 text-sm">
+            {alerts.length} {t.alertes.activeAlerts}
+          </p>
         </div>
         <button onClick={() => refetch()} className="btn-secondary flex items-center gap-2 text-sm">
-          <RefreshCw className="w-4 h-4" />Actualiser
+          <RefreshCw className="w-4 h-4" />{t.actions.refresh}
         </button>
       </div>
       {isLoading ? (
@@ -40,8 +44,8 @@ export default function AlertesPage() {
       ) : alerts.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Aucune alerte active</p>
-          <p className="text-sm mt-1">Tous les stocks sont dans les niveaux normaux.</p>
+          <p className="font-medium">{t.alertes.noAlerts}</p>
+          <p className="text-sm mt-1">{t.alertes.normalLevels}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -58,12 +62,24 @@ export default function AlertesPage() {
                     </div>
                     <p className="text-sm text-gray-700 mt-0.5">{alert.message}</p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                      <span>Stock actuel : <strong>{alert.product?.currentStock} {alert.product?.unit}</strong></span>
+                      <span>{t.alertes.currentStock} <strong>{alert.product?.currentStock} {alert.product?.unit}</strong></span>
                       <span>{formatDate(alert.createdAt)}</span>
                     </div>
                   </div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${alert.type === "RUPTURE" ? "bg-red-600 text-white" : alert.type.includes("CRITIQUE") ? "badge-red" : "badge-yellow"}`}>
-                    {alert.type.replace(/_/g, " ")}
+                    {language === "fr"
+                      ? alert.type.replace(/_/g, " ")
+                      : alert.type === "RUPTURE"
+                      ? "Shortage"
+                      : alert.type === "STOCK_CRITIQUE"
+                      ? "Critical Stock"
+                      : alert.type === "STOCK_BAS"
+                      ? "Low Stock"
+                      : alert.type === "SURSTOCK"
+                      ? "Overstock"
+                      : alert.type === "PEREMPTION"
+                      ? "Expiration"
+                      : alert.type.replace(/_/g, " ")}
                   </span>
                 </div>
               </div>

@@ -9,8 +9,9 @@ import { formatCurrency } from "@/lib/utils";
 import { ScanLine, Plus, Minus, Trash2, ShoppingCart, Check, X, Search, CreditCard, Banknote, Camera, RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { useTranslation } from "@/locales/i18n";
 
-function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
+function Receipt({ invoice, settings, language }: { invoice: any; settings: any; language: string }) {
   if (!invoice) return null;
   const companyName = settings?.company_name || "ThaborSolution";
   const companyLogo = settings?.company_logo;
@@ -22,23 +23,23 @@ function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
           <img src={companyLogo} alt="Logo" style={{ maxWidth: "40mm", maxHeight: "20mm", marginBottom: "5px" }} />
         )}
         <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "bold" }}>{companyName}</h2>
-        <p style={{ margin: "2px 0" }}>{settings?.company_address || "Boutique Principale"}</p>
-        <p style={{ margin: "2px 0" }}>Tél: {settings?.company_phone || "+237 XXX XXX XXX"}</p>
+        <p style={{ margin: "2px 0" }}>{settings?.company_address || (language === "fr" ? "Boutique Principale" : "Main Shop")}</p>
+        <p style={{ margin: "2px 0" }}>{language === "fr" ? "Tél:" : "Tel:"} {settings?.company_phone || "+237 XXX XXX XXX"}</p>
       </div>
       <div style={{ borderBottom: "1px dashed black", marginBottom: "10px", paddingBottom: "10px" }}>
-        <p style={{ margin: "2px 0" }}>Ticket N°: {invoice.number}</p>
-        <p style={{ margin: "2px 0" }}>Date: {new Date(invoice.issueDate || invoice.createdAt).toLocaleString("fr-FR")}</p>
-        <p style={{ margin: "2px 0" }}>Caissier: {invoice.user?.name || "Caisse 1"}</p>
+        <p style={{ margin: "2px 0" }}>{language === "fr" ? "Ticket N°:" : "Ticket No:"} {invoice.number}</p>
+        <p style={{ margin: "2px 0" }}>Date: {new Date(invoice.issueDate || invoice.createdAt).toLocaleString(language === "fr" ? "fr-FR" : "en-US")}</p>
+        <p style={{ margin: "2px 0" }}>{language === "fr" ? "Caissier:" : "Cashier:"} {invoice.user?.name || "Caisse 1"}</p>
         {invoice.customer && invoice.customer.name !== "Client Divers" && (
-          <p style={{ margin: "2px 0" }}>Client: {invoice.customer.name}</p>
+          <p style={{ margin: "2px 0" }}>{language === "fr" ? "Client:" : "Customer:"} {invoice.customer.name}</p>
         )}
       </div>
       <table style={{ width: "100%", marginBottom: "10px", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "1px dashed black", textAlign: "left" }}>
-            <th style={{ paddingBottom: "4px" }}>QTE</th>
-            <th style={{ paddingBottom: "4px" }}>DESIGNATION</th>
-            <th style={{ textAlign: "right", paddingBottom: "4px" }}>P.U</th>
+            <th style={{ paddingBottom: "4px" }}>{language === "fr" ? "QTE" : "QTY"}</th>
+            <th style={{ paddingBottom: "4px" }}>{language === "fr" ? "DESIGNATION" : "DESCRIPTION"}</th>
+            <th style={{ textAlign: "right", paddingBottom: "4px" }}>{language === "fr" ? "P.U" : "U.P"}</th>
             <th style={{ textAlign: "right", paddingBottom: "4px" }}>TOTAL</th>
           </tr>
         </thead>
@@ -46,7 +47,7 @@ function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
           {invoice.items?.map((item: any, i: number) => (
             <tr key={i}>
               <td style={{ paddingTop: "4px", verticalAlign: "top" }}>{item.quantity}</td>
-              <td style={{ paddingTop: "4px" }}>{item.product?.name || item.description || "Article"}</td>
+              <td style={{ paddingTop: "4px" }}>{item.product?.name || item.description || (language === "fr" ? "Article" : "Item")}</td>
               <td style={{ textAlign: "right", paddingTop: "4px", verticalAlign: "top" }}>{item.unitPrice}</td>
               <td style={{ textAlign: "right", paddingTop: "4px", verticalAlign: "top" }}>{item.total}</td>
             </tr>
@@ -55,12 +56,12 @@ function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
       </table>
       <div style={{ borderTop: "1px dashed black", paddingTop: "10px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-          <span>Sous-total:</span>
+          <span>{language === "fr" ? "Sous-total:" : "Subtotal:"}</span>
           <span>{formatCurrency(invoice.subtotal)}</span>
         </div>
         {invoice.discount > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span>Remise:</span>
+            <span>{language === "fr" ? "Remise:" : "Discount:"}</span>
             <span>-{formatCurrency(invoice.discount)}</span>
           </div>
         )}
@@ -70,8 +71,8 @@ function Receipt({ invoice, settings }: { invoice: any; settings: any }) {
         </div>
       </div>
       <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px dashed black", paddingTop: "10px" }}>
-        <p style={{ margin: "2px 0", fontStyle: "italic" }}>Merci de votre visite !</p>
-        <p style={{ margin: "2px 0", fontSize: "10px" }}>Les articles vendus ne sont ni repris ni échangés.</p>
+        <p style={{ margin: "2px 0", fontStyle: "italic" }}>{language === "fr" ? "Merci de votre visite !" : "Thank you for your visit!"}</p>
+        <p style={{ margin: "2px 0", fontSize: "10px" }}>{language === "fr" ? "Les articles vendus ne sont ni repris ni échangés." : "Sold items cannot be returned or exchanged."}</p>
       </div>
     </div>
   );
@@ -85,6 +86,7 @@ interface CartItem {
 }
 
 export default function POSPage() {
+  const { t, language } = useTranslation();
   const [barcode, setBarcode] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [globalDiscount, setGlobalDiscount] = useState(0);
@@ -98,8 +100,6 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
   const { data: settingsData } = useSettings();
   const settings = settingsData?.data;
-
-
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useUIStore();
@@ -122,9 +122,17 @@ export default function POSPage() {
     const product = products.find((p: any) => p.barcode === res.barcode || p.sku === res.barcode);
     if (product) {
       addToCart(product);
-      addToast({ type: "success", title: "Produit ajouté", message: product.name });
+      addToast({ 
+        type: "success", 
+        title: language === "fr" ? "Produit ajouté" : "Product added", 
+        message: product.name 
+      });
     } else {
-      addToast({ type: "error", title: "Code inconnu", message: res.barcode });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Code inconnu" : "Unknown code", 
+        message: res.barcode 
+      });
     }
   });
 
@@ -146,7 +154,7 @@ export default function POSPage() {
     }).then(async r => {
       if (!r.ok) {
         const err = await r.json();
-        throw new Error(err.error || "Erreur de validation");
+        throw new Error(err.error || (language === "fr" ? "Erreur de validation" : "Validation error"));
       }
       return r.json();
     }),
@@ -188,7 +196,11 @@ export default function POSPage() {
 
     const product = products.find((p: any) => p.barcode === barcode || p.sku === barcode);
     if (!product) {
-      addToast({ type: "error", title: "Produit non trouvé", message: `Code: ${barcode}` });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Produit non trouvé" : "Product not found", 
+        message: `${language === "fr" ? "Code" : "Code"}: ${barcode}` 
+      });
       setBarcode("");
       return;
     }
@@ -199,8 +211,11 @@ export default function POSPage() {
 
   const addToCart = (product: any) => {
     if (product.currentStock <= 0) {
-      addToast({ type: "warning", title: "Rupture de stock", message: `Stock de ${product.name} est à 0.` });
-      // Still allow adding to cart? Maybe prevent it.
+      addToast({ 
+        type: "warning", 
+        title: language === "fr" ? "Rupture de stock" : "Out of stock", 
+        message: language === "fr" ? `Stock de ${product.name} est à 0.` : `Stock of ${product.name} is at 0.` 
+      });
       return;
     }
 
@@ -210,7 +225,10 @@ export default function POSPage() {
       const existing = prev.find(i => i.product.id === product.id);
       if (existing) {
         if (existing.quantity >= product.currentStock) {
-          addToast({ type: "warning", title: "Stock max atteint" });
+          addToast({ 
+            type: "warning", 
+            title: language === "fr" ? "Stock max atteint" : "Max stock reached" 
+          });
           return prev;
         }
         return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
@@ -226,7 +244,11 @@ export default function POSPage() {
       const newQ = item.quantity + delta;
       
       if (newQ > item.product.currentStock) {
-        addToast({ type: "warning", title: "Stock insuffisant", message: `Max: ${item.product.currentStock}` });
+        addToast({ 
+          type: "warning", 
+          title: language === "fr" ? "Stock insuffisant" : "Insufficient stock", 
+          message: language === "fr" ? `Max: ${item.product.currentStock}` : `Max: ${item.product.currentStock}` 
+        });
         return prev;
       }
       
@@ -259,7 +281,11 @@ export default function POSPage() {
   const confirmSale = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accountId) {
-      addToast({ type: "error", title: "Erreur", message: "Veuillez sélectionner un compte de caisse" });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Erreur" : "Error", 
+        message: language === "fr" ? "Veuillez sélectionner un compte de caisse" : "Please select a cash account" 
+      });
       return;
     }
 
@@ -278,11 +304,12 @@ export default function POSPage() {
         globalDiscount
       });
 
-      addToast({ type: "success", title: "Vente validée", message: "Ticket en cours d'impression..." });
+      addToast({ 
+        type: "success", 
+        title: language === "fr" ? "Vente validée" : "Sale validated", 
+        message: language === "fr" ? "Ticket en cours d'impression..." : "Receipt printing..." 
+      });
       
-      // The API returns the transaction result in `res.data`
-      // But actually processSale returns { data: invoice } 
-      // where `invoice` is what we returned from the tx in route.ts
       setReceiptData(res.data);
 
       setCart([]);
@@ -291,7 +318,11 @@ export default function POSPage() {
       setCustomerId("");
       setShowCheckout(false);
     } catch (err: any) {
-      addToast({ type: "error", title: "Erreur de validation", message: err.message });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Erreur de validation" : "Validation error", 
+        message: err.message 
+      });
     }
   };
 
@@ -309,14 +340,18 @@ export default function POSPage() {
       }
     `}} />
     
-    <Receipt invoice={receiptData} settings={settings} />
+    <Receipt invoice={receiptData} settings={settings} language={language} />
 
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)] hide-on-print">
       {/* Left Column: Scanner and Products */}
       <div className="flex-1 flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Caisse (Point de Vente)</h1>
-          <p className="text-sm text-gray-500">Scannez ou recherchez un produit pour l'ajouter au panier</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.invoices.new.title}</h1>
+          <p className="text-sm text-gray-500">
+            {language === "fr" 
+              ? "Scannez ou recherchez un produit pour l'ajouter au panier" 
+              : "Scan or search a product to add it to the cart"}
+          </p>
         </div>
 
         {/* Scanner Bar */}
@@ -328,7 +363,7 @@ export default function POSPage() {
               type="text"
               value={barcode}
               onChange={e => setBarcode(e.target.value)}
-              placeholder="Scanner le code-barres ou taper le SKU..."
+              placeholder={t.invoices.new.searchProduct}
               className="w-full pl-12 pr-12 py-4 text-lg bg-white border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all font-mono"
               autoFocus
             />
@@ -336,7 +371,7 @@ export default function POSPage() {
               type="button"
               onClick={toggleScanner}
               className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors ${showScanner ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600 hover:bg-blue-200"}`}
-              title="Utiliser la caméra"
+              title={language === "fr" ? "Utiliser la caméra" : "Use camera"}
             >
               <Camera className="w-5 h-5" />
             </button>
@@ -360,7 +395,7 @@ export default function POSPage() {
                 className="bg-black/60 text-white text-xs px-2 py-1 rounded border border-white/20 outline-none"
               >
                 {cameras.map(c => (
-                  <option key={c.deviceId} value={c.deviceId}>{c.label || `Caméra ${c.deviceId.slice(0,4)}`}</option>
+                  <option key={c.deviceId} value={c.deviceId}>{c.label || (language === "fr" ? `Caméra ${c.deviceId.slice(0,4)}` : `Camera ${c.deviceId.slice(0,4)}`)}</option>
                 ))}
               </select>
               <button onClick={toggleScanner} className="bg-red-600 text-white p-2 rounded-full shadow-lg">
@@ -373,7 +408,7 @@ export default function POSPage() {
                 <div className="text-white">
                   <X className="w-10 h-10 mx-auto text-red-500 mb-2" />
                   <p className="text-sm">{scannerError}</p>
-                  <button onClick={toggleScanner} className="mt-4 text-xs underline">Fermer</button>
+                  <button onClick={toggleScanner} className="mt-4 text-xs underline">{t.actions.close}</button>
                 </div>
               </div>
             )}
@@ -394,7 +429,9 @@ export default function POSPage() {
             </div>
             <div className="text-right">
               <p className="text-xl font-black text-blue-700">{formatCurrency(lastScanned.sellPrice)}</p>
-              <p className="text-sm text-gray-500">Stock dispo: {lastScanned.currentStock}</p>
+              <p className="text-sm text-gray-500">
+                {language === "fr" ? "Stock dispo:" : "Stock avail:"} {lastScanned.currentStock}
+              </p>
             </div>
           </div>
         )}
@@ -402,12 +439,14 @@ export default function POSPage() {
         {/* Manual Product Search (Alternative to scanner) */}
         <div className="card p-4 flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-3 gap-4">
-            <h3 className="font-bold flex items-center gap-2 whitespace-nowrap"><Search className="w-5 h-5 text-gray-400" /> Recherche manuelle</h3>
+            <h3 className="font-bold flex items-center gap-2 whitespace-nowrap">
+              <Search className="w-5 h-5 text-gray-400" /> {language === "fr" ? "Recherche manuelle" : "Manual Search"}
+            </h3>
             <input 
               type="text" 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              placeholder="Rechercher par nom ou SKU..." 
+              placeholder={language === "fr" ? "Rechercher par nom ou SKU..." : "Search by name or SKU..."} 
               className="input py-1.5 text-sm w-full max-w-xs"
             />
           </div>
@@ -415,9 +454,9 @@ export default function POSPage() {
             <table className="w-full text-sm text-left">
               <thead className="sticky top-0 bg-white shadow-sm z-10">
                 <tr>
-                  <th className="py-2 text-gray-500 font-semibold border-b">Produit</th>
+                  <th className="py-2 text-gray-500 font-semibold border-b">{language === "fr" ? "Produit" : "Product"}</th>
                   <th className="py-2 text-gray-500 font-semibold border-b text-right">Stock</th>
-                  <th className="py-2 text-gray-500 font-semibold border-b text-right">Prix</th>
+                  <th className="py-2 text-gray-500 font-semibold border-b text-right">{language === "fr" ? "Prix" : "Price"}</th>
                   <th className="py-2 border-b w-10"></th>
                 </tr>
               </thead>
@@ -427,7 +466,7 @@ export default function POSPage() {
                     <td colSpan={4} className="py-20 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                        <p className="text-sm text-gray-400">Chargement des produits...</p>
+                        <p className="text-sm text-gray-400">{language === "fr" ? "Chargement des produits..." : "Loading products..."}</p>
                       </div>
                     </td>
                   </tr>
@@ -436,7 +475,7 @@ export default function POSPage() {
                     <td colSpan={4} className="text-center py-12">
                       <div className="flex flex-col items-center gap-2 text-gray-300">
                         <Search className="w-10 h-10 opacity-20" />
-                        <p className="italic text-sm">Aucun produit trouvé</p>
+                        <p className="italic text-sm">{language === "fr" ? "Aucun produit trouvé" : "No product found"}</p>
                       </div>
                     </td>
                   </tr>
@@ -458,7 +497,7 @@ export default function POSPage() {
                           onClick={() => addToCart(p)} 
                           disabled={p.currentStock <= 0}
                           className="p-1.5 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors"
-                          title="Ajouter au panier"
+                          title={language === "fr" ? "Ajouter au panier" : "Add to cart"}
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -476,8 +515,10 @@ export default function POSPage() {
       <div className="w-full lg:w-96 flex flex-col gap-4">
         <div className="card flex-1 flex flex-col overflow-hidden shadow-xl border-gray-200">
           <div className="p-4 bg-gray-50 border-b flex items-center justify-between">
-            <h2 className="font-bold flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> Panier</h2>
-            <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">{cart.length} articles</span>
+            <h2 className="font-bold flex items-center gap-2"><ShoppingCart className="w-5 h-5" /> {t.invoices.new.cartTitle}</h2>
+            <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {cart.length} {cart.length <= 1 ? (language === "fr" ? "article" : "item") : (language === "fr" ? "articles" : "items")}
+            </span>
           </div>
 
           {/* Cart Items */}
@@ -485,8 +526,7 @@ export default function POSPage() {
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                 <ShoppingCart className="w-12 h-12 mb-4 opacity-20" />
-                <p>Le panier est vide.</p>
-                <p className="text-sm mt-1">Scannez un produit pour commencer.</p>
+                <p>{t.invoices.new.emptyCart}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -515,17 +555,17 @@ export default function POSPage() {
           {/* Totals & Checkout Button */}
           <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-3">
             <div className="flex justify-between text-sm text-gray-500">
-              <span>Sous-total</span>
+              <span>{t.invoices.new.subtotal}</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
             {totalDiscount > 0 && (
               <div className="flex justify-between text-sm text-red-500">
-                <span>Remise</span>
+                <span>{language === "fr" ? "Remise" : "Discount"}</span>
                 <span>-{formatCurrency(totalDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between items-end border-t pt-2">
-              <span className="font-bold text-gray-700">Total à payer</span>
+              <span className="font-bold text-gray-700">{language === "fr" ? "Total à payer" : "Total to pay"}</span>
               <span className="text-3xl font-black text-blue-700">{formatCurrency(total)}</span>
             </div>
             <button
@@ -533,7 +573,7 @@ export default function POSPage() {
               disabled={cart.length === 0}
               className="w-full btn-primary py-4 text-lg mt-4 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <Check className="w-6 h-6" /> Compléter la vente
+              <Check className="w-6 h-6" /> {language === "fr" ? "Compléter la vente" : "Complete sale"}
             </button>
           </div>
         </div>
@@ -544,34 +584,34 @@ export default function POSPage() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="p-5 bg-blue-600 text-white flex items-center justify-between">
-              <h2 className="text-xl font-bold flex items-center gap-2"><CreditCard className="w-6 h-6" /> Validation du paiement</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><CreditCard className="w-6 h-6" /> {language === "fr" ? "Validation du paiement" : "Payment validation"}</h2>
               <button onClick={() => setShowCheckout(false)} className="hover:bg-white/20 p-1 rounded transition-colors"><X className="w-6 h-6" /></button>
             </div>
             <form onSubmit={confirmSale} className="p-6 space-y-6">
               
               <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border border-blue-200 text-center shadow-inner">
-                <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">Montant total à encaisser</p>
+                <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">{language === "fr" ? "Montant total à encaisser" : "Total amount to collect"}</p>
                 <p className="text-4xl font-black text-blue-900 drop-shadow-sm">{formatCurrency(total)}</p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Client (Optionnel)</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">{language === "fr" ? "Client (Optionnel)" : "Customer (Optional)"}</label>
                   <SearchableSelect
                     options={customers.map((c: any) => ({ value: c.id, label: c.name }))}
                     value={customerId}
                     onChange={setCustomerId}
-                    placeholder="Sélectionner un client..."
+                    placeholder={t.invoices.new.customer}
                     allowAll
-                    allLabel="Client Divers (Comptoir)"
+                    allLabel={language === "fr" ? "Client Divers (Comptoir)" : "General Customer (Over-the-counter)"}
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Mode de paiement *</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">{t.invoices.new.paymentMethod}</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { id: "ESPECES", label: "Espèces", icon: Banknote, color: "blue" },
+                      { id: "ESPECES", label: language === "fr" ? "Espèces" : "Cash", icon: Banknote, color: "blue" },
                       { id: "MOBILE_MONEY", label: "Mobile Money", icon: CreditCard, color: "purple" }
                     ].map(method => (
                       <button
@@ -593,12 +633,12 @@ export default function POSPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">Caisse / Compte de destination *</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-tight ml-1 mb-2 block">{language === "fr" ? "Caisse / Compte de destination *" : "Destination Cash / Account *"}</label>
                   <SearchableSelect
-                    options={accounts.map((a: any) => ({ value: a.id, label: a.name, sub: `Solde actuel: ${formatCurrency(a.balance)}` }))}
+                    options={accounts.map((a: any) => ({ value: a.id, label: a.name, sub: `${language === "fr" ? "Solde actuel" : "Current balance"}: ${formatCurrency(a.balance)}` }))}
                     value={accountId}
                     onChange={setAccountId}
-                    placeholder="Où va l'argent ?"
+                    placeholder={language === "fr" ? "Où va l'argent ?" : "Where is the money going?"}
                   />
                 </div>
               </div>
@@ -609,7 +649,7 @@ export default function POSPage() {
                   onClick={() => setShowCheckout(false)} 
                   className="flex-1 px-4 py-3.5 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
                 >
-                  Annuler
+                  {t.actions.cancel}
                 </button>
                 <button 
                   type="submit" 
@@ -621,7 +661,7 @@ export default function POSPage() {
                   ) : (
                     <Check className="w-6 h-6" />
                   )}
-                  Valider l'encaissement
+                  {language === "fr" ? "Valider l'encaissement" : "Validate collection"}
                 </button>
               </div>
             </form>

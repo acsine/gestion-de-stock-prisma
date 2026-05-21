@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { parsePhoneNumberFromString, isValidPhoneNumber } from "libphonenumber-js";
+import { useTranslation } from "@/locales/i18n";
 
 // ─── Top 30 most-used dial codes ───────────────────────────────────────────
 const COUNTRY_CODES = [
@@ -60,6 +61,7 @@ const COUNTRY_CODES = [
 
 export default function RegisterCompanyPage() {
   const router = useRouter();
+  const { t, language } = useTranslation();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export default function RegisterCompanyPage() {
       setPhoneError("");
       setPhoneValid(true);
     } else {
-      setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneError(t.registerCompany.invalidPhone);
       setPhoneValid(false);
     }
   };
@@ -109,18 +111,18 @@ export default function RegisterCompanyPage() {
       setPhoneError("");
       setPhoneValid(true);
     } else {
-      setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneError(t.registerCompany.invalidPhone);
       setPhoneValid(false);
     }
   };
 
   // ─── Phone validation (submit-time) ────────────────────────────────
   const validatePhone = (dial: string, num: string): boolean => {
-    if (!num.trim()) { setPhoneError("Le numéro de téléphone est requis"); setPhoneValid(false); return false; }
+    if (!num.trim()) { setPhoneError(t.registerCompany.requiredPhone); setPhoneValid(false); return false; }
     const full = `${dial}${num.replace(/\s/g, "")}`;
     const parsed = parsePhoneNumberFromString(full);
     if (!parsed || !parsed.isValid()) {
-      setPhoneError("Numéro invalide pour ce code pays");
+      setPhoneError(t.registerCompany.invalidPhone);
       setPhoneValid(false);
       return false;
     }
@@ -204,12 +206,12 @@ export default function RegisterCompanyPage() {
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 mb-4">Demande Envoyée !</h1>
+          <h1 className="text-3xl font-black text-slate-900 mb-4">{t.registerCompany.successTitle}</h1>
           <p className="text-slate-600 mb-8 leading-relaxed">
-            Votre demande d'inscription pour <strong>{companyName}</strong> a été reçue. Un administrateur ThaborSolution validera votre compte sous 24h.
+            {t.registerCompany.successDesc}
           </p>
           <Link href="/login" className="btn-primary w-full inline-block text-center">
-            Retour à la connexion
+            {t.blocked.backLogin}
           </Link>
         </motion.div>
       </div>
@@ -234,10 +236,10 @@ export default function RegisterCompanyPage() {
               </span>
             </div>
             <h2 className="text-5xl font-black text-white leading-tight mb-8">
-              Propulsez votre entreprise vers le <span className="text-blue-500">succès numérique.</span>
+              {t.registerCompany.promoTitle} <span className="text-blue-500">{t.registerCompany.promoTitleHighlight}</span>
             </h2>
             <div className="space-y-5">
-              {["Gestion de stock centralisée", "Synchronisation multi-site", "Facturez en un clic", "Support technique 24/7"].map((text, i) => (
+              {[t.registerCompany.promo1, t.registerCompany.promo2, t.registerCompany.promo3, t.registerCompany.promo4].map((text, i) => (
                 <div key={i} className="flex items-center gap-4 text-white/80 font-semibold">
                   <CheckCircle2 className="w-5 h-5 text-blue-500 flex-shrink-0" />
                   {text}
@@ -251,7 +253,7 @@ export default function RegisterCompanyPage() {
             {[1, 2].map((s) => (
               <div key={s} className={`h-1.5 rounded-full transition-all duration-500 ${s === step ? "w-12 bg-blue-500" : s < step ? "w-6 bg-blue-500/60" : "w-6 bg-white/20"}`} />
             ))}
-            <span className="text-white/40 text-xs font-bold ml-2">Étape {step}/2</span>
+            <span className="text-white/40 text-xs font-bold ml-2">{t.registerCompany.stepLabel} {step}/2</span>
           </div>
         </div>
         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-slate-900 to-transparent" />
@@ -273,16 +275,16 @@ export default function RegisterCompanyPage() {
               >
                 <div className="mb-8">
                   <div className="inline-flex items-center gap-2 text-xs font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-full mb-4">
-                    Étape 1 sur 2
+                    {t.registerCompany.stepLabel} 1 {t.registerCompany.stepOf} 2
                   </div>
-                  <h1 className="text-4xl font-black text-slate-900 mb-2">Votre Entreprise</h1>
-                  <p className="text-slate-500 font-medium">Renseignez les informations de votre commerce.</p>
+                  <h1 className="text-4xl font-black text-slate-900 mb-2">{t.registerCompany.companyTitle}</h1>
+                  <p className="text-slate-500 font-medium">{t.registerCompany.companySubtitle}</p>
                 </div>
 
                 <form onSubmit={handleStep1} className="space-y-5">
                   {/* Company Name */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom de l'entreprise *</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.companyName} *</label>
                     <div className="relative">
                       <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
@@ -290,14 +292,14 @@ export default function RegisterCompanyPage() {
                         onChange={(e) => setCompanyName(e.target.value)}
                         required
                         className="input-premium pl-12"
-                        placeholder="Ex: Ma Boutique SARL"
+                        placeholder={t.registerCompany.companyNamePlaceholder}
                       />
                     </div>
                   </div>
 
                   {/* Phone */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Téléphone de l'entreprise *</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.phoneLabel}</label>
                     <div className="flex gap-2">
                       {/* Country code selector */}
                       <div className="relative">
@@ -330,7 +332,7 @@ export default function RegisterCompanyPage() {
                             phoneValid === true ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/10" :
                             phoneValid === false ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10" : ""
                           }`}
-                          placeholder="699 123 456"
+                          placeholder={t.registerCompany.phonePlaceholder}
                         />
                         {/* Validation icon */}
                         {phoneValid === true && (
@@ -348,31 +350,31 @@ export default function RegisterCompanyPage() {
                     )}
                     {phoneValid === true && (
                       <p className="text-emerald-600 text-xs font-bold ml-1 flex items-center gap-1">
-                        <span>✓</span> Numéro valide
+                        <span>✓</span> {t.registerCompany.validPhone}
                       </p>
                     )}
                     <p className="text-slate-400 text-[10px] ml-1">
-                      Ce numéro sera unique et vous permettra de vous connecter.
+                      {language === "fr" ? "Ce numéro sera unique et vous permettra de vous connecter." : "This number will be unique and will allow you to log in."}
                     </p>
                   </div>
 
                   {/* Address */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Adresse (optionnel)</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.addressLabel}</label>
                     <div className="relative">
                       <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
                         value={companyAddress}
                         onChange={(e) => setCompanyAddress(e.target.value)}
                         className="input-premium pl-12"
-                        placeholder="Rue, Quartier, Ville"
+                        placeholder={t.registerCompany.addressPlaceholder}
                       />
                     </div>
                   </div>
 
                   {/* Logo */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Logo de l'entreprise (optionnel)</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.logoLabel}</label>
                     <label className="flex items-center gap-4 bg-white border border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-4 cursor-pointer transition-all group">
                       <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
                       {uploadingLogo ? (
@@ -386,7 +388,7 @@ export default function RegisterCompanyPage() {
                       )}
                       <div>
                         <p className="text-sm font-bold text-slate-700">
-                          {logoPreview ? "Logo chargé ✓" : "Choisir un logo"}
+                          {logoPreview ? t.registerCompany.logoLoaded : t.registerCompany.logoChoose}
                         </p>
                         <p className="text-xs text-slate-400">PNG, JPG · Max 2 MB</p>
                       </div>
@@ -407,15 +409,15 @@ export default function RegisterCompanyPage() {
                     type="submit"
                     className="btn-primary w-full py-4 text-base mt-2 flex items-center justify-center gap-3"
                   >
-                    Suivant : Compte Admin
+                    {t.registerCompany.nextBtn}
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 </form>
 
                 <p className="mt-6 text-center text-slate-500 font-medium text-sm">
-                  Déjà un compte ?{" "}
+                  {t.login.noAccount}{" "}
                   <Link href="/login" className="text-blue-600 font-bold hover:underline">
-                    Se connecter
+                    {t.login.submitBtn}
                   </Link>
                 </p>
               </motion.div>
@@ -432,18 +434,18 @@ export default function RegisterCompanyPage() {
               >
                 <div className="mb-8">
                   <div className="inline-flex items-center gap-2 text-xs font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-3 py-1.5 rounded-full mb-4">
-                    Étape 2 sur 2
+                    {t.registerCompany.stepLabel} 2 {t.registerCompany.stepOf} 2
                   </div>
-                  <h1 className="text-4xl font-black text-slate-900 mb-2">Compte Admin</h1>
+                  <h1 className="text-4xl font-black text-slate-900 mb-2">{t.registerCompany.adminTitle}</h1>
                   <p className="text-slate-500 font-medium">
-                    Créez les identifiants de l'administrateur de <strong className="text-slate-800">{companyName}</strong>.
+                    {t.registerCompany.adminSubtitle} <strong className="text-slate-800">{companyName}</strong>.
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {/* Admin Name */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nom complet de l'administrateur *</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.adminName} *</label>
                     <div className="relative">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
@@ -451,14 +453,14 @@ export default function RegisterCompanyPage() {
                         onChange={(e) => setAdminName(e.target.value)}
                         required
                         className="input-premium pl-12"
-                        placeholder="Jean Dupont"
+                        placeholder={t.registerCompany.adminNamePlaceholder}
                       />
                     </div>
                   </div>
 
                   {/* Email */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Email professionnel *</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.adminEmail} *</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
@@ -467,14 +469,14 @@ export default function RegisterCompanyPage() {
                         onChange={(e) => setAdminEmail(e.target.value)}
                         required
                         className="input-premium pl-12"
-                        placeholder="contact@entreprise.com"
+                        placeholder={t.registerCompany.adminEmailPlaceholder}
                       />
                     </div>
                   </div>
 
                   {/* Password */}
                   <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Mot de passe *</label>
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.registerCompany.passwordLabel}</label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
@@ -490,7 +492,7 @@ export default function RegisterCompanyPage() {
                         {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    <p className="text-slate-400 text-[10px] ml-1">Minimum 8 caractères</p>
+                    <p className="text-slate-400 text-[10px] ml-1">{t.registerCompany.passwordHelp}</p>
                   </div>
 
                   {error && (
@@ -510,14 +512,14 @@ export default function RegisterCompanyPage() {
                       className="flex items-center gap-2 px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-sm rounded-2xl transition-all"
                     >
                       <ArrowLeft className="w-4 h-4" />
-                      Retour
+                      {t.registerCompany.prevBtn}
                     </button>
                     <button
                       type="submit"
                       disabled={loading}
                       className="flex-1 btn-primary py-4 text-base flex items-center justify-center gap-3"
                     >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Créer mon compte"}
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : t.registerCompany.createAccountBtn}
                       {!loading && <ArrowRight className="w-5 h-5" />}
                     </button>
                   </div>

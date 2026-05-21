@@ -8,10 +8,12 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth?.user;
+  const host = req.headers.get("host") || "";
+  const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
 
   // 1. Define Public Paths
   const isPublicPath = 
-    pathname === "/" || 
+    (!isLocalhost && pathname === "/") ||
     pathname.startsWith("/login") || 
     pathname.startsWith("/register-company") ||
     pathname.startsWith("/api/tenants/register") ||

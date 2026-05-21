@@ -34,7 +34,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Le rôle ADMIN ne peut pas être modifié" }, { status: 400 });
   }
 
-  const { name, description, permissionIds } = await req.json();
+  const { 
+    name, 
+    description, 
+    permissionIds,
+    is_head_departement,
+    is_manager_sector,
+    is_saler_role,
+    is_unique
+  } = await req.json();
 
   if (!name) return NextResponse.json({ error: "Le nom est requis" }, { status: 400 });
 
@@ -44,6 +52,10 @@ export async function PATCH(
       data: {
         name,
         description,
+        is_head_departement: is_head_departement !== undefined ? !!is_head_departement : undefined,
+        is_manager_sector: is_manager_sector !== undefined ? !!is_manager_sector : undefined,
+        is_saler_role: is_saler_role !== undefined ? !!is_saler_role : undefined,
+        is_unique: is_unique !== undefined ? !!is_unique : undefined,
         permissions: {
           set: (permissionIds || []).map((pid: string) => ({ id: pid }))
         }

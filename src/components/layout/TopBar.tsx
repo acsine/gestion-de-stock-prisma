@@ -46,7 +46,12 @@ export function TopBar() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && search.trim()) router.push(`/produits?search=${encodeURIComponent(search)}`); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && search.trim()) {
+                const isFactures = window.location.pathname.startsWith("/factures");
+                router.push(isFactures ? `/factures?search=${encodeURIComponent(search)}` : `/produits?search=${encodeURIComponent(search)}`);
+              }
+            }}
             placeholder={language === "fr" ? "Rechercher un produit, une facture..." : "Search for a product, invoice..."}
             className="w-full pl-11 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-all duration-300"
           />

@@ -1,25 +1,24 @@
 "use client";
 // src/app/(dashboard)/utilisateurs/page.tsx
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useUIStore } from "@/stores/useUIStore";
 import { cn, formatDate } from "@/lib/utils";
-import { Users, Plus, RefreshCw, X, Shield, Settings2, ShieldCheck, Mail, Calendar, Power } from "lucide-react";
+import { Users, Plus, RefreshCw, X, Settings2, ShieldCheck, Mail, Calendar, Power } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema } from "@/lib/validations";
 import { z } from "zod";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import Link from "next/link";
 import { useRoles, useUsers, useCreateUser } from "@/hooks/useQueries";
-
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/locales/i18n";
 
 type UserInput = z.infer<typeof userSchema>;
 
 function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
-  const qc = useQueryClient();
+  const { t, language } = useTranslation();
   const { addToast } = useUIStore();
   const { mutateAsync, isPending } = useCreateUser();
 
@@ -29,8 +28,15 @@ function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
 
   const onSubmit = async (data: UserInput) => {
     const res = await mutateAsync(data);
-    if (res.error) { addToast({ type: "error", title: "Erreur", message: typeof res.error === "string" ? res.error : "Erreur" }); return; }
-    addToast({ type: "success", title: "Utilisateur créé" });
+    if (res.error) {
+      addToast({
+        type: "error",
+        title: t.common.error,
+        message: typeof res.error === "string" ? res.error : t.common.error
+      });
+      return;
+    }
+    addToast({ type: "success", title: t.users.modal.saveSuccess });
     onClose();
   };
 
@@ -39,29 +45,33 @@ function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in slide-in-from-bottom-4 duration-300">
         <div className="flex items-center justify-between p-6 border-b bg-gray-50/50">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Nouvel utilisateur</h2>
-            <p className="text-xs text-gray-500">Créez un compte pour un employé</p>
+            <h2 className="text-xl font-bold text-gray-900">{t.users.modal.addTitle}</h2>
+            <p className="text-xs text-gray-500">
+              {language === "fr" ? "Créez un compte pour un employé" : "Create an account for an employee"}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
           <div>
-            <label className="label">Nom complet *</label>
+            <label className="label">{t.users.modal.name}</label>
             <input {...register("name")} className="input w-full" placeholder="ex: Jean Dupont" />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
           <div>
-            <label className="label">Email *</label>
+            <label className="label">{t.common.email} *</label>
             <input {...register("email")} type="email" className="input w-full" placeholder="jean.dupont@entreprise.com" />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
           <div>
-            <label className="label">Mot de passe initial *</label>
+            <label className="label">{t.users.modal.password}</label>
             <input {...register("password")} type="password" className="input w-full" placeholder="••••••••" />
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
           </div>
           <div>
-            <label className="label">Attribuer un Rôle *</label>
+            <label className="label">{t.users.modal.role}</label>
             <Controller
               name="roleId"
               control={control}
@@ -70,17 +80,19 @@ function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
                   options={roles.map(r => ({ value: r.id, label: r.name, sub: r.description }))}
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="Choisir un rôle..."
+                  placeholder={language === "fr" ? "Choisir un rôle..." : "Choose a role..."}
                 />
               )}
             />
             {errors.roleId && <p className="text-red-500 text-xs mt-1">{errors.roleId.message}</p>}
           </div>
           <div className="pt-4 flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 btn-secondary py-3">Annuler</button>
+            <button type="button" onClick={onClose} className="flex-1 btn-secondary py-3">
+              {t.actions.cancel}
+            </button>
             <button type="submit" disabled={isPending} className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-500/20">
               {isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Créer le compte
+              {language === "fr" ? "Créer le compte" : "Create Account"}
             </button>
           </div>
         </form>
@@ -90,12 +102,13 @@ function UserForm({ onClose, roles }: { onClose: () => void, roles: any[] }) {
 }
 
 export default function UtilisateursPage() {
+  const { t, language } = useTranslation();
   const { data: session } = useSession();
   const { addToast } = useUIStore();
   const [showForm, setShowForm] = useState(false);
   const [isNavigatingRoles, setIsNavigatingRoles] = useState(false);
   const router = useRouter();
-  const { data, isLoading, isFetching, refetch } = useUsers();
+  const { data, isLoading, refetch } = useUsers();
   const { data: rolesData } = useRoles();
   const roles = rolesData?.data || [];
   const users = data?.data || [];
@@ -104,8 +117,12 @@ export default function UtilisateursPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h1>
-          <p className="text-gray-500 text-sm">Contrôlez les accès et la sécurité de la plateforme</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.users.title}</h1>
+          <p className="text-gray-500 text-sm">
+            {language === "fr" 
+              ? "Contrôlez les accès et la sécurité de la plateforme" 
+              : "Manage access controls and platform security"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button 
@@ -121,10 +138,10 @@ export default function UtilisateursPage() {
             ) : (
               <Settings2 className="w-4 h-4" />
             )}
-            <span>Gérer les Rôles</span>
+            <span>{t.users.roles.title}</span>
           </button>
           <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 text-sm px-4 font-bold shadow-lg shadow-blue-500/20">
-            <Plus className="w-4 h-4" /> Nouvel utilisateur
+            <Plus className="w-4 h-4" /> {t.users.addBtn}
           </button>
         </div>
       </div>
@@ -133,19 +150,28 @@ export default function UtilisateursPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Utilisateur</th>
-              <th>Contact</th>
-              <th>Rôle assigné</th>
-              <th>Dernière activité</th>
-              <th>Statut</th>
-              <th className="text-right">Actions</th>
+              <th>{t.users.table.name}</th>
+              <th>{language === "fr" ? "Contact" : "Contact"}</th>
+              <th>{t.users.table.role}</th>
+              <th>{language === "fr" ? "Dernière activité" : "Last login"}</th>
+              <th>{t.users.table.status}</th>
+              <th className="text-right">{t.actions.actions}</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-12"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500" /></td></tr>
+              <tr>
+                <td colSpan={6} className="text-center py-12">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+                </td>
+              </tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-30" />Aucun compte utilisateur trouvé</td></tr>
+              <tr>
+                <td colSpan={6} className="text-center py-12 text-gray-400">
+                  <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  {language === "fr" ? "Aucun compte utilisateur trouvé" : "No user accounts found"}
+                </td>
+              </tr>
             ) : users.map((u: any) => (
               <tr key={u.id} className="hover:bg-gray-50/50 transition-colors group">
                 <td>
@@ -170,21 +196,28 @@ export default function UtilisateursPage() {
                     u.role?.name === "ADMIN" ? "bg-purple-50 text-purple-700 border-purple-100" : "bg-blue-50 text-blue-700 border-blue-100"
                   )}>
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    {u.role?.name || "Sans rôle"}
+                    {u.role?.name || (language === "fr" ? "Sans rôle" : "No role")}
                   </div>
                 </td>
                 <td>
                   <div className="text-xs text-gray-500 flex flex-col gap-1">
                     <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> {u.lastLogin ? formatDate(u.lastLogin) : "Jamais connecté"}
+                      <Calendar className="w-3 h-3" /> {u.lastLogin ? formatDate(u.lastLogin) : (language === "fr" ? "Jamais connecté" : "Never logged in")}
                     </div>
                   </div>
                 </td>
                 <td>
                   <button 
                     onClick={async () => {
-                      if (u.id === (session?.user as any)?.id) return addToast({ type: "error", title: "Action interdite", message: "Vous ne pouvez pas vous désactiver vous-même" });
-                      if (!confirm(`Voulez-vous ${u.isActive ? 'désactiver' : 'activer'} cet utilisateur ?`)) return;
+                      if (u.id === (session?.user as any)?.id) {
+                        addToast({
+                          type: "error",
+                          title: language === "fr" ? "Action interdite" : "Forbidden action",
+                          message: language === "fr" ? "Vous ne pouvez pas vous désactiver vous-même" : "You cannot deactivate yourself"
+                        });
+                        return;
+                      }
+                      if (!confirm(language === "fr" ? `Voulez-vous ${u.isActive ? 'désactiver' : 'activer'} cet utilisateur ?` : `Do you want to ${u.isActive ? 'deactivate' : 'activate'} this user?`)) return;
                       try {
                         const res = await fetch(`/api/users/${u.id}`, {
                           method: "PATCH",
@@ -192,25 +225,25 @@ export default function UtilisateursPage() {
                           body: JSON.stringify({ isActive: !u.isActive })
                         }).then(r => r.json());
                         if (res.error) throw new Error(res.error);
-                        addToast({ type: "success", title: "Succès", message: res.message });
+                        addToast({ type: "success", title: t.common.success, message: res.message });
                         refetch();
                       } catch (e: any) {
-                        addToast({ type: "error", title: "Erreur", message: e.message || "Erreur" });
+                        addToast({ type: "error", title: t.common.error, message: e.message || t.common.error });
                       }
                     }}
                     className={cn(
                       "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all hover:scale-105 active:scale-95",
                       u.isActive ? "bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700" : "bg-red-100 text-red-700 hover:bg-green-100 hover:text-green-700"
                     )}
-                    title={u.isActive ? "Désactiver" : "Activer"}
+                    title={u.isActive ? (language === "fr" ? "Désactiver" : "Deactivate") : (language === "fr" ? "Activer" : "Activate")}
                   >
                     <Power className="w-3 h-3" />
-                    {u.isActive ? "Actif" : "Inactif"}
+                    {u.isActive ? t.common.active : t.common.inactive}
                   </button>
                 </td>
                 <td className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Paramètres">
+                    <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title={t.settings.title}>
                       <Settings2 className="w-4 h-4" />
                     </button>
                   </div>

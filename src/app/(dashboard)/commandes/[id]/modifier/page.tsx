@@ -9,8 +9,10 @@ import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast, ToastContainer } from "@/components/ui/Toast";
+import { useTranslation } from "@/locales/i18n";
 
 export default function ModifierBonCommande({ params }: { params: Promise<{ id: string }> }) {
+  const { t, language } = useTranslation();
   const { id } = use(params);
   const router = useRouter();
   
@@ -50,6 +52,7 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
         setItems(
           order.items.map((i: any) => ({
             productId: i.productId,
+            focused: false,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
             taxRate: i.taxRate
@@ -101,8 +104,10 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
     if (!supplierId || items.length === 0) {
       setErrorModal({
         isOpen: true,
-        title: "Champs obligatoires manquants",
-        message: "Veuillez sélectionner un fournisseur et ajouter au moins un article avec une quantité valide pour enregistrer le bon de commande."
+        title: language === "fr" ? "Champs obligatoires manquants" : "Missing required fields",
+        message: language === "fr" 
+          ? "Veuillez sélectionner un fournisseur et ajouter au moins un article avec une quantité valide pour enregistrer le bon de commande."
+          : "Please select a supplier and add at least one item with a valid quantity to save the purchase order."
       });
       return;
     }
@@ -131,8 +136,8 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
       console.error(error);
       setErrorModal({
         isOpen: true,
-        title: "Erreur d'enregistrement",
-        message: error.message || "Une erreur est survenue lors de la mise à jour du bon de commande. Veuillez réessayer."
+        title: language === "fr" ? "Erreur d'enregistrement" : "Error saving",
+        message: error.message || (language === "fr" ? "Une erreur est survenue lors de la mise à jour du bon de commande. Veuillez réessayer." : "An error occurred while updating the purchase order. Please try again.")
       });
     } finally {
       setIsSaving(false);
@@ -160,7 +165,12 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
     } else {
       // Copy URL to clipboard and show toast instead of alert
       navigator.clipboard.writeText(window.location.origin + `/commandes/${updatedOrder.id}`).catch(() => {});
-      showToast("Le partage n'est pas supporté. L'URL a été copiée !", "info");
+      showToast(
+        language === "fr" 
+          ? "Le partage n'est pas supporté. L'URL a été copiée !" 
+          : "Sharing is not supported. The URL has been copied!", 
+        "info"
+      );
     }
   };
 
@@ -169,7 +179,9 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-        <p className="text-gray-500 font-medium">Chargement du bon de commande...</p>
+        <p className="text-gray-500 font-medium">
+          {language === "fr" ? "Chargement du bon de commande..." : "Loading purchase order..."}
+        </p>
       </div>
     );
   }
@@ -181,12 +193,18 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
         <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-inner">
           <AlertCircle className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Modification impossible</h2>
+        <h2 className="text-xl font-bold text-gray-900">
+          {language === "fr" ? "Modification impossible" : "Cannot edit"}
+        </h2>
         <p className="text-gray-500 text-sm">
-          Le bon de commande <span className="font-mono font-bold">{orderData.data.number}</span> a déjà été réceptionné et les stocks ont été mis à jour.
+          {language === "fr" ? (
+            <>Le bon de commande <span className="font-mono font-bold">{orderData.data.number}</span> a déjà été réceptionné et les stocks ont été mis à jour.</>
+          ) : (
+            <>Purchase order <span className="font-mono font-bold">{orderData.data.number}</span> has already been received and inventory updated.</>
+          )}
         </p>
         <Link href="/commandes" className="btn-primary inline-block w-full py-2.5">
-          Retour aux bons de commande
+          {language === "fr" ? "Retour aux bons de commande" : "Back to purchase orders"}
         </Link>
       </div>
     );
@@ -202,21 +220,27 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-green-100">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Bon de commande mis à jour !</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {language === "fr" ? "Bon de commande mis à jour !" : "Purchase order updated!"}
+            </h1>
             <p className="text-gray-500 max-w-md mx-auto">
-              Le bon de commande <span className="font-mono font-bold text-blue-600">{updatedOrder.number}</span> a été modifié avec succès.
+              {language === "fr" ? (
+                <>Le bon de commande <span className="font-mono font-bold text-blue-600">{updatedOrder.number}</span> a été modifié avec succès.</>
+              ) : (
+                <>Purchase order <span className="font-mono font-bold text-blue-600">{updatedOrder.number}</span> was successfully modified.</>
+              )}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4">
             <button onClick={handlePrint} className="btn-primary flex items-center gap-2 px-8 py-3">
-              <Printer className="w-5 h-5" /> Imprimer le BC
+              <Printer className="w-5 h-5" /> {language === "fr" ? "Imprimer le BC" : "Print PO"}
             </button>
             <button onClick={handleShare} className="btn-secondary flex items-center gap-2 px-8 py-3">
-              <Share2 className="w-5 h-5" /> Partager
+              <Share2 className="w-5 h-5" /> {language === "fr" ? "Partager" : "Share"}
             </button>
             <button onClick={() => router.push("/commandes")} className="w-full text-center text-sm text-gray-400 hover:text-gray-600 transition-colors pt-4 underline">
-              Retour à la liste
+              {language === "fr" ? "Retour à la liste" : "Back to list"}
             </button>
           </div>
         </div>
@@ -230,15 +254,21 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
               <p className="text-sm text-gray-600">{settings.company_phone} | {settings.company_email}</p>
             </div>
             <div className="text-right">
-              <h2 className="text-4xl font-black text-gray-300 uppercase leading-none mb-2">Bon de Commande</h2>
+              <h2 className="text-4xl font-black text-gray-300 uppercase leading-none mb-2">{t.orders.detail.title}</h2>
               <p className="text-xl font-mono font-bold">N° {updatedOrder.number}</p>
               <p className="text-sm">Date: {formatDate(updatedOrder.createdAt)}</p>
-              {updatedOrder.expectedAt && <p className="text-sm font-bold text-red-600">Livraison prévue: {formatDate(updatedOrder.expectedAt)}</p>}
+              {updatedOrder.expectedAt && (
+                <p className="text-sm font-bold text-red-600">
+                  {language === "fr" ? "Livraison prévue :" : "Expected delivery:"} {formatDate(updatedOrder.expectedAt)}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="bg-gray-100 p-6 rounded-lg mb-8 border border-gray-200">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Fournisseur</h3>
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
+              {language === "fr" ? "Fournisseur" : "Supplier"}
+            </h3>
             <p className="text-xl font-bold">{updatedOrder.supplier?.name}</p>
             <p className="text-sm">{updatedOrder.supplier?.address || updatedOrder.supplier?.city}</p>
             <p className="text-sm">{updatedOrder.supplier?.phone}</p>
@@ -247,11 +277,11 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
           <table className="w-full mb-10">
             <thead>
               <tr className="border-b-2 border-gray-900 text-left text-xs uppercase font-bold">
-                <th className="py-2">Description</th>
-                <th className="py-2 text-center">Qté</th>
-                <th className="py-2 text-right">P.U HT</th>
-                <th className="py-2 text-center">TVA</th>
-                <th className="py-2 text-right">Total HT</th>
+                <th className="py-2">{language === "fr" ? "Description" : "Description"}</th>
+                <th className="py-2 text-center">{language === "fr" ? "Qté" : "Qty"}</th>
+                <th className="py-2 text-right">{language === "fr" ? "P.U HT" : "Unit Price"}</th>
+                <th className="py-2 text-center">{language === "fr" ? "TVA" : "VAT"}</th>
+                <th className="py-2 text-right">{language === "fr" ? "Total HT" : "Total HT"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -269,10 +299,16 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
 
           <div className="flex justify-end">
             <div className="w-64 space-y-2">
-              <div className="flex justify-between text-sm"><span>Sous-total HT:</span><span>{formatCurrency(updatedOrder.subtotal)}</span></div>
-              <div className="flex justify-between text-sm"><span>Total TVA:</span><span>{formatCurrency(updatedOrder.taxAmount)}</span></div>
+              <div className="flex justify-between text-sm">
+                <span>{language === "fr" ? "Sous-total HT :" : "Subtotal HT:"}</span>
+                <span>{formatCurrency(updatedOrder.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>{language === "fr" ? "Total TVA :" : "Total VAT:"}</span>
+                <span>{formatCurrency(updatedOrder.taxAmount)}</span>
+              </div>
               <div className="flex justify-between text-xl font-black border-t-2 border-gray-900 pt-2">
-                <span>TOTAL TTC:</span>
+                <span>{language === "fr" ? "TOTAL TTC :" : "TOTAL (inc. tax):"}</span>
                 <span>{formatCurrency(updatedOrder.total)}</span>
               </div>
             </div>
@@ -285,8 +321,16 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
           )}
 
           <div className="mt-20 flex justify-between">
-            <div className="text-center w-48"><div className="border-t border-gray-400 pt-2 text-xs">Signature Fournisseur</div></div>
-            <div className="text-center w-48"><div className="border-t border-gray-400 pt-2 text-xs">Cachet & Signature</div></div>
+            <div className="text-center w-48">
+              <div className="border-t border-gray-400 pt-2 text-xs">
+                {language === "fr" ? "Signature Fournisseur" : "Supplier Signature"}
+              </div>
+            </div>
+            <div className="text-center w-48">
+              <div className="border-t border-gray-400 pt-2 text-xs">
+                {language === "fr" ? "Cachet & Signature" : "Stamp & Signature"}
+              </div>
+            </div>
           </div>
         </div>
       </>
@@ -300,7 +344,7 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
         <Link href="/commandes" className="p-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <h1 className="text-2xl font-bold font-heading">Modifier Bon de Commande</h1>
+        <h1 className="text-2xl font-bold font-heading">{t.orders.new.editTitle}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -308,18 +352,18 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
           <div className="card p-6 overflow-visible">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="w-1.5 h-6 bg-blue-600 rounded-full"></span>
-              Articles de la commande
+              {language === "fr" ? "Articles de la commande" : "Order items"}
             </h2>
             <div className="space-y-4">
               <div className="overflow-x-auto min-h-[350px]">
                 <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                      <th className="pb-3 pr-4">Produit</th>
-                      <th className="pb-3 w-28 text-center">Qté</th>
-                      <th className="pb-3 w-36 text-right">P.U Achat HT</th>
-                      <th className="pb-3 w-24 text-center">TVA (%)</th>
-                      <th className="pb-3 w-36 text-right">Total HT</th>
+                      <th className="pb-3 pr-4">{t.orders.detail.product}</th>
+                      <th className="pb-3 w-28 text-center">{language === "fr" ? "Qté" : "Qty"}</th>
+                      <th className="pb-3 w-36 text-right">{language === "fr" ? "P.U Achat HT" : "Buy Price HT"}</th>
+                      <th className="pb-3 w-24 text-center">{language === "fr" ? "TVA (%)" : "VAT (%)"}</th>
+                      <th className="pb-3 w-36 text-right">{language === "fr" ? "Total HT" : "Total HT"}</th>
                       <th className="pb-3 w-10"></th>
                     </tr>
                   </thead>
@@ -331,8 +375,8 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
                             options={productOptions}
                             value={item.productId}
                             onChange={(val) => updateItem(index, "productId", val)}
-                            placeholder="Sélectionner un produit..."
-                            searchPlaceholder="Chercher par nom ou SKU..."
+                            placeholder={language === "fr" ? "Sélectionner un produit..." : "Select product..."}
+                            searchPlaceholder={language === "fr" ? "Chercher par nom ou SKU..." : "Search by name or SKU..."}
                             className="w-full min-w-[320px]"
                           />
                         </td>
@@ -385,16 +429,18 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
 
               {items.length === 0 && (
                 <div className="text-center py-12 border-2 border-dashed border-gray-100 rounded-xl">
-                  <p className="text-gray-400">Aucun article ajouté à cette commande.</p>
+                  <p className="text-gray-400">
+                    {language === "fr" ? "Aucun article ajouté à cette commande." : "No items added to this purchase order."}
+                  </p>
                 </div>
               )}
 
               <button
                 type="button"
                 onClick={addItem}
-                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-medium"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md shadow-blue-500/10 hover:shadow-lg hover:shadow-blue-500/25 active:scale-[0.99] transition-all"
               >
-                <Plus className="w-4 h-4" /> Ajouter un article
+                <Plus className="w-5 h-5" /> {t.orders.new.addItem}
               </button>
             </div>
           </div>
@@ -402,11 +448,11 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="w-1.5 h-6 bg-gray-400 rounded-full"></span>
-              Notes & Observations
+              {language === "fr" ? "Notes & Observations" : "Notes & Remarks"}
             </h2>
             <textarea
               className="input w-full h-28 resize-none"
-              placeholder="Instructions spéciales pour le fournisseur, conditions de livraison, etc..."
+              placeholder={language === "fr" ? "Instructions spéciales pour le fournisseur, conditions de livraison, etc..." : "Special instructions for the supplier, delivery conditions, etc..."}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -415,20 +461,20 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
 
         <div className="space-y-6">
           <div className="card p-6 space-y-5 overflow-visible">
-            <h2 className="text-lg font-semibold">Détails</h2>
+            <h2 className="text-lg font-semibold">{language === "fr" ? "Détails" : "Details"}</h2>
             
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase">Fournisseur *</label>
+              <label className="text-xs font-bold text-gray-500 uppercase">{language === "fr" ? "Fournisseur *" : "Supplier *"}</label>
               <SearchableSelect
                 options={supplierOptions}
                 value={supplierId}
                 onChange={setSupplierId}
-                placeholder="Choisir fournisseur..."
+                placeholder={language === "fr" ? "Choisir fournisseur..." : "Select supplier..."}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-500 uppercase">Livraison prévue</label>
+              <label className="text-xs font-bold text-gray-500 uppercase">{language === "fr" ? "Livraison prévue" : "Expected delivery"}</label>
               <input
                 type="date"
                 className="input w-full"
@@ -439,19 +485,21 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
           </div>
 
           <div className="card p-6 space-y-4 bg-gray-900 text-white">
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Résumé financier</h3>
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+              {language === "fr" ? "Résumé financier" : "Financial Summary"}
+            </h3>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Sous-total HT</span>
+                <span className="text-gray-400">{t.orders.detail.subtotal}</span>
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Total TVA</span>
+                <span className="text-gray-400">{t.orders.detail.tax}</span>
                 <span className="font-medium">{formatCurrency(tax)}</span>
               </div>
             </div>
             <div className="pt-4 border-t border-gray-800 flex justify-between items-baseline">
-              <span className="text-sm font-medium text-gray-400">Total TTC</span>
+              <span className="text-sm font-medium text-gray-400">{t.orders.detail.total}</span>
               <span className="text-2xl font-bold text-blue-400">{formatCurrency(total)}</span>
             </div>
           </div>
@@ -466,7 +514,9 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
             ) : (
               <Save className="w-5 h-5" />
             )}
-            <span className="font-bold">Mettre à jour le Bon</span>
+            <span className="font-bold">
+              {language === "fr" ? "Mettre à jour le Bon" : "Update Purchase Order"}
+            </span>
           </button>
         </div>
       </form>
@@ -486,7 +536,7 @@ export default function ModifierBonCommande({ params }: { params: Promise<{ id: 
                 onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
                 className="w-full sm:w-auto px-6 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 text-sm"
               >
-                Compris
+                {language === "fr" ? "Compris" : "Got it"}
               </button>
             </div>
           </div>

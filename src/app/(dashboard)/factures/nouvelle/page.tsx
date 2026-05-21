@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Info } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "@/locales/i18n";
 
 export default function NewInvoicePage() {
+  const { t, language } = useTranslation();
   const router = useRouter();
 
   return (
@@ -13,7 +15,9 @@ export default function NewInvoicePage() {
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Nouvelle Facture</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {language === "fr" ? "Nouvelle Facture" : "New Invoice"}
+        </h1>
       </div>
 
       <div className="card p-8 text-center space-y-6">
@@ -22,27 +26,31 @@ export default function NewInvoicePage() {
         </div>
         
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-gray-900">Utilisez la Caisse (POS)</h2>
+          <h2 className="text-xl font-bold text-gray-900">
+            {language === "fr" ? "Utilisez la Caisse (POS)" : "Use the Cash Register (POS)"}
+          </h2>
           <p className="text-gray-500 max-w-md mx-auto">
-            Pour créer une nouvelle facture, veuillez utiliser le module de Caisse. 
-            Il permet de scanner les produits, de gérer les remises et d'imprimer les tickets ou factures A4.
+            {language === "fr" 
+              ? "Pour créer une nouvelle facture, veuillez utiliser le module de Caisse. Il permet de scanner les produits, de gérer les remises et d'imprimer les tickets ou factures A4."
+              : "To create a new invoice, please use the Cash Register module. It allows scanning products, managing discounts, and printing receipts or A4 invoices."}
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
           <Link href="/caisse" className="btn-primary w-full sm:w-auto px-8 py-3 flex items-center justify-center gap-2">
-            <ShoppingCart className="w-5 h-5" /> Aller à la Caisse
+            <ShoppingCart className="w-5 h-5" /> {language === "fr" ? "Aller à la Caisse" : "Go to Register"}
           </Link>
           <button onClick={() => router.back()} className="btn-secondary w-full sm:w-auto px-8 py-3">
-            Retour
+            {t.actions.back}
           </button>
         </div>
 
         <div className="mt-8 p-4 bg-orange-50 border border-orange-100 rounded-xl text-orange-800 text-sm flex gap-3 text-left">
           <Info className="w-5 h-5 flex-shrink-0" />
           <p>
-            L'éditeur de facture B2B détaillé (avec saisie libre) est actuellement en cours de développement. 
-            Veuillez utiliser la caisse pour vos opérations courantes.
+            {language === "fr"
+              ? "L'éditeur de facture B2B détaillé (avec saisie libre) est actuellement en cours de développement. Veuillez utiliser la caisse pour vos opérations courantes."
+              : "The detailed B2B invoice editor is currently under development. Please use the cash register for current operations."}
           </p>
         </div>
       </div>

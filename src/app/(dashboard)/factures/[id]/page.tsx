@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useInvoice, useAddPayment } from "@/hooks/useQueries";
 import { formatCurrency, formatDate, getInvoiceStatusBadge, getInvoiceStatusLabel, downloadReport } from "@/lib/utils";
 import { useUIStore } from "@/stores/useUIStore";
+import { useTranslation } from "@/locales/i18n";
 import { 
   ArrowLeft, Printer, Download, Mail, RefreshCw, 
   CreditCard, Calendar, User, FileText, Package, 
@@ -14,6 +15,7 @@ import { useState } from "react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export default function InvoiceViewPage() {
+  const { t, language } = useTranslation();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -30,9 +32,9 @@ export default function InvoiceViewPage() {
   const [paymentMethod, setPaymentMethod] = useState("ESPECES");
 
   const paymentMethodOptions = [
-    { value: "ESPECES", label: "Espèces" },
+    { value: "ESPECES", label: language === "fr" ? "Espèces" : "Cash" },
     { value: "MOBILE_MONEY", label: "Mobile Money" },
-    { value: "VIREMENT", label: "Virement" },
+    { value: "VIREMENT", label: language === "fr" ? "Virement" : "Bank Transfer" },
   ];
 
   const [showSendModal, setShowSendModal] = useState(false);
@@ -41,9 +43,17 @@ export default function InvoiceViewPage() {
     setDownloading(format);
     try {
       await downloadReport({ type: "invoice", format, invoiceId: id }, `facture-${invoice?.number}`);
-      addToast({ type: "success", title: `Facture téléchargée (${format.toUpperCase()})` });
+      addToast({ 
+        type: "success", 
+        title: language === "fr" 
+          ? `Facture téléchargée (${format.toUpperCase()})` 
+          : `Invoice downloaded (${format.toUpperCase()})`
+      });
     } catch {
-      addToast({ type: "error", title: "Erreur lors du téléchargement" });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Erreur lors du téléchargement" : "Download error"
+      });
     } finally {
       setDownloading(null);
     }
@@ -53,7 +63,7 @@ export default function InvoiceViewPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-        <p className="text-gray-500">Chargement de la facture...</p>
+        <p className="text-gray-500">{language === "fr" ? "Chargement de la facture..." : "Loading invoice..."}</p>
       </div>
     );
   }
@@ -62,10 +72,14 @@ export default function InvoiceViewPage() {
     return (
       <div className="card p-12 text-center">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-gray-900">Facture non trouvée</h2>
-        <p className="text-gray-500 mt-2">Le document que vous recherchez n'existe pas ou a été supprimé.</p>
+        <h2 className="text-xl font-bold text-gray-900">{language === "fr" ? "Facture non trouvée" : "Invoice not found"}</h2>
+        <p className="text-gray-500 mt-2">
+          {language === "fr" 
+            ? "Le document que vous recherchez n'existe pas ou a été supprimé." 
+            : "The document you are looking for does not exist or has been deleted."}
+        </p>
         <button onClick={() => router.back()} className="btn-primary mt-6 inline-flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Retour
+          <ArrowLeft className="w-4 h-4" /> {t.actions.back}
         </button>
       </div>
     );
@@ -79,10 +93,16 @@ export default function InvoiceViewPage() {
         amount: paymentAmount,
         method: paymentMethod,
       });
-      addToast({ type: "success", title: "Paiement enregistré" });
+      addToast({ 
+        type: "success", 
+        title: language === "fr" ? "Paiement enregistré" : "Payment recorded"
+      });
       setShowPaymentModal(false);
     } catch {
-      addToast({ type: "error", title: "Erreur lors du paiement" });
+      addToast({ 
+        type: "error", 
+        title: language === "fr" ? "Erreur lors du paiement" : "Payment error"
+      });
     }
   };
 
@@ -90,8 +110,12 @@ export default function InvoiceViewPage() {
   const isOverdue = !isPaid && invoice.dueDate && new Date(invoice.dueDate) < new Date();
 
   // Sharing logic
-  const shareMessage = `Bonjour ${invoice.customer?.name},\n\nVoici votre facture ${invoice?.number} d'un montant de ${formatCurrency(invoice?.total || 0)}.\n\nStatut: ${getInvoiceStatusLabel(invoice?.status || "")}\nDate: ${formatDate(invoice?.issueDate || new Date())}\n\nCordialement,`;
-  const shareSubject = `Facture ${invoice?.number} - ${invoice?.customer?.name}`;
+  const shareMessage = language === "fr" 
+    ? `Bonjour ${invoice.customer?.name},\n\nVoici votre facture ${invoice?.number} d'un montant de ${formatCurrency(invoice?.total || 0)}.\n\nStatut: ${getInvoiceStatusLabel(invoice?.status || "")}\nDate: ${formatDate(invoice?.issueDate || new Date())}\n\nCordialement,`
+    : `Hello ${invoice.customer?.name},\n\nHere is your invoice ${invoice?.number} for an amount of ${formatCurrency(invoice?.total || 0)}.\n\nStatus: ${invoice?.status === "PAYE" ? "Paid" : "Pending"}\nDate: ${formatDate(invoice?.issueDate || new Date())}\n\nBest regards,`;
+  const shareSubject = language === "fr"
+    ? `Facture ${invoice?.number} - ${invoice?.customer?.name}`
+    : `Invoice ${invoice?.number} - ${invoice?.customer?.name}`;
 
   const shareLinks = {
     whatsapp: `https://wa.me/${invoice?.customer?.phone?.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(shareMessage)}`,
@@ -112,10 +136,30 @@ export default function InvoiceViewPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-gray-900">{invoice.number}</h1>
               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${getInvoiceStatusBadge(invoice.status)}`}>
-                {getInvoiceStatusLabel(invoice.status)}
+                {language === "fr" 
+                  ? getInvoiceStatusLabel(invoice.status) 
+                  : (invoice.status === "BROUILLON" 
+                      ? "Draft" 
+                      : invoice.status === "ENVOYE" 
+                        ? "Sent" 
+                        : invoice.status === "PARTIELLEMENT_PAYE" 
+                          ? "Part. paid" 
+                          : invoice.status === "PAYE" 
+                            ? "Paid" 
+                            : invoice.status === "ANNULE" 
+                              ? "Cancelled" 
+                              : "Expired")}
               </span>
             </div>
-            <p className="text-sm text-gray-500 uppercase tracking-wider font-medium">{invoice.type}</p>
+            <p className="text-sm text-gray-500 uppercase tracking-wider font-medium">
+              {invoice.type === "FACTURE" 
+                ? (language === "fr" ? "Facture" : "Invoice") 
+                : invoice.type === "AVOIR" 
+                  ? (language === "fr" ? "Avoir" : "Credit Note") 
+                  : invoice.type === "DEVIS" 
+                    ? (language === "fr" ? "Devis" : "Quote") 
+                    : invoice.type}
+            </p>
           </div>
         </div>
 
@@ -126,7 +170,7 @@ export default function InvoiceViewPage() {
             className="btn-secondary flex items-center gap-2 text-sm min-w-[140px]"
           >
             {downloading === "pdf" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-            Imprimer PDF
+            {language === "fr" ? "Imprimer PDF" : "Print PDF"}
           </button>
           <button 
             onClick={() => handleDownload("word")} 
@@ -137,7 +181,7 @@ export default function InvoiceViewPage() {
             Word
           </button>
           <button onClick={() => setShowSendModal(true)} className="btn-primary flex items-center gap-2 text-sm">
-            <Mail className="w-4 h-4" /> Envoyer
+            <Mail className="w-4 h-4" /> {language === "fr" ? "Envoyer" : "Send"}
           </button>
         </div>
       </div>
@@ -147,7 +191,9 @@ export default function InvoiceViewPage() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
             <div className="p-5 bg-blue-600 text-white flex items-center justify-between">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Mail className="w-6 h-6" /> Envoyer la facture</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Mail className="w-6 h-6" /> {language === "fr" ? "Envoyer la facture" : "Send invoice"}
+              </h2>
               <button onClick={() => setShowSendModal(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
                 <RefreshCw className="w-6 h-6 rotate-45" />
               </button>
@@ -166,7 +212,9 @@ export default function InvoiceViewPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Aperçu du message</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  {language === "fr" ? "Aperçu du message" : "Message Preview"}
+                </label>
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 whitespace-pre-wrap font-mono text-[10px]">
                   {shareMessage}
                 </div>
@@ -177,14 +225,17 @@ export default function InvoiceViewPage() {
                   onClick={() => {
                     setCopying(true);
                     navigator.clipboard.writeText(shareMessage);
-                    addToast({ type: "success", title: "Copié dans le presse-papier" });
+                    addToast({ 
+                      type: "success", 
+                      title: language === "fr" ? "Copié dans le presse-papier" : "Copied to clipboard"
+                    });
                     setTimeout(() => setCopying(false), 500);
                   }}
                   disabled={copying}
                   className="w-full btn-secondary py-3 flex items-center justify-center gap-2"
                 >
                   {copying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                  Copier le texte brut
+                  {language === "fr" ? "Copier le texte brut" : "Copy raw text"}
                 </button>
               </div>
             </div>
@@ -199,18 +250,18 @@ export default function InvoiceViewPage() {
           <div className="card overflow-hidden">
             <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" /> Détails des articles
+                <FileText className="w-5 h-5 text-blue-600" /> {language === "fr" ? "Détails des articles" : "Item details"}
               </h3>
-              <p className="text-sm text-gray-500">{(invoice.items?.length || 0)} article(s)</p>
+              <p className="text-sm text-gray-500">{(invoice.items?.length || 0)} {language === "fr" ? "article(s)" : "item(s)"}</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-white text-gray-500 uppercase text-[10px] tracking-widest font-bold">
                   <tr>
                     <th className="px-6 py-4">Description</th>
-                    <th className="px-4 py-4 text-center">Qté</th>
+                    <th className="px-4 py-4 text-center">{language === "fr" ? "Qté" : "Qty"}</th>
                     <th className="px-4 py-4 text-right">P.U</th>
-                    <th className="px-4 py-4 text-center">Remise</th>
+                    <th className="px-4 py-4 text-center">{language === "fr" ? "Remise" : "Discount"}</th>
                     <th className="px-6 py-4 text-right">Total</th>
                   </tr>
                 </thead>
@@ -235,28 +286,28 @@ export default function InvoiceViewPage() {
             <div className="p-6 bg-gray-50/30 border-t border-gray-100">
               <div className="flex flex-col items-end space-y-2">
                 <div className="flex justify-between w-64 text-sm">
-                  <span className="text-gray-500">Sous-total HT</span>
+                  <span className="text-gray-500">{t.invoices.detail.subtotal}</span>
                   <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
                 </div>
                 <div className="flex justify-between w-64 text-sm text-red-600">
-                  <span>Remise Globale ({invoice.discount}%)</span>
+                  <span>{language === "fr" ? "Remise Globale" : "Global Discount"} ({invoice.discount}%)</span>
                   <span>-{formatCurrency(invoice.subtotal * (invoice.discount / 100))}</span>
                 </div>
                 <div className="flex justify-between w-64 text-sm">
-                  <span className="text-gray-500">TVA (19.25%)</span>
+                  <span className="text-gray-500">{t.invoices.detail.tax}</span>
                   <span className="font-medium">{formatCurrency(invoice.taxAmount)}</span>
                 </div>
                 <div className="flex justify-between w-64 pt-3 border-t border-gray-200">
-                  <span className="text-lg font-bold text-gray-900">Total TTC</span>
+                  <span className="text-lg font-bold text-gray-900">{language === "fr" ? "Total TTC" : "Total (incl. tax)"}</span>
                   <span className="text-2xl font-black text-blue-700">{formatCurrency(invoice.total)}</span>
                 </div>
                 
                 <div className="flex justify-between w-64 pt-3 mt-3 border-t border-dashed border-gray-200 text-sm">
-                  <span className="text-gray-500">Montant payé</span>
+                  <span className="text-gray-500">{t.invoices.detail.paidAmount}</span>
                   <span className="font-bold text-green-600">{formatCurrency(invoice.paidAmount)}</span>
                 </div>
                 <div className="flex justify-between w-64 text-sm">
-                  <span className="text-gray-500">Reste à payer</span>
+                  <span className="text-gray-500">{t.invoices.detail.dueAmount}</span>
                   <span className="font-bold text-orange-600">{formatCurrency(invoice.total - invoice.paidAmount)}</span>
                 </div>
               </div>
@@ -266,7 +317,7 @@ export default function InvoiceViewPage() {
           {/* Payments Timeline (if applicable) */}
           <div className="card p-6">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-green-600" /> Historique des paiements
+              <CreditCard className="w-5 h-5 text-green-600" /> {language === "fr" ? "Historique des paiements" : "Payment history"}
             </h3>
             {invoice.payments && invoice.payments.length > 0 ? (
               <div className="space-y-4">
@@ -278,7 +329,14 @@ export default function InvoiceViewPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-gray-900">{formatCurrency(payment.amount)}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-medium">{payment.method} — {formatDate(payment.paidAt)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-medium">
+                          {(payment.method === "ESPECES" 
+                            ? (language === "fr" ? "Espèces" : "Cash")
+                            : payment.method === "VIREMENT"
+                              ? (language === "fr" ? "Virement" : "Bank Transfer")
+                              : payment.method)
+                          } — {formatDate(payment.paidAt)}
+                        </p>
                       </div>
                     </div>
                     {payment.reference && <span className="text-[10px] font-mono bg-white px-2 py-1 rounded border border-gray-200">{payment.reference}</span>}
@@ -288,7 +346,7 @@ export default function InvoiceViewPage() {
             ) : (
               <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                 <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-400 italic">Aucun paiement enregistré</p>
+                <p className="text-sm text-gray-400 italic">{language === "fr" ? "Aucun paiement enregistré" : "No payments recorded"}</p>
               </div>
             )}
           </div>
@@ -313,9 +371,13 @@ export default function InvoiceViewPage() {
                 </div>
               )}
               <div>
-                <p className="text-xs text-gray-500 font-medium uppercase">Statut du paiement</p>
+                <p className="text-xs text-gray-500 font-medium uppercase">{t.invoices.detail.paymentStatus}</p>
                 <p className="font-bold text-gray-900">
-                  {isPaid ? "Document Soldé" : isOverdue ? "En retard de paiement" : "En attente de règlement"}
+                  {isPaid 
+                    ? (language === "fr" ? "Document Soldé" : "Paid Document") 
+                    : isOverdue 
+                      ? (language === "fr" ? "En retard de paiement" : "Overdue Payment") 
+                      : (language === "fr" ? "En attente de règlement" : "Pending Payment")}
                 </p>
               </div>
             </div>
@@ -327,7 +389,7 @@ export default function InvoiceViewPage() {
                 }}
                 className="w-full btn-primary py-2.5 text-sm flex items-center justify-center gap-2"
               >
-                <CreditCard className="w-4 h-4" /> Enregistrer un paiement
+                <CreditCard className="w-4 h-4" /> {t.invoices.detail.addPaymentBtn}
               </button>
             )}
           </div>
@@ -337,14 +399,14 @@ export default function InvoiceViewPage() {
             <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
                 <div className="p-5 bg-blue-600 text-white flex items-center justify-between">
-                  <h2 className="text-xl font-bold">Enregistrer un paiement</h2>
+                  <h2 className="text-xl font-bold">{t.invoices.detail.paymentModal.title}</h2>
                   <button onClick={() => setShowPaymentModal(false)} className="hover:bg-white/20 p-1 rounded transition-colors">
                     <RefreshCw className="w-6 h-6 rotate-45" />
                   </button>
                 </div>
                 <form onSubmit={handleAddPayment} className="p-6 space-y-4">
                   <div>
-                    <label className="label">Montant à payer</label>
+                    <label className="label">{language === "fr" ? "Montant à payer" : "Amount to pay"}</label>
                     <input 
                       type="number" 
                       value={paymentAmount} 
@@ -354,20 +416,20 @@ export default function InvoiceViewPage() {
                     />
                   </div>
                   <div>
-                    <label className="label">Mode de paiement</label>
+                    <label className="label">{t.invoices.detail.paymentModal.method}</label>
                     <SearchableSelect
                       options={paymentMethodOptions}
                       value={paymentMethod}
                       onChange={setPaymentMethod}
-                      placeholder="Mode de paiement"
+                      placeholder={t.invoices.detail.paymentModal.method}
                       className="w-full font-bold"
                     />
                   </div>
                   <div className="pt-4 flex gap-3">
-                    <button type="button" onClick={() => setShowPaymentModal(false)} className="flex-1 btn-secondary">Annuler</button>
+                    <button type="button" onClick={() => setShowPaymentModal(false)} className="flex-1 btn-secondary">{t.actions.cancel}</button>
                     <button type="submit" disabled={isPaying} className="flex-1 btn-primary flex items-center justify-center gap-2">
                       {isPaying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                      Valider le paiement
+                      {t.invoices.detail.paymentModal.submit}
                     </button>
                   </div>
                 </form>
@@ -378,26 +440,26 @@ export default function InvoiceViewPage() {
           {/* Client Details */}
           <div className="card p-6">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <User className="w-4 h-4" /> Client
+              <User className="w-4 h-4" /> {t.nav.customers}
             </h3>
             <div className="space-y-3">
               <p className="font-bold text-gray-900 text-lg">{invoice.customer?.name}</p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className="w-4 text-gray-400">📞</span> {invoice.customer?.phone || "Non renseigné"}
+                  <span className="w-4 text-gray-400">📞</span> {invoice.customer?.phone || (language === "fr" ? "Non renseigné" : "Not specified")}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className="w-4 text-gray-400">📧</span> {invoice.customer?.email || "Pas d'email"}
+                  <span className="w-4 text-gray-400">📧</span> {invoice.customer?.email || (language === "fr" ? "Pas d'email" : "No email")}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span className="w-4 text-gray-400">📍</span> {invoice.customer?.address || "Adresse non définie"}
+                  <span className="w-4 text-gray-400">📍</span> {invoice.customer?.address || (language === "fr" ? "Adresse non définie" : "Address not defined")}
                 </div>
               </div>
               <Link 
                 href={`/clients/${invoice.customerId}`} 
                 className="block text-center text-xs text-blue-600 hover:underline pt-2"
               >
-                Voir la fiche client complète
+                {language === "fr" ? "Voir la fiche client complète" : "View complete customer profile"}
               </Link>
             </div>
           </div>
@@ -405,22 +467,22 @@ export default function InvoiceViewPage() {
           {/* Dates Card */}
           <div className="card p-6">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-              <Calendar className="w-4 h-4" /> Dates clés
+              <Calendar className="w-4 h-4" /> {language === "fr" ? "Dates clés" : "Key dates"}
             </h3>
             <div className="space-y-4">
               <div>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">Date d'émission</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">{t.invoices.table.date}</p>
                 <p className="text-sm font-medium">{formatDate(invoice.issueDate)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">Date d'échéance</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">{language === "fr" ? "Date d'échéance" : "Due date"}</p>
                 <p className={`text-sm font-medium ${isOverdue ? "text-red-600" : ""}`}>
-                  {invoice.dueDate ? formatDate(invoice.dueDate) : "Non définie"}
+                  {invoice.dueDate ? formatDate(invoice.dueDate) : (language === "fr" ? "Non définie" : "Not defined")}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">Enregistré par</p>
-                <p className="text-sm font-medium">{invoice.user?.name || "Utilisateur inconnu"}</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">{language === "fr" ? "Enregistré par" : "Recorded by"}</p>
+                <p className="text-sm font-medium">{invoice.user?.name || (language === "fr" ? "Utilisateur inconnu" : "Unknown user")}</p>
               </div>
             </div>
           </div>

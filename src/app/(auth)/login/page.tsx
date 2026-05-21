@@ -18,6 +18,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { useTranslation } from "@/locales/i18n";
 
 // Country codes list (same as registration)
 const COUNTRY_CODES = [
@@ -55,6 +56,7 @@ const COUNTRY_CODES = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,7 +84,7 @@ export default function LoginPage() {
       setPhoneValid(true);
     } else {
       setPhoneValid(false);
-      setPhoneInputError("Numéro invalide pour ce code pays");
+      setPhoneInputError(t.login.invalidPhone);
     }
   };
 
@@ -97,7 +99,7 @@ export default function LoginPage() {
       setPhoneValid(true);
     } else {
       setPhoneValid(false);
-      setPhoneInputError("Numéro invalide pour ce code pays");
+      setPhoneInputError(t.login.invalidPhone);
     }
   };
 
@@ -106,9 +108,9 @@ export default function LoginPage() {
 
   // Background feature carousel
   const features = [
-    { title: "Gérez votre stock", desc: "Suivez vos produits en temps réel, partout en Afrique." },
-    { title: "Facturez en un clic", desc: "Générez des factures professionnelles instantanément." },
-    { title: "Synchro Cloud & Local", desc: "Travaillez même sans connexion, vos données sont en sécurité." },
+    { title: t.login.feat1Title, desc: t.login.feat1Desc },
+    { title: t.login.feat2Title, desc: t.login.feat2Desc },
+    { title: t.login.feat3Title, desc: t.login.feat3Desc },
   ];
   const [featureIdx, setFeatureIdx] = useState(0);
 
@@ -117,7 +119,7 @@ export default function LoginPage() {
       setFeatureIdx((prev) => (prev + 1) % features.length);
     }, 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [features.length]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,14 +129,14 @@ export default function LoginPage() {
     let loginValue = "";
 
     if (loginType === "email") {
-      if (!email.trim()) { setError("Email requis"); return; }
+      if (!email.trim()) { setError(t.login.errorEmail); return; }
       loginValue = email.trim().toLowerCase();
     } else {
-      if (!phoneNumber.trim()) { setPhoneInputError("Numéro requis"); return; }
+      if (!phoneNumber.trim()) { setPhoneInputError(t.login.errorPhone); return; }
       const full = `${dialCode}${phoneNumber.replace(/\s/g, "")}`;
       const parsed = parsePhoneNumberFromString(full);
       if (!parsed || !parsed.isValid()) {
-        setPhoneInputError("Numéro invalide pour ce code pays");
+        setPhoneInputError(t.login.invalidPhone);
         return;
       }
       loginValue = parsed.format("E.164");
@@ -152,8 +154,8 @@ export default function LoginPage() {
     if (result?.error) {
       setError(
         loginType === "email"
-          ? "Email ou mot de passe incorrect"
-          : "Numéro de téléphone ou mot de passe incorrect"
+          ? t.login.invalidCredentialsEmail
+          : t.login.invalidCredentialsPhone
       );
     } else {
       router.push("/dashboard");
@@ -198,14 +200,14 @@ export default function LoginPage() {
                 className="space-y-6"
               >
                 <h2 className="text-6xl font-black text-white leading-tight">
-                  {features[featureIdx].title.split(" ").map((word, i, arr) => (
+                  {features[featureIdx]?.title?.split(" ").map((word, i, arr) => (
                     <span key={i} className={i === arr.length - 1 ? "text-blue-500" : ""}>
                       {word}{" "}
                     </span>
                   ))}
                 </h2>
                 <p className="text-2xl text-white/60 font-medium leading-relaxed">
-                  {features[featureIdx].desc}
+                  {features[featureIdx]?.desc}
                 </p>
               </motion.div>
             </div>
@@ -229,8 +231,8 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 lg:p-24">
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} className="max-w-md w-full">
           <div className="mb-10">
-            <h1 className="text-4xl font-black text-slate-900 mb-2">Bienvenue</h1>
-            <p className="text-slate-500 font-medium">Connectez-vous pour continuer sur votre espace.</p>
+            <h1 className="text-4xl font-black text-slate-900 mb-2">{t.login.welcome}</h1>
+            <p className="text-slate-500 font-medium">{t.login.subtitle}</p>
           </div>
 
           {/* ── Email / Phone Toggle Switch ── */}
@@ -259,7 +261,7 @@ export default function LoginPage() {
               )}
             >
               <Phone className="w-4 h-4" />
-              Téléphone
+              {t.common.phone}
             </button>
           </div>
 
@@ -287,7 +289,7 @@ export default function LoginPage() {
                   className="space-y-2"
                 >
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Adresse email
+                    {t.login.emailLabel}
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 text-lg">@</div>
@@ -295,7 +297,7 @@ export default function LoginPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="nom@exemple.com"
+                      placeholder={t.login.emailPlaceholder}
                       className="input-premium pl-12"
                       autoComplete="email"
                     />
@@ -311,7 +313,7 @@ export default function LoginPage() {
                   className="space-y-2"
                 >
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                    Numéro de téléphone
+                    {t.login.phoneLabel}
                   </label>
                   <div className="flex gap-2">
                     {/* Country code */}
@@ -340,7 +342,7 @@ export default function LoginPage() {
                         type="tel"
                         value={phoneNumber}
                         onChange={(e) => handlePhoneInput(dialCode, e.target.value)}
-                        placeholder="699 123 456"
+                        placeholder={t.login.phonePlaceholder}
                         className={`input-premium pl-12 pr-10 w-full transition-all ${
                           phoneValid === true ? "border-emerald-400 focus:border-emerald-500 focus:ring-emerald-500/10" :
                           phoneValid === false ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/10" : ""
@@ -362,7 +364,7 @@ export default function LoginPage() {
                     </p>
                   )}
                   {phoneValid === true && (
-                    <p className="text-emerald-600 text-xs font-bold ml-1">✓ Numéro valide</p>
+                    <p className="text-emerald-600 text-xs font-bold ml-1">✓ {t.login.validPhoneMsg}</p>
                   )}
                 </motion.div>
               )}
@@ -370,13 +372,13 @@ export default function LoginPage() {
 
             {/* ── Password ── */}
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Mot de passe</label>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">{t.login.passwordLabel}</label>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={t.login.passwordPlaceholder}
                   className="input-premium pr-12"
                   autoComplete="current-password"
                 />
@@ -396,15 +398,15 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-3 mt-4"
             >
-              {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : "Se connecter"}
+              {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : t.login.submitBtn}
               {!isSubmitting && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
 
           <p className="mt-8 text-center text-slate-500 font-medium">
-            Pas encore de compte ?{" "}
+            {t.login.noAccount}{" "}
             <Link href="/register-company" className="text-blue-600 font-bold hover:underline">
-              Créer une entreprise
+              {t.login.registerLink}
             </Link>
           </p>
         </motion.div>
