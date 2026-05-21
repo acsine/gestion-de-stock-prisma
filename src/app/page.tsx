@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { 
@@ -19,6 +20,7 @@ import { useTranslation } from "@/locales/i18n";
 
 export default function LandingPage() {
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
 
   const fadeUp = {
     initial: { opacity: 0, y: 20 },
@@ -51,8 +53,18 @@ export default function LandingPage() {
             <a href="#mobile" className="hover:text-white transition-colors">{t.landing.mobile}</a>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm font-medium text-neutral-400 hover:text-white transition-colors">{t.landing.login}</Link>
-            <Link href="/register-company" className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+            <Link 
+              href="/login" 
+              onClick={() => setIsLoading(true)}
+              className="text-sm font-medium text-neutral-400 hover:text-white transition-colors"
+            >
+              {t.landing.login}
+            </Link>
+            <Link 
+              href="/register-company" 
+              onClick={() => setIsLoading(true)}
+              className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+            >
               {t.landing.getStarted}
             </Link>
           </div>
@@ -93,7 +105,11 @@ export default function LandingPage() {
             transition={{ delay: 0.2 }}
             className="flex flex-col sm:flex-row items-center gap-4 mb-20"
           >
-            <Link href="/register-company" className="w-full sm:w-auto px-8 py-4 bg-white text-black font-semibold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.15)]">
+            <Link 
+              href="/register-company" 
+              onClick={() => setIsLoading(true)}
+              className="w-full sm:w-auto px-8 py-4 bg-white text-black font-semibold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+            >
               {t.landing.createCompany} <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="#features" className="w-full sm:w-auto px-8 py-4 bg-white/5 text-white border border-white/10 font-semibold rounded-full hover:bg-white/10 transition-colors flex items-center justify-center">
@@ -252,7 +268,11 @@ export default function LandingPage() {
             <div className="relative z-10">
               <h2 className="text-4xl md:text-6xl font-bold text-white mb-6 tracking-tight">{t.landing.ready}</h2>
               <p className="text-neutral-400 text-lg md:text-xl mb-10 max-w-xl mx-auto">{t.landing.readySubtitle}</p>
-              <Link href="/register-company" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.15)]">
+              <Link 
+                href="/register-company" 
+                onClick={() => setIsLoading(true)}
+                className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+              >
                 {t.landing.createCompany} <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
@@ -272,6 +292,27 @@ export default function LandingPage() {
           </p>
         </div>
       </footer>
+
+      {/* Premium Loading Overlay */}
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+              className="w-12 h-12 border-4 border-t-white border-white/20 rounded-full mb-4 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+            />
+            <span className="text-sm font-bold tracking-widest uppercase text-neutral-300">
+              Chargement...
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
