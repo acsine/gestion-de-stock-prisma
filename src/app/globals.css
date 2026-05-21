@@ -197,4 +197,25 @@
     display: block !important;
     height: auto !important;
   }
+
+  /* Specific override when printing barcode sheets to hide all page headers, search bars, and other non-print elements */
+  body:has(.print-barcodes-sheet) {
+    background: white !important;
+    background-color: white !important;
+    overflow: visible !important;
+  }
+
+  body:has(.print-barcodes-sheet) *:not(.print-barcodes-sheet):not(:has(.print-barcodes-sheet)):not(.print-barcodes-sheet *) {
+    display: none !important;
+  }
+
+  body:has(.print-barcodes-sheet) .print-barcodes-sheet {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
+
