@@ -2,8 +2,87 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const emailParam = searchParams.get("email");
+
+    if (emailParam) {
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: emailParam.trim(), mode: "insensitive" } },
+        include: {
+          tenant: {
+            include: {
+              license: true
+            }
+          }
+        }
+      });
+
+      if (!user) {
+        return NextResponse.json({
+          status: "error",
+          message: `User with email '${emailParam}' not found.`
+        }, { status: 404 });
+      }
+
+      const now = new Date();
+      const isTrial = !user.tenant?.licenseId || user.tenant?.license?.name === "GRATUIT";
+      let subscriptionStatus = "VALID";
+      let isBlocked = false;
+      let blockReason = "";
+
+      if (!user.isSuperAdmin) {
+        if (!user.isActive) {
+          isBlocked = true;
+          blockReason = "USER_INACTIVE";
+        } else if (user.tenant) {
+          if (isTrial && user.tenant.trialEndsAt && now > user.tenant.trialEndsAt) {
+            isBlocked = true;
+            blockReason = "TRIAL_EXPIRED";
+            subscriptionStatus = "EXPIRED";
+          } else if (!user.tenant.subscriptionActive) {
+            isBlocked = true;
+            blockReason = "SUSPENDED";
+            subscriptionStatus = "SUSPENDED";
+          }
+        } else {
+          isBlocked = true;
+          blockReason = "NO_TENANT";
+        }
+      }
+
+      return NextResponse.json({
+        status: "success",
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isActive: user.isActive,
+            isSuperAdmin: user.isSuperAdmin,
+            tenantId: user.tenantId
+          },
+          tenant: user.tenant ? {
+            id: user.tenant.id,
+            name: user.tenant.name,
+            slug: user.tenant.slug,
+            subscriptionActive: user.tenant.subscriptionActive,
+            trialEndsAt: user.tenant.trialEndsAt,
+            licenseId: user.tenant.licenseId,
+            licenseName: user.tenant.license?.name || "NONE",
+            isTrial
+          } : null,
+          diagnostics: {
+            isBlocked,
+            blockReason,
+            subscriptionStatus,
+            currentTime: now.toISOString()
+          }
+        }
+      });
+    }
+
     // 1. Test database connection & query counts
     const usersCount = await prisma.user.count();
     const tenantsCount = await prisma.tenant.count();
