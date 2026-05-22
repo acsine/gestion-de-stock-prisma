@@ -28,6 +28,10 @@ with zipfile.ZipFile(zip_path, 'r') as zin:
             else:
                 data = zin.read(item.filename)
                 zout.writestr(item, data)
+        
+        # Add scratch/sync_initial.ts to the zip file
+        print("Adding scratch/sync_initial.ts to zip...")
+        zout.write("scratch/sync_initial.ts", "scratch/sync_initial.ts")
 
 # Replace the original zip with the updated zip
 if os.path.exists(temp_zip_path):
