@@ -427,21 +427,29 @@ def main():
             os.environ["CLOUD_DATABASE_URL"] = config_cloud_url
             print("🗄️ Base de données en ligne configurée automatiquement depuis 'setup_config.json'.")
         else:
-            existing_cloud_url = get_env_variable("CLOUD_DATABASE_URL")
+            existing_cloud_url = get_env_variable("CLOUD_DATABASE_URL") or "postgresql://postgres:FOMO@localhost:5432/gestionstock"
             if not existing_cloud_url or "localhost" in existing_cloud_url or "127.0.0.1" in existing_cloud_url:
                 print("\n⚙️ Configuration de la base de données cloud...")
                 print("Veuillez saisir l'URL de connexion PostgreSQL de la base de données cloud.")
                 print("(Ex: postgresql://utilisateur:motdepasse@serveur-en-ligne:5432/gestionstock)")
-                cloud_url_input = input("🗄️ URL de la base de données en ligne (CLOUD_DATABASE_URL) : ").strip()
+                default_prompt = f" [Par défaut : {existing_cloud_url}]" if existing_cloud_url else ""
+                cloud_url_input = input(f"🗄️ URL de la base de données en ligne (CLOUD_DATABASE_URL){default_prompt} : ").strip()
                 if cloud_url_input:
                     set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
                     os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+                elif existing_cloud_url:
+                    os.environ["CLOUD_DATABASE_URL"] = existing_cloud_url
+                    print(f"ℹ️ Utilisation de la valeur par défaut : {existing_cloud_url}")
+                else:
+                    print("⚠️ Aucune URL saisie. La synchronisation en ligne requiert une URL cloud valide.")
             else:
                 print(f"\n⚙️ Base de données cloud déjà configurée.")
                 cloud_url_input = input(f"🗄️ URL cloud [Appuyez sur Entrée pour conserver : {existing_cloud_url}] : ").strip()
                 if cloud_url_input:
                     set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
                     os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+                else:
+                    os.environ["CLOUD_DATABASE_URL"] = existing_cloud_url
                 
         # Exécuter d'abord le seed pour s'assurer que les structures système sont prêtes (silencieusement)
         print("\n🌱 Initialisation des structures système...")
