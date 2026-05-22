@@ -68,12 +68,18 @@ export async function POST(req: Request) {
         },
       });
 
-      // Create default ADMIN role
+      // Get all system permissions to assign to the default ADMIN role
+      const systemPermissions = await tx.permission.findMany();
+
+      // Create default ADMIN role with all permissions
       const adminRole = await tx.role.create({
         data: {
           name: "ADMIN",
           tenantId: tenant.id,
           description: "Administrateur de l'entreprise",
+          permissions: {
+            connect: systemPermissions.map((p) => ({ id: p.id })),
+          },
         },
       });
 

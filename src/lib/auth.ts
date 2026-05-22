@@ -66,6 +66,69 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
+          // Self-heal mechanism for roles & permissions
+          let needsRefetch = false;
+
+          // 1. If ADMIN role has empty permissions, connect all global permissions
+          if (user.role?.name === "ADMIN" && (!user.role.permissions || user.role.permissions.length === 0)) {
+            console.log("[Auth Self-Heal] ADMIN role has empty permissions. Fixing...");
+            const allPermissions = await prisma.permission.findMany();
+            if (allPermissions.length > 0) {
+              await prisma.role.update({
+                where: { id: user.role.id },
+                data: {
+                  permissions: {
+                    connect: allPermissions.map((p) => ({ id: p.id })),
+                  },
+                },
+              });
+              needsRefetch = true;
+              console.log("[Auth Self-Heal] Successfully associated all permissions to ADMIN role.");
+            }
+          }
+
+          // 2. If user is a tenant admin or regular user with a null roleId, assign/create ADMIN role
+          if (!user.isSuperAdmin && !user.roleId && user.tenantId) {
+            console.log("[Auth Self-Heal] Tenant user has no role. Assigning ADMIN role...");
+            let adminRole = await prisma.role.findFirst({
+              where: { tenantId: user.tenantId, name: "ADMIN" },
+            });
+
+            if (!adminRole) {
+              const allPermissions = await prisma.permission.findMany();
+              adminRole = await prisma.role.create({
+                data: {
+                  name: "ADMIN",
+                  tenantId: user.tenantId,
+                  description: "Administrateur de l'entreprise",
+                  permissions: {
+                    connect: allPermissions.map((p) => ({ id: p.id })),
+                  },
+                },
+              });
+            }
+
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { roleId: adminRole.id },
+            });
+            needsRefetch = true;
+            console.log("[Auth Self-Heal] Assigned ADMIN role to user.");
+          }
+
+          if (needsRefetch) {
+            const updatedUser = await prisma.user.findUnique({
+              where: { id: user.id },
+              include: {
+                role: { include: { permissions: true } },
+                tenant: { include: { license: true } },
+              },
+            });
+            if (updatedUser) {
+              user = updatedUser;
+            }
+          }
+
           const canDownload =
             user.isSuperAdmin || user.tenant?.license?.canDownload || false;
 
