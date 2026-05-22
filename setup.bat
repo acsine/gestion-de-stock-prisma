@@ -1,6 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 title Installateur ThaborSolution
+chcp 65001 >nul 2>&1
+
 echo ====================================================
 echo    INSTALLATION DE THABORSOLUTION STOCK MANAGER
 echo ====================================================
@@ -9,30 +11,137 @@ echo.
 :: 1. Vérification de Python
 echo Verification de l'environnement Python...
 
-set PYTHON_CMD=
+set PYTHON_EXE=
 
+:: Essayer d'abord les commandes globales existantes directement
+python -c "import sys" >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON_EXE=python
+    goto :python_found
+)
+
+py -c "import sys" >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON_EXE=py
+    goto :python_found
+)
+
+python3 -c "import sys" >nul 2>&1
+if %errorlevel% equ 0 (
+    set PYTHON_EXE=python3
+    goto :python_found
+)
+
+:: Si les commandes directes ont échoué ou ne sont pas configurées, chercher les exécutables physiques
 where py >nul 2>&1
 if %errorlevel% equ 0 (
-    set PYTHON_CMD=py
-    goto :python_found
+    for /f "delims=" %%i in ('py -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "TEMP_PYTHON=%%i"
+        if exist "!TEMP_PYTHON!" (
+            "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "PYTHON_EXE=!TEMP_PYTHON!"
+                goto :python_found
+            )
+        )
+    )
 )
 
 where python >nul 2>&1
 if %errorlevel% equ 0 (
-    set PYTHON_CMD=python
-    goto :python_found
+    for /f "delims=" %%i in ('python -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "TEMP_PYTHON=%%i"
+        if exist "!TEMP_PYTHON!" (
+            "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "PYTHON_EXE=!TEMP_PYTHON!"
+                goto :python_found
+            )
+        )
+    )
 )
 
 where python3 >nul 2>&1
 if %errorlevel% equ 0 (
-    set PYTHON_CMD=python3
-    goto :python_found
+    for /f "delims=" %%i in ('python3 -c "import sys; print(sys.executable)" 2^>nul') do (
+        set "TEMP_PYTHON=%%i"
+        if exist "!TEMP_PYTHON!" (
+            "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+            if !errorlevel! equ 0 (
+                set "PYTHON_EXE=!TEMP_PYTHON!"
+                goto :python_found
+            )
+        )
+    )
 )
 
-:python_found
-if not "%PYTHON_CMD%"=="" goto :run_setup
+:: Chercher dans les emplacements utilisateur communs
+for /d %%d in ("C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python*") do (
+    if exist "%%d\python.exe" (
+        set "TEMP_PYTHON=%%d\python.exe"
+        "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_EXE=!TEMP_PYTHON!"
+            goto :python_found
+        )
+    )
+)
 
-echo [INFO] Python n'est pas detecte (ni 'py', ni 'python', ni 'python3').
+:: Chercher dans les emplacements système communs
+for /d %%d in ("C:\Program Files\Python*") do (
+    if exist "%%d\python.exe" (
+        set "TEMP_PYTHON=%%d\python.exe"
+        "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_EXE=!TEMP_PYTHON!"
+            goto :python_found
+        )
+    )
+)
+
+for /d %%d in ("C:\Program Files (x86)\Python*") do (
+    if exist "%%d\python.exe" (
+        set "TEMP_PYTHON=%%d\python.exe"
+        "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_EXE=!TEMP_PYTHON!"
+            goto :python_found
+        )
+    )
+)
+
+for /d %%d in ("C:\Python*") do (
+    if exist "%%d\python.exe" (
+        set "TEMP_PYTHON=%%d\python.exe"
+        "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_EXE=!TEMP_PYTHON!"
+            goto :python_found
+        )
+    )
+)
+
+if exist "C:\Users\%USERNAME%\AppData\Local\Python\bin\python.exe" (
+    set "TEMP_PYTHON=C:\Users\%USERNAME%\AppData\Local\Python\bin\python.exe"
+    "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_EXE=!TEMP_PYTHON!"
+        goto :python_found
+    )
+)
+
+for /d %%d in ("C:\Users\%USERNAME%\AppData\Local\Python\pythoncore-*") do (
+    if exist "%%d\python.exe" (
+        set "TEMP_PYTHON=%%d\python.exe"
+        "!TEMP_PYTHON!" -c "import sys" >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_EXE=!TEMP_PYTHON!"
+            goto :python_found
+        )
+    )
+)
+
+echo [INFO] Python n'est pas detecte.
 echo Tentative d'installation automatique via Winget...
 echo.
 
@@ -57,17 +166,20 @@ exit /b
 
 :install_ok
 echo.
-echo [IMPORTANT] Python a ete installe. 
+echo [IMPORTANT] Python a ete installe.
 echo Veuillez FERMER cette fenetre et RELANCER setup.bat.
 pause
 exit /b
 
-:run_setup
-:: 3. Lancement du script de configuration
-echo Utilisation de la commande : %PYTHON_CMD%
+:python_found
+echo [OK] Python trouve : %PYTHON_EXE%
+echo.
+
+:: 2. Lancement du script de configuration
 echo Lancement de la configuration automatique...
 echo.
-%PYTHON_CMD% setup.py
+set PYTHONUTF8=1
+"%PYTHON_EXE%" setup.py
 
 if %errorlevel% equ 0 goto :setup_success
 echo.

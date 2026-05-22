@@ -8,6 +8,17 @@ import secrets
 import re
 from pathlib import Path
 
+# --- Force UTF-8 output to handle emoji characters on Windows consoles (cp1252, etc.) ---
+import io
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+os.environ["PYTHONUTF8"] = "1"
+
+
 # Configuration
 APP_NAME = "ThaborSolution Stock Manager"
 DB_NAME = "gestionstock"
