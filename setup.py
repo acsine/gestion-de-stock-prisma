@@ -137,19 +137,39 @@ def check_and_configure_postgres():
 
     # Si absent, installer via winget
     print("📥 PostgreSQL est absent. Installation automatique via Winget...")
-    try:
-        run_command("winget install PostgreSQL.PostgreSQL --silent --accept-package-agreements --accept-source-agreements")
-        time.sleep(5)
-        if pg_root.exists():
-            bins = list(pg_root.glob("**/bin/psql.exe"))
-            if bins:
-                bin_dir = str(bins[0].parent)
-                add_to_system_path(bin_dir)
-        print("✅ PostgreSQL installe avec succes.")
-        return True
-    except Exception as e:
-        print(f"❌ Impossible d'installer PostgreSQL automatiquement : {e}")
+    
+    postgres_packages = [
+        "PostgreSQL.PostgreSQL.16",
+        "PostgreSQL.PostgreSQL.17",
+        "PostgreSQL.PostgreSQL.15",
+        "PostgreSQL.PostgreSQL"
+    ]
+    
+    installed = False
+    for package in postgres_packages:
+        print(f"Tentative d'installation de {package}...")
+        try:
+            # check=True will raise an exception on failure
+            run_command(f"winget install {package} --silent --accept-package-agreements --accept-source-agreements", check=True)
+            installed = True
+            break
+        except Exception as e:
+            print(f"⚠️ Échec de l'installation de {package}, passage au package suivant...")
+            continue
+            
+    if not installed:
+        print("❌ Toutes les tentatives d'installation de PostgreSQL via Winget ont échoué.")
+        print("Veuillez installer PostgreSQL manuellement depuis https://www.postgresql.org/download/windows/")
         return False
+
+    time.sleep(5)
+    if pg_root.exists():
+        bins = list(pg_root.glob("**/bin/psql.exe"))
+        if bins:
+            bin_dir = str(bins[0].parent)
+            add_to_system_path(bin_dir)
+    print("✅ PostgreSQL installe avec succes.")
+    return True
 
 def get_local_ip():
     """Récupère l'adresse IP locale de la machine."""
