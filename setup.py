@@ -269,29 +269,65 @@ def detect_postgres_password():
             
     return False
 
-def create_shortcut():
-    """Crée un raccourci sur le bureau Windows."""
-    try:
-        from win32com.client import Dispatch
-        import winshell
-        
-        desktop = winshell.desktop()
-        path = os.path.join(desktop, f"{APP_NAME}.lnk")
-        target = os.path.join(os.getcwd(), "start_app.bat")
-        wDir = os.getcwd()
-        icon = os.path.join(os.getcwd(), "public", "favicon.ico")
+def get_env_variable(key):
+    """Récupère une variable du fichier .env."""
+    if not os.path.exists(".env"):
+        return None
+    with open(".env", "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip().startswith(key):
+                match = re.match(r'^\s*' + key + r'\s*=\s*["\']?(.*?)["\']?\s*$', line)
+                if match:
+                    return match.group(1)
+    return None
 
-        shell = Dispatch('WScript.Shell')
-        shortcut = shell.CreateShortCut(path)
-        shortcut.Targetpath = target
-        shortcut.WorkingDirectory = wDir
-        if os.path.exists(icon):
-            shortcut.IconLocation = icon
-        shortcut.save()
+def set_env_variable(key, value):
+    """Enregistre ou met à jour une variable dans le fichier .env."""
+    if not os.path.exists(".env"):
+        with open(".env", "w", encoding="utf-8") as f:
+            f.write(f'{key}="{value}"\n')
+        return
+    with open(".env", "r", encoding="utf-8") as f:
+        content = f.read()
+    if key in content:
+        content = re.sub(r'^\s*' + key + r'\s*=.*', f'{key}="{value}"', content, flags=re.M)
+    else:
+        content += f'\n{key}="{value}"'
+    with open(".env", "w", encoding="utf-8") as f:
+        f.write(content)
+
+def create_shortcut():
+    """Crée un raccourci sur le bureau Windows sans aucune dépendance pip."""
+    try:
+        desktop = os.path.join(os.environ["USERPROFILE"], "Desktop")
+        lnk_path = os.path.join(desktop, f"{APP_NAME}.lnk")
+        target_path = os.path.join(os.getcwd(), "start_app.bat")
+        working_dir = os.getcwd()
+        icon_path = os.path.join(os.getcwd(), "icon.png")
+        
+        # Échapper les guillemets simples pour PowerShell
+        lnk_path_esc = lnk_path.replace("'", "''")
+        target_path_esc = target_path.replace("'", "''")
+        working_dir_esc = working_dir.replace("'", "''")
+        icon_path_esc = icon_path.replace("'", "''")
+        
+        # PowerShell command for zero-dependency shortcut creation
+        ps_cmd = (
+            f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut('{lnk_path_esc}'); "
+            f"$s.TargetPath = '{target_path_esc}'; "
+            f"$s.WorkingDirectory = '{working_dir_esc}'; "
+        )
+        if os.path.exists(icon_path):
+            ps_cmd += f"$s.IconLocation = '{icon_path_esc}'; "
+        ps_cmd += "$s.Save()"
+        
+        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, check=True)
         print(f"✅ Raccourci créé sur le Bureau : {APP_NAME}")
+        return True
     except Exception as e:
         print(f"⚠️ Impossible de créer le raccourci automatiquement : {e}")
         print("Note: Vous pouvez utiliser 'start_app.bat' manuellement.")
+        return False
 
 def main():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -327,6 +363,24 @@ def main():
     print("📝 Configuration des paramètres système (.env)...")
     update_env_file()
     
+    # Lecture de setup_config.json si présent pour initialiser les variables globales tôt
+    config_email = None
+    config_cloud_url = None
+    os.environ["SILENT_SEED"] = "true"
+    
+    if os.path.exists("setup_config.json"):
+        try:
+            import json
+            with open("setup_config.json", "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                config_email = cfg.get("email")
+                config_cloud_url = cfg.get("cloud_database_url")
+                print("\n⚙️ Fichier de configuration automatique 'setup_config.json' détecté !")
+                if config_email:
+                    os.environ["SYNC_EMAIL"] = config_email
+        except Exception as e:
+            print(f"\n⚠️ Impossible de lire 'setup_config.json' : {e}")
+    
     # 5. Base de données
     print("🗄️ Création de la base de données...")
     env = os.environ.copy()
@@ -339,11 +393,91 @@ def main():
     run_command("npx prisma generate", show_output=True)
     run_command("npx prisma db push --accept-data-loss", show_output=True)
     
-    print("🌱 Chargement des données d'usine et compte admin...")
-    run_command("npx tsx prisma/seed.ts", show_output=True)
+    # 5.5 Synchronisation avec le compte en ligne (Optionnelle)
+    sync_email = None
+    sync_success = False
+    
+    print("\n====================================================")
+    print("🔄 CONFIGURATION DE LA SYNCHRONISATION EN LIGNE")
+    print("====================================================")
+    print("Si vous avez déjà un compte marchand ou administrateur sur ThaborSolution en ligne,")
+    print("vous pouvez synchroniser votre installation locale pour importer vos données.")
+    print("----------------------------------------------------")
+    
+    if config_email:
+        sync_opt = input(f"👉 Un compte en ligne ({config_email}) a été détecté. Voulez-vous synchroniser vos données ? (o/n) [o] : ").strip().lower()
+        if not sync_opt:
+            sync_opt = "o"
+    else:
+        sync_opt = input("👉 Voulez-vous vous connecter à votre compte en ligne pour synchroniser vos données ? (o/n) [n] : ").strip().lower()
+    
+    if sync_opt in ["o", "oui", "y", "yes"]:
+        print("\n🔑 Connexion à votre compte en ligne ThaborSolution...")
+        if config_email:
+            email_input = input(f"📧 Saisissez votre adresse e-mail en ligne [Appuyez sur Entrée pour utiliser {config_email}] : ").strip()
+            email = email_input if email_input else config_email
+        else:
+            email = input("📧 Saisissez votre adresse e-mail en ligne : ").strip()
+            
+        password = input("🔑 Saisissez votre mot de passe en ligne : ").strip()
+        
+        # Résoudre ou demander le CLOUD_DATABASE_URL
+        if config_cloud_url:
+            set_env_variable("CLOUD_DATABASE_URL", config_cloud_url)
+            os.environ["CLOUD_DATABASE_URL"] = config_cloud_url
+            print("🗄️ Base de données en ligne configurée automatiquement depuis 'setup_config.json'.")
+        else:
+            existing_cloud_url = get_env_variable("CLOUD_DATABASE_URL")
+            if not existing_cloud_url or "localhost" in existing_cloud_url or "127.0.0.1" in existing_cloud_url:
+                print("\n⚙️ Configuration de la base de données cloud...")
+                print("Veuillez saisir l'URL de connexion PostgreSQL de la base de données cloud.")
+                print("(Ex: postgresql://utilisateur:motdepasse@serveur-en-ligne:5432/gestionstock)")
+                cloud_url_input = input("🗄️ URL de la base de données en ligne (CLOUD_DATABASE_URL) : ").strip()
+                if cloud_url_input:
+                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
+                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+            else:
+                print(f"\n⚙️ Base de données cloud déjà configurée.")
+                cloud_url_input = input(f"🗄️ URL cloud [Appuyez sur Entrée pour conserver : {existing_cloud_url}] : ").strip()
+                if cloud_url_input:
+                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
+                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+                
+        # Exécuter d'abord le seed pour s'assurer que les structures système sont prêtes (silencieusement)
+        print("\n🌱 Initialisation des structures système...")
+        try:
+            # On exécute le seed sans show_output pour éviter de polluer avec des faux login
+            run_command("npx tsx prisma/seed.ts", show_output=False)
+        except Exception:
+            pass
+
+        print("🔄 Rapatriement de vos données en ligne...")
+        try:
+            # On appelle le script de synchro
+            sync_result = subprocess.run(
+                f'npx tsx scratch/sync_initial.ts --email "{email}" --password "{password}"',
+                shell=True,
+                capture_output=False
+            )
+            if sync_result.returncode == 0:
+                sync_success = True
+                sync_email = email
+            else:
+                print("\n❌ Impossible de valider ou synchroniser vos données en ligne.")
+                print("Vérifiez vos identifiants, l'URL de votre base cloud, et votre connexion internet.")
+        except Exception as e:
+            print(f"\n❌ Erreur système lors de la synchronisation : {e}")
+            
+        if not sync_success:
+            print("\n⚠️ Passage en mode d'installation locale standard.")
+            print("🌱 Initialisation avec le compte marchand par défaut...")
+            run_command("npx tsx prisma/seed.ts", show_output=False)
+    else:
+        print("\n🌱 Initialisation avec le compte marchand par défaut...")
+        run_command("npx tsx prisma/seed.ts", show_output=False)
 
     # 6. Script de démarrage
-    print("📝 Création du lanceur rapide...")
+    print("\n📝 Création du lanceur rapide...")
     with open("start_app.bat", "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("title " + APP_NAME + "\n")
@@ -401,23 +535,43 @@ def main():
         f.write(")\n")
 
     # 7. Raccourci Bureau
-    try:
-        print("🛠️ Installation des outils de raccourci...")
-        run_command("pip install winshell pywin32", check=False)
-        create_shortcut()
-    except:
-        pass
+    print("🛠️ Création du raccourci bureau...")
+    create_shortcut()
 
     print("\n====================================================")
     print("🎉 INSTALLATION ET CONFIGURATION RÉUSSIES !")
     print("====================================================")
     print(f"\nVous pouvez maintenant utiliser l'application :")
-    print(f"1. Via le RACCOURCI sur votre Bureau")
+    print(f"1. Via le RACCOURCI sur votre Bureau (ThaborSolution Stock Manager)")
     print(f"2. Via le fichier 'start_app.bat'")
     print(f"\nAccès depuis un mobile/tablette : http://{get_local_ip()}:{PORT}")
-    print("\nIdentifiants par défaut :")
-    print("Email : admin@stockapigestion.com")
-    print("Password : Admin@1234")
+    
+    if sync_success:
+        print("\n🔐 COMPTE SYNCHRONISÉ ET IMPORTÉ AVEC SUCCÈS :")
+        print(f"Email    : {sync_email}")
+        print("Password : [Le même mot de passe que vous utilisez en ligne]")
+    else:
+        print("\n🔒 SÉCURITÉ : ACCÈS ET RECONNEXION LOCAL")
+        print("----------------------------------------------------")
+        print("Pour des raisons de sécurité, aucun mot de passe par défaut")
+        print("n'est affiché en clair.")
+        print("\nPour vous connecter à l'application :")
+        print("1. Si vous avez déjà synchronisé vos données, connectez-vous")
+        print("   avec vos identifiants ThaborSolution en ligne habituels.")
+        print("2. Si vous n'avez pas synchronisé vos données en ligne ou si")
+        print("   vous avez oublié votre mot de passe :")
+        print("   - Cliquez sur 'Mot de passe oublié' sur la page de connexion.")
+        print("   - Saisissez votre email pour ouvrir un TICKET DE SUPPORT local.")
+        print("   - Demandez au Super Administrateur (superadmin@thaborsolution.com)")
+        print("     de réinitialiser votre mot de passe depuis son interface.")
+        print("   - Le Super Admin vous transmettra un mot de passe temporaire")
+        print("     à usage unique (OTP).")
+        print("   - Lors de votre première connexion avec ce mot de passe,")
+        print("     vous serez invité à configurer votre mot de passe personnel.")
+        print("----------------------------------------------------")
+        print("⚠️  Conseil : Relancez l'installateur et activez la synchronisation")
+        print("   pour importer directement vos identifiants et vos données en ligne.")
+        
     print("====================================================")
     input("\nAppuyez sur Entrée pour terminer...")
 

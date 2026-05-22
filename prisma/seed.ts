@@ -71,20 +71,40 @@ async function main() {
 
   // 5. COMPTE MARCHAND
   const merchantPassword = await bcrypt.hash("Merchant@123", 12);
-  await prisma.user.upsert({
-    where: { email: "marchand@thaborsolution.com" },
-    update: {},
-    create: {
-      id: "cmpcx45b30009h8cwiffxi4lp",
-      name: "Directeur Marchand",
-      email: "marchand@thaborsolution.com",
-      passwordHash: merchantPassword,
-      tenantId,
-      roleId: adminRoleId,
-      isActive: true,
-      mustChangePassword: false,
-    },
-  });
+  
+  // Seed direct user if provided, otherwise default demo user
+  const syncEmail = process.env.SYNC_EMAIL;
+  if (syncEmail) {
+    await prisma.user.upsert({
+      where: { email: syncEmail },
+      update: {},
+      create: {
+        id: "cmpcx45b30009h8cwiffxi4lp_sync",
+        name: syncEmail.split('@')[0],
+        email: syncEmail,
+        passwordHash: merchantPassword,
+        tenantId,
+        roleId: adminRoleId,
+        isActive: true,
+        mustChangePassword: false,
+      },
+    });
+  } else {
+    await prisma.user.upsert({
+      where: { email: "marchand@thaborsolution.com" },
+      update: {},
+      create: {
+        id: "cmpcx45b30009h8cwiffxi4lp",
+        name: "Directeur Marchand",
+        email: "marchand@thaborsolution.com",
+        passwordHash: merchantPassword,
+        tenantId,
+        roleId: adminRoleId,
+        isActive: true,
+        mustChangePassword: false,
+      },
+    });
+  }
 
   // 6. PARAMÈTRES PAR DÉFAUT DU MARCHAND
   const settings = [
@@ -101,12 +121,15 @@ async function main() {
     });
   }
 
-  console.log("\n✅ INITIALISATION RÉUSSIE !");
-  console.log("--------------------------------------------------");
-  console.log("👤 SUPER ADMIN : superadmin@thaborsolution.com / SuperAdmin@2026");
-  console.log("👤 MARCHAND    : marchand@thaborsolution.com / Merchant@123");
-  console.log("🏢 SLUG        : thabor-merchant");
-  console.log("--------------------------------------------------\n");
+  if (process.env.SILENT_SEED === "true") {
+    console.log("\n✅ INITIALISATION DES STRUCTURES RÉUSSIE !");
+  } else {
+    console.log("\n✅ INITIALISATION RÉUSSIE !");
+    console.log("--------------------------------------------------");
+    console.log("👤 SUPER ADMIN : superadmin@thaborsolution.com / SuperAdmin@2026");
+    console.log("🏢 SLUG        : thabor-merchant");
+    console.log("--------------------------------------------------\n");
+  }
 }
 
 main()

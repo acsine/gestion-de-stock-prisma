@@ -9,13 +9,13 @@ import {
   Bell, Settings, ChevronLeft, ChevronRight, Boxes, Wallet,
   ClipboardList, Building2, Loader2, Download,
   Database, ShieldAlert, LifeBuoy, CreditCard, Landmark, Activity,
-  LogOut
+  LogOut, X
 } from "lucide-react";
 import { useUIStore } from "@/stores/useUIStore";
 import { useAlerts } from "@/hooks/useQueries";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/components/auth/HasPermission";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signOut } from "next-auth/react";
 import { useTranslation } from "@/locales/i18n";
 
@@ -67,6 +67,7 @@ export function Sidebar() {
   const { language, setLanguage, t } = useTranslation();
   const alertCount = alertData?.data?.length || 0;
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -243,18 +244,17 @@ export function Sidebar() {
       {/* Download Local Version */}
       {(session?.user as any)?.canDownload && (
         <div className="px-4 py-3">
-          <a 
-            href="/setup_thaborsolution.zip" 
-            download 
+          <button 
+            onClick={() => setIsSetupModalOpen(true)}
             className={cn(
-              "flex items-center gap-3 p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-600/20 hover:bg-blue-600/20 transition-all group",
+              "w-full flex items-center gap-3 p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-600/20 hover:bg-blue-600/20 transition-all group",
               !sidebarOpen && "justify-center p-2"
             )}
-            title={language === "fr" ? "Télécharger la version locale" : "Download local version"}
+            title={language === "fr" ? "Installer la version locale" : "Install local version"}
           >
             <Download className="w-5 h-5 shrink-0 group-hover:scale-110 transition-transform" />
-            {sidebarOpen && <span className="text-xs font-black uppercase tracking-widest">{language === "fr" ? "Version Locale" : "Local Version"}</span>}
-          </a>
+            {sidebarOpen && <span className="text-xs font-black uppercase tracking-widest text-left">{language === "fr" ? "Version Locale" : "Local Version"}</span>}
+          </button>
         </div>
       )}
 
@@ -341,6 +341,129 @@ export function Sidebar() {
           </p>
         </div>
       )}
+
+      {/* Modal d'installation locale et synchronisation */}
+      <AnimatePresence>
+        {isSetupModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSetupModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+            />
+            
+            {/* Modal Content */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-slate-955 bg-gradient-to-b from-slate-900 to-slate-950 border border-white/10 shadow-2xl p-6 md:p-8 text-white z-10"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h3 className="text-xl md:text-2xl font-black bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    {language === "fr" ? "Version Locale & Synchronisation" : "Local Version & Synchronization"}
+                  </h3>
+                  <p className="text-xs text-white/50 mt-1">
+                    {language === "fr" 
+                      ? "Faites fonctionner ThaborSolution sur votre ordinateur, même hors ligne !" 
+                      : "Run ThaborSolution on your computer, even offline!"}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setIsSetupModalOpen(false)}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="space-y-6">
+                <p className="text-sm text-white/80 leading-relaxed">
+                  {language === "fr" 
+                    ? "L'installateur local configurera automatiquement tous les outils requis (Node.js, PostgreSQL) et importera vos données. Suivez les étapes ci-dessous pour démarrer :" 
+                    : "The local installer will automatically configure all required tools (Node.js, PostgreSQL) and import your data. Follow the steps below to start:"}
+                </p>
+
+                {/* Steps Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Step 1 */}
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col justify-between hover:border-blue-500/30 transition-all group">
+                    <div>
+                      <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-400 flex items-center justify-center font-black mb-3">
+                        1
+                      </div>
+                      <h4 className="font-bold text-sm mb-1">
+                        {language === "fr" ? "Télécharger l'installateur" : "Download Installer"}
+                      </h4>
+                      <p className="text-xs text-white/40 leading-relaxed mb-4">
+                        {language === "fr" 
+                          ? "Contient le script d'installation automatisé complet (.zip)." 
+                          : "Contains the complete automated installation package (.zip)."}
+                      </p>
+                    </div>
+                    <a 
+                      href="/setup_thaborsolution.zip" 
+                      download 
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]"
+                    >
+                      <Download className="w-4 h-4" />
+                      {language === "fr" ? "Télécharger le ZIP" : "Download ZIP"}
+                    </a>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex flex-col justify-between hover:border-indigo-500/30 transition-all group">
+                    <div>
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600/10 text-indigo-400 flex items-center justify-center font-black mb-3">
+                        2
+                      </div>
+                      <h4 className="font-bold text-sm mb-1">
+                        {language === "fr" ? "Clé de synchronisation" : "Sync Key"}
+                      </h4>
+                      <p className="text-xs text-white/40 leading-relaxed mb-4">
+                        {language === "fr" 
+                          ? "Clé de configuration automatique liée à votre compte actuel." 
+                          : "Automated configuration key linked to your current account."}
+                      </p>
+                    </div>
+                    <a 
+                      href="/api/setup/config" 
+                      download 
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
+                    >
+                      <Database className="w-4 h-4" />
+                      {language === "fr" ? "Télécharger la clé" : "Download Key"}
+                    </a>
+                  </div>
+                </div>
+
+                {/* Instruction Banner */}
+                <div className="p-4 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-xs text-blue-400 flex gap-3">
+                  <div className="shrink-0 mt-0.5 font-bold uppercase tracking-widest text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded h-fit">
+                    {language === "fr" ? "GUIDE" : "GUIDE"}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-bold text-white">
+                      {language === "fr" ? "Comment finaliser l'installation ?" : "How to complete the installation?"}
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1 text-white/70">
+                      <li>{language === "fr" ? "Décompressez l'installateur ZIP dans un dossier vide sur votre PC." : "Extract the ZIP installer into an empty folder on your PC."}</li>
+                      <li>{language === "fr" ? "Déposez le fichier setup_config.json téléchargé à l'étape 2 dans ce même dossier." : "Place the setup_config.json file downloaded in Step 2 into this same folder."}</li>
+                      <li>{language === "fr" ? "Double-cliquez sur setup.bat pour lancer l'installation !" : "Double-click setup.bat to launch the installation!"}</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

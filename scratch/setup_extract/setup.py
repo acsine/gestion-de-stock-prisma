@@ -8,6 +8,17 @@ import secrets
 import re
 from pathlib import Path
 
+# --- Force UTF-8 output to handle emoji characters on Windows consoles (cp1252, etc.) ---
+import io
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+os.environ["PYTHONUTF8"] = "1"
+
+
 # Configuration
 APP_NAME = "ThaborSolution Stock Manager"
 DB_NAME = "gestionstock"
@@ -15,22 +26,33 @@ DB_USER = "postgres"
 DB_PASS = "FOMO"  # Mot de passe par défaut
 PORT = 3000
 
-def run_command(command, shell=True, check=True, cwd=None):
+def run_command(command, shell=True, check=True, cwd=None, show_output=False):
     """Exécute une commande et retourne le résultat."""
     try:
-        result = subprocess.run(
-            command,
-            shell=shell,
-            check=check,
-            cwd=cwd,
-            capture_output=True,
-            text=True
-        )
-        return result.stdout.strip()
+        if show_output:
+            result = subprocess.run(
+                command,
+                shell=shell,
+                check=check,
+                cwd=cwd
+            )
+            return ""
+        else:
+            result = subprocess.run(
+                command,
+                shell=shell,
+                check=check,
+                cwd=cwd,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace"
+            )
+            return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         print(f"\n[ERREUR] La commande a échoué : {command}")
-        print(f"Sortie : {e.stdout}")
-        print(f"Erreur : {e.stderr}")
+        if not show_output:
+            print(f"Sortie : {e.stdout}")
+            print(f"Erreur : {e.stderr}")
         if check:
             input("\nAppuyez sur Entrée pour quitter...")
             sys.exit(1)
@@ -39,6 +61,115 @@ def run_command(command, shell=True, check=True, cwd=None):
 def check_cmd(cmd):
     """Vérifie si une commande existe dans le système."""
     return shutil.which(cmd) is not None
+
+def add_to_system_path(directory_path):
+    """Ajoute de manière temporaire et permanente un répertoire au PATH système."""
+    if not os.path.exists(directory_path):
+        return
+    # Session en cours
+    if directory_path not in os.environ["PATH"]:
+        os.environ["PATH"] += os.pathsep + directory_path
+    
+    # Permanent via PowerShell pour éviter les conflits et doublons
+    try:
+        check_cmd_str = '[Environment]::GetEnvironmentVariable("PATH", "User")'
+        current_user_path = subprocess.run(f'powershell -Command "{check_cmd_str}"', capture_output=True, encoding="utf-8", errors="replace", shell=True).stdout.strip()
+        if directory_path not in current_user_path:
+            # Escape directory path for PowerShell single quotes
+            escaped_dir = directory_path.replace("'", "''")
+            add_cmd = f"$old = [Environment]::GetEnvironmentVariable('PATH', 'User'); [Environment]::SetEnvironmentVariable('PATH', $old + ';{escaped_dir}', 'User')"
+            subprocess.run(f'powershell -Command "{add_cmd}"', shell=True)
+            print(f"➕ Chemin ajoute de maniere permanente au PATH : {directory_path}")
+    except Exception as e:
+        print(f"⚠️ Impossible d'ajouter le chemin au PATH systeme : {e}")
+
+def check_and_configure_node():
+    """Détecte Node.js, le configure automatiquement s'il existe déjà pour éviter les doublons, ou l'installe."""
+    if check_cmd("node"):
+        print("[OK] Node.js est deja installe et configure.")
+        return True
+
+    # Chemins d'installation par défaut sous Windows
+    common_paths = [
+        "C:\\Program Files\\nodejs",
+        "C:\\Program Files (x86)\\nodejs",
+        os.path.join(os.environ.get("APPDATA", ""), "npm")
+    ]
+    for p in common_paths:
+        node_exe = os.path.join(p, "node.exe")
+        if os.path.exists(node_exe):
+            print(f"🔍 Node.js trouve dans : {p}. Configuration automatique du PATH...")
+            add_to_system_path(p)
+            if check_cmd("node"):
+                print("[OK] Node.js configure avec succes.")
+                return True
+
+    # Si absent, installer via winget
+    print("📥 Node.js est absent. Installation automatique via Winget...")
+    try:
+        run_command("winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements")
+        # Ajout immédiat au PATH
+        default_path = "C:\\Program Files\\nodejs"
+        if os.path.exists(default_path):
+            add_to_system_path(default_path)
+        print("✅ Node.js installe avec succes.")
+        return True
+    except Exception as e:
+        print(f"❌ Impossible d'installer Node.js automatiquement : {e}")
+        return False
+
+def check_and_configure_postgres():
+    """Détecte PostgreSQL, le configure automatiquement s'il existe déjà pour éviter les doublons, ou l'installe."""
+    if check_cmd("psql"):
+        print("[OK] PostgreSQL est deja installe et configure.")
+        return True
+
+    pg_root = Path("C:/Program Files/PostgreSQL")
+    if pg_root.exists():
+        bins = list(pg_root.glob("**/bin/psql.exe"))
+        if bins:
+            bin_dir = str(bins[0].parent)
+            print(f"🔍 PostgreSQL trouve dans : {bin_dir}. Configuration automatique du PATH...")
+            add_to_system_path(bin_dir)
+            if check_cmd("psql"):
+                print("[OK] PostgreSQL configure avec succes.")
+                return True
+
+    # Si absent, installer via winget
+    print("📥 PostgreSQL est absent. Installation automatique via Winget...")
+    
+    postgres_packages = [
+        "PostgreSQL.PostgreSQL.16",
+        "PostgreSQL.PostgreSQL.17",
+        "PostgreSQL.PostgreSQL.15",
+        "PostgreSQL.PostgreSQL"
+    ]
+    
+    installed = False
+    for package in postgres_packages:
+        print(f"Tentative d'installation de {package}...")
+        try:
+            # check=True will raise an exception on failure
+            run_command(f"winget install {package} --silent --accept-package-agreements --accept-source-agreements", check=True)
+            installed = True
+            break
+        except Exception as e:
+            print(f"⚠️ Échec de l'installation de {package}, passage au package suivant...")
+            continue
+            
+    if not installed:
+        print("❌ Toutes les tentatives d'installation de PostgreSQL via Winget ont échoué.")
+        print("Veuillez installer PostgreSQL manuellement depuis https://www.postgresql.org/download/windows/")
+        return False
+
+    time.sleep(5)
+    if pg_root.exists():
+        bins = list(pg_root.glob("**/bin/psql.exe"))
+        if bins:
+            bin_dir = str(bins[0].parent)
+            add_to_system_path(bin_dir)
+    print("✅ PostgreSQL installe avec succes.")
+    return True
 
 def get_local_ip():
     """Récupère l'adresse IP locale de la machine."""
@@ -82,29 +213,115 @@ def update_env_file():
         f.write(content)
     print("✅ Fichier .env configuré avec succès.")
 
-def create_shortcut():
-    """Crée un raccourci sur le bureau Windows."""
+def test_postgres_connection(user, password):
+    """Teste la connexion à PostgreSQL avec l'utilisateur et le mot de passe donnés."""
+    env = os.environ.copy()
+    env["PGPASSWORD"] = password
     try:
-        from win32com.client import Dispatch
-        import winshell
-        
-        desktop = winshell.desktop()
-        path = os.path.join(desktop, f"{APP_NAME}.lnk")
-        target = os.path.join(os.getcwd(), "start_app.bat")
-        wDir = os.getcwd()
-        icon = os.path.join(os.getcwd(), "public", "favicon.ico")
+        result = subprocess.run(
+            f'psql -U {user} -h localhost -c "SELECT 1;"',
+            shell=True,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
 
-        shell = Dispatch('WScript.Shell')
-        shortcut = shell.CreateShortCut(path)
-        shortcut.Targetpath = target
-        shortcut.WorkingDirectory = wDir
-        if os.path.exists(icon):
-            shortcut.IconLocation = icon
-        shortcut.save()
+def detect_postgres_password():
+    """Détecte dynamiquement le bon mot de passe de connexion PostgreSQL."""
+    global DB_PASS
+    print("\n🔍 Vérification des accès de connexion à PostgreSQL...")
+    
+    # 1. Tester le mot de passe actuel (par défaut: FOMO)
+    if test_postgres_connection(DB_USER, DB_PASS):
+        print(f"✅ Connexion réussie à PostgreSQL avec le mot de passe actuel ('{DB_PASS}').")
+        return True
+        
+    # 2. Tester le mot de passe "postgres"
+    if test_postgres_connection(DB_USER, "postgres"):
+        DB_PASS = "postgres"
+        print("✅ Connexion réussie à PostgreSQL avec le mot de passe 'postgres'.")
+        return True
+        
+    # 3. Tester sans mot de passe (vide)
+    if test_postgres_connection(DB_USER, ""):
+        DB_PASS = ""
+        print("✅ Connexion réussie à PostgreSQL (sans mot de passe).")
+        return True
+        
+    # 4. Demander à l'utilisateur
+    print("\n⚠️ Impossible de se connecter à PostgreSQL avec les accès par défaut.")
+    print("Si vous avez défini un mot de passe personnalisé lors de l'installation ou de la configuration,")
+    print("veuillez le saisir ci-dessous.")
+    
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        user_pass = input(f"🔑 Entrez le mot de passe de l'utilisateur '{DB_USER}' (laissez vide si aucun) : ")
+        if test_postgres_connection(DB_USER, user_pass):
+            DB_PASS = user_pass
+            print("✅ Connexion réussie !")
+            return True
+        else:
+            print("❌ Mot de passe incorrect ou serveur injoignable. Veuillez réessayer.")
+            
+    return False
+
+def get_env_variable(key):
+    """Récupère une variable du fichier .env."""
+    if not os.path.exists(".env"):
+        return None
+    with open(".env", "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip().startswith(key):
+                match = re.match(r'^\s*' + key + r'\s*=\s*["\']?(.*?)["\']?\s*$', line)
+                if match:
+                    return match.group(1)
+    return None
+
+def set_env_variable(key, value):
+    """Enregistre ou met à jour une variable dans le fichier .env."""
+    if not os.path.exists(".env"):
+        with open(".env", "w", encoding="utf-8") as f:
+            f.write(f'{key}="{value}"\n')
+        return
+    with open(".env", "r", encoding="utf-8") as f:
+        content = f.read()
+    if key in content:
+        content = re.sub(r'^\s*' + key + r'\s*=.*', f'{key}="{value}"', content, flags=re.M)
+    else:
+        content += f'\n{key}="{value}"'
+    with open(".env", "w", encoding="utf-8") as f:
+        f.write(content)
+
+def create_shortcut():
+    """Crée un raccourci sur le bureau Windows sans aucune dépendance pip."""
+    try:
+        desktop = os.path.join(os.environ["USERPROFILE"], "Desktop")
+        lnk_path = os.path.join(desktop, f"{APP_NAME}.lnk")
+        target_path = os.path.join(os.getcwd(), "start_app.bat")
+        working_dir = os.getcwd()
+        icon_path = os.path.join(os.getcwd(), "icon.png")
+        
+        # PowerShell command for zero-dependency shortcut creation
+        ps_cmd = (
+            f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut('{lnk_path}'); "
+            f"$s.TargetPath = '{target_path}'; "
+            f"$s.WorkingDirectory = '{working_dir}'; "
+        )
+        if os.path.exists(icon_path):
+            ps_cmd += f"$s.IconLocation = '{icon_path}'; "
+        ps_cmd += "$s.Save()"
+        
+        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, check=True)
         print(f"✅ Raccourci créé sur le Bureau : {APP_NAME}")
+        return True
     except Exception as e:
         print(f"⚠️ Impossible de créer le raccourci automatiquement : {e}")
         print("Note: Vous pouvez utiliser 'start_app.bat' manuellement.")
+        return False
 
 def main():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -114,34 +331,27 @@ def main():
     print("\nCe script va installer TOUTES les dépendances et configurer l'application.\n")
 
     # 1. Vérification Node.js
-    if not check_cmd("node"):
-        print("📥 Node.js est manquant. Installation automatique...")
-        run_command("winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements")
-        print("✅ Node.js installé. VEUILLEZ REDÉMARRER CE SCRIPT dans un nouveau terminal.")
+    if not check_and_configure_node():
+        print("❌ Impossible de configurer ou d'installer Node.js automatiquement.")
         input("Appuyez sur Entrée pour quitter...")
-        sys.exit(0)
+        sys.exit(1)
     
     # 2. Vérification PostgreSQL
-    psql_found = check_cmd("psql")
-    if not psql_found:
-        pg_path = Path("C:/Program Files/PostgreSQL")
-        if pg_path.exists():
-            bins = list(pg_path.glob("**/bin/psql.exe"))
-            if bins:
-                os.environ["PATH"] += os.pathsep + str(bins[0].parent)
-                psql_found = True
-
-    if not psql_found:
-        print("📥 PostgreSQL est manquant. Installation automatique...")
-        run_command("winget install PostgreSQL.PostgreSQL --silent --accept-package-agreements --accept-source-agreements")
-        print("✅ PostgreSQL installé. IMPORTANT : Utilisez le mot de passe 'FOMO' lors de la configuration.")
-        print("Une fois PostgreSQL installé, relancez ce script.")
+    if not check_and_configure_postgres():
+        print("❌ Impossible de configurer ou d'installer PostgreSQL automatiquement.")
         input("Appuyez sur Entrée pour quitter...")
-        sys.exit(0)
+        sys.exit(1)
 
     # 3. Installation des dépendances NPM
     print("\n📦 Installation des bibliothèques logicielles (npm install)...")
-    run_command("npm install")
+    run_command("npm install", show_output=True)
+
+    # 3.5 Détection du mot de passe PostgreSQL
+    if not detect_postgres_password():
+        print("\n❌ Impossible de configurer l'accès à PostgreSQL.")
+        print("Assurez-vous que le service PostgreSQL est démarré et que vous avez fourni le bon mot de passe.")
+        input("Appuyez sur Entrée pour quitter...")
+        sys.exit(1)
 
     # 4. Configuration .env
     print("📝 Configuration des paramètres système (.env)...")
@@ -156,42 +366,191 @@ def main():
     subprocess.run(f'psql -U {DB_USER} -c "CREATE DATABASE {DB_NAME};"', shell=True, env=env, capture_output=True)
 
     print("🚀 Initialisation du moteur de données (Prisma)...")
-    run_command("npx prisma generate")
-    run_command("npx prisma db push --accept-data-loss")
+    run_command("npx prisma generate", show_output=True)
+    run_command("npx prisma db push --accept-data-loss", show_output=True)
     
-    print("🌱 Chargement des données d'usine et compte admin...")
-    run_command("npx tsx prisma/seed.ts")
+    # 5.5 Synchronisation avec le compte en ligne (Optionnelle)
+    sync_email = None
+    sync_success = False
+    config_email = None
+    config_cloud_url = None
+    
+    # Lecture de setup_config.json si présent
+    if os.path.exists("setup_config.json"):
+        try:
+            import json
+            with open("setup_config.json", "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                config_email = cfg.get("email")
+                config_cloud_url = cfg.get("cloud_database_url")
+                print("\n⚙️ Fichier de configuration automatique 'setup_config.json' détecté !")
+        except Exception as e:
+            print(f"\n⚠️ Impossible de lire 'setup_config.json' : {e}")
+    
+    print("\n====================================================")
+    print("🔄 CONFIGURATION DE LA SYNCHRONISATION EN LIGNE")
+    print("====================================================")
+    print("Si vous avez déjà un compte marchand ou administrateur sur ThaborSolution en ligne,")
+    print("vous pouvez synchroniser votre installation locale pour importer vos données.")
+    print("----------------------------------------------------")
+    
+    if config_email:
+        sync_opt = input(f"👉 Un compte en ligne ({config_email}) a été détecté. Voulez-vous synchroniser vos données ? (o/n) [o] : ").strip().lower()
+        if not sync_opt:
+            sync_opt = "o"
+    else:
+        sync_opt = input("👉 Voulez-vous vous connecter à votre compte en ligne pour synchroniser vos données ? (o/n) [n] : ").strip().lower()
+    
+    if sync_opt in ["o", "oui", "y", "yes"]:
+        print("\n🔑 Connexion à votre compte en ligne ThaborSolution...")
+        if config_email:
+            email_input = input(f"📧 Saisissez votre adresse e-mail en ligne [Appuyez sur Entrée pour utiliser {config_email}] : ").strip()
+            email = email_input if email_input else config_email
+        else:
+            email = input("📧 Saisissez votre adresse e-mail en ligne : ").strip()
+            
+        password = input("🔑 Saisissez votre mot de passe en ligne : ").strip()
+        
+        # Résoudre ou demander le CLOUD_DATABASE_URL
+        if config_cloud_url:
+            set_env_variable("CLOUD_DATABASE_URL", config_cloud_url)
+            os.environ["CLOUD_DATABASE_URL"] = config_cloud_url
+            print("🗄️ Base de données en ligne configurée automatiquement depuis 'setup_config.json'.")
+        else:
+            existing_cloud_url = get_env_variable("CLOUD_DATABASE_URL")
+            if not existing_cloud_url or "localhost" in existing_cloud_url or "127.0.0.1" in existing_cloud_url:
+                print("\n⚙️ Configuration de la base de données cloud...")
+                print("Veuillez saisir l'URL de connexion PostgreSQL de la base de données cloud.")
+                print("(Ex: postgresql://utilisateur:motdepasse@serveur-en-ligne:5432/gestionstock)")
+                cloud_url_input = input("🗄️ URL de la base de données en ligne (CLOUD_DATABASE_URL) : ").strip()
+                if cloud_url_input:
+                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
+                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+            else:
+                print(f"\n⚙️ Base de données cloud déjà configurée.")
+                cloud_url_input = input(f"🗄️ URL cloud [Appuyez sur Entrée pour conserver : {existing_cloud_url}] : ").strip()
+                if cloud_url_input:
+                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
+                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
+                
+        # Exécuter d'abord le seed pour s'assurer que les structures système sont prêtes (silencieusement)
+        print("\n🌱 Initialisation des structures système...")
+        try:
+            # On exécute le seed sans show_output pour éviter de polluer avec des faux login
+            run_command("npx tsx prisma/seed.ts", show_output=False)
+        except Exception:
+            pass
+
+        print("🔄 Rapatriement de vos données en ligne...")
+        try:
+            # On appelle le script de synchro
+            sync_result = subprocess.run(
+                f'npx tsx scratch/sync_initial.ts --email "{email}" --password "{password}"',
+                shell=True,
+                capture_output=False
+            )
+            if sync_result.returncode == 0:
+                sync_success = True
+                sync_email = email
+            else:
+                print("\n❌ Impossible de valider ou synchroniser vos données en ligne.")
+                print("Vérifiez vos identifiants, l'URL de votre base cloud, et votre connexion internet.")
+        except Exception as e:
+            print(f"\n❌ Erreur système lors de la synchronisation : {e}")
+            
+        if not sync_success:
+            print("\n⚠️ Passage en mode d'installation locale standard.")
+            print("🌱 Initialisation avec le compte marchand par défaut...")
+            run_command("npx tsx prisma/seed.ts", show_output=True)
+    else:
+        print("\n🌱 Initialisation avec le compte marchand par défaut...")
+        run_command("npx tsx prisma/seed.ts", show_output=True)
 
     # 6. Script de démarrage
-    print("📝 Création du lanceur rapide...")
+    print("\n📝 Création du lanceur rapide...")
     with open("start_app.bat", "w", encoding="utf-8") as f:
         f.write("@echo off\n")
         f.write("title " + APP_NAME + "\n")
-        f.write("echo Demarrage de " + APP_NAME + "...\n")
-        f.write("echo Veuillez patienter quelques secondes...\n")
-        f.write("start /min cmd /c \"npm run dev\"\n")
-        f.write("timeout /t 10 /nobreak > nul\n")
+        f.write("cd /d \"%~dp0\"\n")
+        f.write("echo ====================================================\n")
+        f.write("echo    DEMARRAGE DE " + APP_NAME.upper() + "\n")
+        f.write("echo ====================================================\n")
+        f.write("echo.\n")
+        f.write("where node >nul 2>&1\n")
+        f.write("if %errorlevel% equ 0 goto :node_ok\n")
+        f.write("echo [ERREUR] Node.js n'est pas installe ou non detecte sur cette machine.\n")
+        f.write("echo.\n")
+        f.write("echo Pour faire fonctionner l'application en local, vous devez installer Node.js :\n")
+        f.write("echo 1. Telechargez Node.js sur : https://nodejs.org/\n")
+        f.write("echo 2. Installez-le en vous assurant que l'option \"Ajouter au PATH\" est activee.\n")
+        f.write("echo 3. Fermez tous vos terminaux, puis relancez start_app.bat.\n")
+        f.write("echo.\n")
+        f.write("pause\n")
+        f.write("exit /b\n")
+        f.write("\n")
+        f.write(":node_ok\n")
+        f.write("\n")
+        f.write("if exist \"node_modules\\\" goto :modules_ok\n")
+        f.write("echo [Systeme] Dossier node_modules absent.\n")
+        f.write("echo [Systeme] Installation des dependances en cours (veuillez patienter)...\n")
+        f.write("call npm install\n")
+        f.write("if %errorlevel% equ 0 goto :modules_ok\n")
+        f.write("echo.\n")
+        f.write("echo [ERREUR] L'installation des dependances a echoue.\n")
+        f.write("pause\n")
+        f.write("exit /b\n")
+        f.write("\n")
+        f.write(":modules_ok\n")
+        f.write("\n")
+        f.write("if exist \"prisma\\dev.db\" goto :db_ok\n")
+        f.write("echo [Systeme] Base de donnees absente. Initialisation...\n")
+        f.write("call npx prisma db push\n")
+        f.write("if %errorlevel% equ 0 goto :db_ok\n")
+        f.write("echo.\n")
+        f.write("echo [ERREUR] Impossible de creer la base de donnees.\n")
+        f.write("pause\n")
+        f.write("exit /b\n")
+        f.write("\n")
+        f.write(":db_ok\n")
+        f.write("\n")
+        f.write("echo [Systeme] Lancement du serveur local...\n")
+        f.write("echo [Systeme] Le site va s'ouvrir automatiquement dans votre navigateur.\n")
+        f.write("echo.\n")
         f.write("start http://localhost:3000\n")
-        f.write("exit\n")
+        f.write("call npm run dev\n")
+        f.write("if %errorlevel% neq 0 (\n")
+        f.write("    echo.\n")
+        f.write("    echo [ERREUR] Le serveur s'est arrete avec une erreur.\n")
+        f.write("    pause\n")
+        f.write(")\n")
 
     # 7. Raccourci Bureau
-    try:
-        print("🛠️ Installation des outils de raccourci...")
-        run_command("pip install winshell pywin32", check=False)
-        create_shortcut()
-    except:
-        pass
+    print("🛠️ Création du raccourci bureau...")
+    create_shortcut()
 
     print("\n====================================================")
     print("🎉 INSTALLATION ET CONFIGURATION RÉUSSIES !")
     print("====================================================")
     print(f"\nVous pouvez maintenant utiliser l'application :")
-    print(f"1. Via le RACCOURCI sur votre Bureau")
+    print(f"1. Via le RACCOURCI sur votre Bureau (ThaborSolution Stock Manager)")
     print(f"2. Via le fichier 'start_app.bat'")
     print(f"\nAccès depuis un mobile/tablette : http://{get_local_ip()}:{PORT}")
-    print("\nIdentifiants par défaut :")
-    print("Email : admin@stockapigestion.com")
-    print("Password : Admin@1234")
+    
+    if sync_success:
+        print("\n🔐 COMPTE MARCHAND SYNCHRONISÉ ET IMPORTÉ AVEC SUCCÈS :")
+        print(f"Email : {sync_email}")
+        print("Password : [Le même mot de passe que vous utilisez en ligne]")
+    else:
+        if config_email:
+            print(f"\n👤 COMPTE HÔTE DÉTECTÉ : {config_email}")
+            print("⚠️ Vous n'avez pas synchronisé vos données en ligne.")
+            print("Pour utiliser ce compte en local, vous devez relancer l'installateur et activer la synchronisation.")
+            print("\nEn attendant, vous pouvez vous connecter avec le compte local par défaut :")
+        else:
+            print("\n👤 COMPTE LOCAL PAR DÉFAUT (Non synchronisé) :")
+        print("Email : marchand@thaborsolution.com")
+        print("Password : Merchant@123")
+        
     print("====================================================")
     input("\nAppuyez sur Entrée pour terminer...")
 
