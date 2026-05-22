@@ -367,13 +367,11 @@ async function run() {
 
   // 5. Importer l'Utilisateur localement
   console.log(`📥 Importation du compte utilisateur localement...`);
-  const { id: userId, isSynced, ...cleanUser } = cloudUser;
-  delete (cleanUser as any).role;
-  delete (cleanUser as any).tenant;
+  const { id: userId, isSynced, role, tenant, ...cleanUser } = cloudUser;
   await localPrisma.user.upsert({
     where: { email },
-    update: { ...cleanUser, isSynced: true },
-    create: { id: userId, ...cleanUser, isSynced: true },
+    update: { ...cleanUser, isSynced: true } as any,
+    create: { id: userId, ...cleanUser, isSynced: true } as any,
   });
   console.log("✅ Compte utilisateur importé.");
 
