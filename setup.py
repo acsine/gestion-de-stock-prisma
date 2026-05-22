@@ -213,6 +213,62 @@ def update_env_file():
         f.write(content)
     print("✅ Fichier .env configuré avec succès.")
 
+def test_postgres_connection(user, password):
+    """Teste la connexion à PostgreSQL avec l'utilisateur et le mot de passe donnés."""
+    env = os.environ.copy()
+    env["PGPASSWORD"] = password
+    try:
+        result = subprocess.run(
+            f'psql -U {user} -h localhost -c "SELECT 1;"',
+            shell=True,
+            env=env,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+def detect_postgres_password():
+    """Détecte dynamiquement le bon mot de passe de connexion PostgreSQL."""
+    global DB_PASS
+    print("\n🔍 Vérification des accès de connexion à PostgreSQL...")
+    
+    # 1. Tester le mot de passe actuel (par défaut: FOMO)
+    if test_postgres_connection(DB_USER, DB_PASS):
+        print(f"✅ Connexion réussie à PostgreSQL avec le mot de passe actuel ('{DB_PASS}').")
+        return True
+        
+    # 2. Tester le mot de passe "postgres"
+    if test_postgres_connection(DB_USER, "postgres"):
+        DB_PASS = "postgres"
+        print("✅ Connexion réussie à PostgreSQL avec le mot de passe 'postgres'.")
+        return True
+        
+    # 3. Tester sans mot de passe (vide)
+    if test_postgres_connection(DB_USER, ""):
+        DB_PASS = ""
+        print("✅ Connexion réussie à PostgreSQL (sans mot de passe).")
+        return True
+        
+    # 4. Demander à l'utilisateur
+    print("\n⚠️ Impossible de se connecter à PostgreSQL avec les accès par défaut.")
+    print("Si vous avez défini un mot de passe personnalisé lors de l'installation ou de la configuration,")
+    print("veuillez le saisir ci-dessous.")
+    
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        user_pass = input(f"🔑 Entrez le mot de passe de l'utilisateur '{DB_USER}' (laissez vide si aucun) : ")
+        if test_postgres_connection(DB_USER, user_pass):
+            DB_PASS = user_pass
+            print("✅ Connexion réussie !")
+            return True
+        else:
+            print("❌ Mot de passe incorrect ou serveur injoignable. Veuillez réessayer.")
+            
+    return False
+
 def create_shortcut():
     """Crée un raccourci sur le bureau Windows."""
     try:
@@ -259,6 +315,13 @@ def main():
     # 3. Installation des dépendances NPM
     print("\n📦 Installation des bibliothèques logicielles (npm install)...")
     run_command("npm install", show_output=True)
+
+    # 3.5 Détection du mot de passe PostgreSQL
+    if not detect_postgres_password():
+        print("\n❌ Impossible de configurer l'accès à PostgreSQL.")
+        print("Assurez-vous que le service PostgreSQL est démarré et que vous avez fourni le bon mot de passe.")
+        input("Appuyez sur Entrée pour quitter...")
+        sys.exit(1)
 
     # 4. Configuration .env
     print("📝 Configuration des paramètres système (.env)...")
