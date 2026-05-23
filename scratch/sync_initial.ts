@@ -263,6 +263,17 @@ function areRecordsIdentical(record1: any, record2: any): boolean {
   return true;
 }
 
+async function alignLocalId(modelName: string, oldId: string, newId: string) {
+  if (oldId === newId) return;
+  const tableName = getTableName(modelName);
+  console.log(`  [ALIGN ID][${modelName}] Correction de l'ID local de ${oldId} vers l'ID cloud ${newId}...`);
+  await localPrisma.$executeRawUnsafe(
+    `UPDATE "${tableName}" SET "id" = $1 WHERE "id" = $2`,
+    newId,
+    oldId
+  );
+}
+
 async function ensureRelationInLocal(modelName: string, id: string) {
   if (!id) return;
   const cloudTable = (cloudPrisma as any)[modelName];
@@ -273,8 +284,14 @@ async function ensureRelationInLocal(modelName: string, id: string) {
     const cloudRecord = await cloudTable.findUnique({ where: { id } });
     if (!cloudRecord) return;
 
-    const exists = await localTable.findUnique({ where: getUniqueWhere(modelName, cloudRecord), select: { id: true } });
-    if (exists) return;
+    const uniqueWhere = getUniqueWhere(modelName, cloudRecord);
+    const exists = await localTable.findUnique({ where: uniqueWhere, select: { id: true } });
+    if (exists) {
+      if (exists.id !== id) {
+        await alignLocalId(modelName, exists.id, id);
+      }
+      return;
+    }
 
     const relations = RELATION_MAP[modelName];
     if (relations) {
@@ -345,6 +362,14 @@ async function run() {
   if (tenantId && cloudUser.tenant) {
     console.log(`📥 Importation du tenant localement...`);
     const { licenseId, ...cleanTenant } = cloudUser.tenant;
+
+    const existingWithSlug = await localPrisma.tenant.findUnique({
+      where: { slug: cleanTenant.slug }
+    });
+    if (existingWithSlug && existingWithSlug.id !== tenantId) {
+      await alignLocalId("tenant", existingWithSlug.id, tenantId);
+    }
+
     await localPrisma.tenant.upsert({
       where: { id: tenantId },
       update: { ...cleanTenant },
@@ -357,6 +382,15 @@ async function run() {
   if (cloudUser.roleId && cloudUser.role) {
     console.log(`📥 Importation du rôle localement...`);
     const { id: roleId, isSynced, ...cleanRole } = cloudUser.role;
+
+    const uniqueWhere = getUniqueWhere("role", cloudUser.role);
+    const existingRole = await localPrisma.role.findUnique({
+      where: uniqueWhere
+    });
+    if (existingRole && existingRole.id !== roleId) {
+      await alignLocalId("role", existingRole.id, roleId);
+    }
+
     await localPrisma.role.upsert({
       where: { id: roleId },
       update: { ...cleanRole, isSynced: true },
@@ -368,6 +402,14 @@ async function run() {
   // 5. Importer l'Utilisateur localement
   console.log(`📥 Importation du compte utilisateur localement...`);
   const { id: userId, isSynced, role, tenant, ...cleanUser } = cloudUser;
+
+  const existingUser = await localPrisma.user.findUnique({
+    where: { email }
+  });
+  if (existingUser && existingUser.id !== userId) {
+    await alignLocalId("user", existingUser.id, userId);
+  }
+
   await localPrisma.user.upsert({
     where: { email },
     update: { ...cleanUser, isSynced: true } as any,
@@ -431,6 +473,18 @@ async function run() {
 
         // Boucle d'importation
         for (const cloudItem of cloudRecords) {
+          // Check if exists by unique criteria first to avoid ID mismatches
+          const uniqueWhere = getUniqueWhere(model, cloudItem);
+          const existsByUnique = await localTable.findUnique({ where: uniqueWhere, select: { id: true } });
+          
+          if (existsByUnique && existsByUnique.id !== cloudItem.id) {
+            await alignLocalId(model, existsByUnique.id, cloudItem.id);
+            const updatedLocalItem = await localTable.findUnique({ where: { id: cloudItem.id } });
+            if (updatedLocalItem) {
+              localMap.set(cloudItem.id, updatedLocalItem);
+            }
+          }
+
           const localItem = localMap.get(cloudItem.id) as any;
 
           if (localItem && areRecordsIdentical(localItem, cloudItem)) {

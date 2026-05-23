@@ -25,13 +25,12 @@ with zipfile.ZipFile(zip_path, 'r') as zin:
             elif normalized_name == "prisma/seed.ts":
                 print("Replacing prisma/seed.ts in zip...")
                 zout.write("prisma/seed.ts", "prisma/seed.ts")
+            elif normalized_name == "scratch/sync_initial.ts":
+                print("Replacing scratch/sync_initial.ts in zip...")
+                zout.write("scratch/sync_initial.ts", "scratch/sync_initial.ts")
             else:
                 data = zin.read(item.filename)
                 zout.writestr(item, data)
-        
-        # Add scratch/sync_initial.ts to the zip file
-        print("Adding scratch/sync_initial.ts to zip...")
-        zout.write("scratch/sync_initial.ts", "scratch/sync_initial.ts")
 
 # Replace the original zip with the updated zip
 if os.path.exists(temp_zip_path):
