@@ -35,9 +35,11 @@ with zipfile.ZipFile(zip_path, 'r') as zin:
                 data = zin.read(item.filename)
                 zout.writestr(item, data)
         
-        # Add public/loading.html to the zip file
+        # Add public/loading.html and icon.ico to the zip file
         print("Adding public/loading.html to zip...")
         zout.write("public/loading.html", "public/loading.html")
+        print("Adding icon.ico to zip...")
+        zout.write("icon.ico", "icon.ico")
 
 # Replace the original zip with the updated zip
 if os.path.exists(temp_zip_path):

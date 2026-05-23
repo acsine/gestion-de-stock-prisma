@@ -303,7 +303,7 @@ def create_shortcut():
         lnk_path = os.path.join(desktop, f"{APP_NAME}.lnk")
         target_path = os.path.join(os.getcwd(), "start_app.bat")
         working_dir = os.getcwd()
-        icon_path = os.path.join(os.getcwd(), "icon.png")
+        icon_path = os.path.join(os.getcwd(), "icon.ico")
         
         # PowerShell command for zero-dependency shortcut creation
         ps_cmd = (
