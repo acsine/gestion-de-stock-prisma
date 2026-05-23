@@ -28,9 +28,16 @@ with zipfile.ZipFile(zip_path, 'r') as zin:
             elif normalized_name == "scratch/sync_initial.ts":
                 print("Replacing scratch/sync_initial.ts in zip...")
                 zout.write("scratch/sync_initial.ts", "scratch/sync_initial.ts")
+            elif normalized_name == "start_app.bat":
+                print("Replacing start_app.bat in zip...")
+                zout.write("start_app.bat", "start_app.bat")
             else:
                 data = zin.read(item.filename)
                 zout.writestr(item, data)
+        
+        # Add public/loading.html to the zip file
+        print("Adding public/loading.html to zip...")
+        zout.write("public/loading.html", "public/loading.html")
 
 # Replace the original zip with the updated zip
 if os.path.exists(temp_zip_path):

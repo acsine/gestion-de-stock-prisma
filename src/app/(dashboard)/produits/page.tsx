@@ -29,7 +29,14 @@ function ProductForm({ onClose, categories, product, suppliers, hasUnsynced, onS
   const { addToast } = useUIStore();
   const { register, handleSubmit, control, setValue, watch, formState: { errors } } = useForm<ProductInput>({
     resolver: zodResolver(productSchema),
-    defaultValues: product || { taxRate: 19.25, unit: "Pièce", status: "ACTIF", minStock: 5, maxStock: 100 },
+    defaultValues: product ? {
+      ...product,
+      description: product.description ?? "",
+      supplierId: product.supplierId ?? undefined,
+      location: product.location ?? "",
+      barcode: product.barcode ?? "",
+      imageUrl: product.imageUrl ?? "",
+    } : { taxRate: 19.25, unit: "Pièce", status: "ACTIF", minStock: 5, maxStock: 100 },
   });
   const isPending = isCreating || isUpdating;
   const [uploading, setUploading] = useState(false);

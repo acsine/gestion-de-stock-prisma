@@ -11,11 +11,31 @@ export class SyncService {
    * Vérifie si nous sommes en mode local
    */
   static isLocal() {
-    return typeof window !== "undefined" && 
-           (window.location.hostname === "localhost" || 
-            window.location.hostname.includes("192.168.") ||
-            window.location.hostname.includes("127.0.0.1") ||
-            window.location.hostname.endsWith(".local"));
+    if (typeof window === "undefined") return false;
+    const hostname = window.location.hostname;
+    
+    if (
+      hostname === "localhost" || 
+      hostname === "127.0.0.1" || 
+      hostname.endsWith(".local")
+    ) {
+      return true;
+    }
+    
+    const parts = hostname.split(".");
+    if (parts.length === 4) {
+      const first = parseInt(parts[0], 10);
+      const second = parseInt(parts[1], 10);
+      if (
+        first === 10 ||
+        (first === 172 && second >= 16 && second <= 31) ||
+        (first === 192 && second === 168)
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**

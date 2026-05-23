@@ -99,6 +99,9 @@ const RELATION_MAP: Record<string, { field: string; parentModel: string }[]> = {
 
 // Retourne la clause 'where' unique appropriée pour éviter les conflits d'index uniques secondaires
 function getUniqueWhere(modelName: string, item: any): any {
+  if (modelName === "tenant" && item.slug) {
+    return { slug: item.slug };
+  }
   if (modelName === "setting" && item.tenantId && item.key) {
     return { tenantId_key: { tenantId: item.tenantId, key: item.key } };
   }
@@ -209,6 +212,28 @@ function areRecordsIdentical(record1: any, record2: any): boolean {
   return true;
 }
 
+async function alignLocalId(modelName: string, oldId: string, newId: string) {
+  if (oldId === newId) return;
+  const tableName = getTableName(modelName);
+  console.log(`  [ALIGN LOCAL ID][${modelName}] Correction de l'ID local de ${oldId} vers l'ID cloud ${newId}...`);
+  await prisma.$executeRawUnsafe(
+    `UPDATE "${tableName}" SET "id" = $1 WHERE "id" = $2`,
+    newId,
+    oldId
+  );
+}
+
+async function alignCloudId(modelName: string, oldId: string, newId: string, cloudPrisma: any) {
+  if (oldId === newId) return;
+  const tableName = getTableName(modelName);
+  console.log(`  [ALIGN CLOUD ID][${modelName}] Correction de l'ID cloud de ${oldId} vers l'ID local ${newId}...`);
+  await cloudPrisma.$executeRawUnsafe(
+    `UPDATE "${tableName}" SET "id" = $1 WHERE "id" = $2`,
+    newId,
+    oldId
+  );
+}
+
 // S'assure de manière récursive qu'une relation existe sur le Cloud
 async function ensureRelationInCloud(modelName: string, id: string, cloudPrisma: any) {
   if (!id) return;
@@ -221,8 +246,14 @@ async function ensureRelationInCloud(modelName: string, id: string, cloudPrisma:
     if (!localRecord) return;
 
     // Vérifier si elle existe déjà via getUniqueWhere
-    const exists = await cloudTable.findUnique({ where: getUniqueWhere(modelName, localRecord), select: { id: true } });
-    if (exists) return;
+    const uniqueWhere = getUniqueWhere(modelName, localRecord);
+    const exists = await cloudTable.findUnique({ where: uniqueWhere, select: { id: true } });
+    if (exists) {
+      if (exists.id !== id) {
+        await alignCloudId(modelName, exists.id, id, cloudPrisma);
+      }
+      return;
+    }
 
     // Résoudre récursivement toutes ses propres clés étrangères
     const relations = RELATION_MAP[modelName];
@@ -311,8 +342,14 @@ async function ensureRelationInLocal(modelName: string, id: string, cloudPrisma:
     if (!cloudRecord) return;
 
     // Vérifier si elle existe déjà localement via getUniqueWhere
-    const exists = await localTable.findUnique({ where: getUniqueWhere(modelName, cloudRecord), select: { id: true } });
-    if (exists) return;
+    const uniqueWhere = getUniqueWhere(modelName, cloudRecord);
+    const exists = await localTable.findUnique({ where: uniqueWhere, select: { id: true } });
+    if (exists) {
+      if (exists.id !== id) {
+        await alignLocalId(modelName, exists.id, id);
+      }
+      return;
+    }
 
     // Résoudre récursivement toutes ses propres clés étrangères
     const relations = RELATION_MAP[modelName];
@@ -404,6 +441,15 @@ export async function POST() {
       });
       if (localTenant) {
         const { licenseId, ...cleanTenant } = localTenant;
+
+        // Check if exists by unique slug on cloud to align ID first
+        const existingOnCloud = await cloudPrisma.tenant.findUnique({
+          where: { slug: cleanTenant.slug }
+        });
+        if (existingOnCloud && existingOnCloud.id !== tenantId) {
+          await alignCloudId("tenant", existingOnCloud.id, tenantId, cloudPrisma);
+        }
+
         await cloudPrisma.tenant.upsert({
           where: { id: tenantId },
           update: { ...cleanTenant },
@@ -478,6 +524,18 @@ export async function POST() {
         // 1. PUSH : Pousser les données locales créées ou plus récentes
         // ----------------------------------------------------
         for (const localItem of localRecords) {
+          // Check if exists by unique criteria on cloud to align IDs first
+          const uniqueWhere = getUniqueWhere(model, localItem);
+          const existsByUnique = await cloudTable.findUnique({ where: uniqueWhere, select: { id: true } });
+          
+          if (existsByUnique && existsByUnique.id !== localItem.id) {
+            await alignCloudId(model, existsByUnique.id, localItem.id, cloudPrisma);
+            const updatedCloudItem = await cloudTable.findUnique({ where: { id: localItem.id } });
+            if (updatedCloudItem) {
+              cloudMap.set(localItem.id, updatedCloudItem);
+            }
+          }
+
           const cloudItem = cloudMap.get(localItem.id);
 
           // Si les données sont déjà sémantiquement identiques sur le Cloud, on ne pousse rien
@@ -592,6 +650,18 @@ export async function POST() {
         // 2. PULL : Rapatrier les données Cloud créées ou plus récentes
         // ----------------------------------------------------
         for (const cloudItem of cloudRecords) {
+          // Check if exists by unique criteria locally to align IDs first
+          const uniqueWhere = getUniqueWhere(model, cloudItem);
+          const existsByUnique = await localTable.findUnique({ where: uniqueWhere, select: { id: true } });
+          
+          if (existsByUnique && existsByUnique.id !== cloudItem.id) {
+            await alignLocalId(model, existsByUnique.id, cloudItem.id);
+            const updatedLocalItem = await localTable.findUnique({ where: { id: cloudItem.id } });
+            if (updatedLocalItem) {
+              localMap.set(cloudItem.id, updatedLocalItem);
+            }
+          }
+
           const localItem = localMap.get(cloudItem.id) as any;
 
           // Si les données sont déjà sémantiquement identiques localement, on ne rapatrie rien

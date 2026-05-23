@@ -534,7 +534,7 @@ def main():
         f.write("echo [Systeme] Lancement du serveur local...\n")
         f.write("echo [Systeme] Le site va s'ouvrir automatiquement dans votre navigateur.\n")
         f.write("echo.\n")
-        f.write("start http://localhost:3000\n")
+        f.write("start \"\" \"%~dp0public\\loading.html\"\n")
         f.write("call npm run dev\n")
         f.write("if %errorlevel% neq 0 (\n")
         f.write("    echo.\n")

@@ -7,18 +7,18 @@ import { z } from "zod";
 export const productSchema = z.object({
   sku: z.string().min(2, "SKU requis (min 2 caractères)"),
   name: z.string().min(2, "Nom requis"),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   categoryId: z.string().min(1, "Catégorie requise"),
-  supplierId: z.string().optional(),
+  supplierId: z.string().nullable().optional(),
   buyPrice: z.number().positive("Prix d'achat doit être positif"),
   sellPrice: z.number().positive("Prix de vente doit être positif"),
   taxRate: z.number().min(0).max(100),
   unit: z.string(),
-  location: z.string().optional(),
-  barcode: z.string().optional(),
+  location: z.string().nullable().optional(),
+  barcode: z.string().nullable().optional(),
   minStock: z.number().min(0),
   maxStock: z.number().min(0),
-  imageUrl: z.string().optional(),
+  imageUrl: z.string().nullable().optional(),
   status: z.enum(["ACTIF", "INACTIF", "ARCHIVE"]),
 });
 

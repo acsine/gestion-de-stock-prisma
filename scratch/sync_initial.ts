@@ -162,6 +162,9 @@ const RELATION_MAP: Record<string, { field: string; parentModel: string }[]> = {
 };
 
 function getUniqueWhere(modelName: string, item: any): any {
+  if (modelName === "tenant" && item.slug) {
+    return { slug: item.slug };
+  }
   if (modelName === "setting" && item.tenantId && item.key) {
     return { tenantId_key: { tenantId: item.tenantId, key: item.key } };
   }

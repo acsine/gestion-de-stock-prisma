@@ -45,7 +45,7 @@ exit /b
 echo [Systeme] Lancement du serveur local...
 echo [Systeme] Le site va s'ouvrir automatiquement dans votre navigateur.
 echo.
-start http://localhost:3000
+start "" "%~dp0public\loading.html"
 call npm run dev
 if %errorlevel% neq 0 (
     echo.
