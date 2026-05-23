@@ -68,6 +68,8 @@ export function Sidebar() {
   const alertCount = alertData?.data?.length || 0;
   const [loggingOut, setLoggingOut] = useState(false);
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [downloadingKey, setDownloadingKey] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -76,6 +78,62 @@ export function Sidebar() {
       window.location.href = "/login";
     } catch {
       window.location.href = "/login";
+    }
+  };
+
+  const handleDownloadZip = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (downloadingZip) return;
+    setDownloadingZip(true);
+    try {
+      const response = await fetch("/setup_thaborsolution.zip");
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "setup_thaborsolution.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading ZIP:", error);
+      const a = document.createElement("a");
+      a.href = "/setup_thaborsolution.zip";
+      a.download = "setup_thaborsolution.zip";
+      a.click();
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
+
+  const handleDownloadKey = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (downloadingKey) return;
+    setDownloadingKey(true);
+    try {
+      const response = await fetch("/api/setup/config");
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "setup_config.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading Key:", error);
+      const a = document.createElement("a");
+      a.href = "/api/setup/config";
+      a.download = "setup_config.json";
+      a.click();
+    } finally {
+      setTimeout(() => {
+        setDownloadingKey(false);
+      }, 800);
     }
   };
 
@@ -407,14 +465,20 @@ export function Sidebar() {
                           : "Contains the complete automated installation package (.zip)."}
                       </p>
                     </div>
-                    <a 
-                      href="/setup_thaborsolution.zip" 
-                      download 
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]"
+                    <button 
+                      onClick={handleDownloadZip}
+                      disabled={downloadingZip}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:opacity-50"
                     >
-                      <Download className="w-4 h-4" />
-                      {language === "fr" ? "Télécharger le ZIP" : "Download ZIP"}
-                    </a>
+                      {downloadingZip ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
+                      {downloadingZip 
+                        ? (language === "fr" ? "Téléchargement..." : "Downloading...") 
+                        : (language === "fr" ? "Télécharger le ZIP" : "Download ZIP")}
+                    </button>
                   </div>
 
                   {/* Step 2 */}
@@ -432,14 +496,20 @@ export function Sidebar() {
                           : "Automated configuration key linked to your current account."}
                       </p>
                     </div>
-                    <a 
-                      href="/api/setup/config" 
-                      download 
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
+                    <button 
+                      onClick={handleDownloadKey}
+                      disabled={downloadingKey}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50"
                     >
-                      <Database className="w-4 h-4" />
-                      {language === "fr" ? "Télécharger la clé" : "Download Key"}
-                    </a>
+                      {downloadingKey ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      ) : (
+                        <Database className="w-4 h-4" />
+                      )}
+                      {downloadingKey 
+                        ? (language === "fr" ? "Génération..." : "Generating...") 
+                        : (language === "fr" ? "Télécharger la clé" : "Download Key")}
+                    </button>
                   </div>
                 </div>
 

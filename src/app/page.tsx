@@ -14,13 +14,15 @@ import {
   Smartphone,
   ShieldCheck,
   Globe,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
 import { useTranslation } from "@/locales/i18n";
 
 export default function LandingPage() {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingType, setLoadingType] = useState<string | null>(null);
 
   const fadeUp = {
     initial: { opacity: 0, y: 20 },
@@ -55,16 +57,26 @@ export default function LandingPage() {
           <div className="flex items-center gap-4">
             <Link 
               href="/login" 
-              onClick={() => setIsLoading(true)}
-              className="text-sm font-medium text-neutral-400 hover:text-white transition-colors"
+              onClick={() => {
+                setLoadingType("login");
+                setIsLoading(true);
+              }}
+              className="text-sm font-medium text-neutral-400 hover:text-white transition-colors flex items-center gap-2"
+              style={{ pointerEvents: loadingType ? "none" : "auto" }}
             >
+              {loadingType === "login" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {t.landing.login}
             </Link>
             <Link 
               href="/register-company" 
-              onClick={() => setIsLoading(true)}
-              className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+              onClick={() => {
+                setLoadingType("get-started-nav");
+                setIsLoading(true);
+              }}
+              className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center gap-2"
+              style={{ pointerEvents: loadingType ? "none" : "auto" }}
             >
+              {loadingType === "get-started-nav" && <Loader2 className="w-4 h-4 animate-spin text-black" />}
               {t.landing.getStarted}
             </Link>
           </div>
@@ -107,10 +119,19 @@ export default function LandingPage() {
           >
             <Link 
               href="/register-company" 
-              onClick={() => setIsLoading(true)}
+              onClick={() => {
+                setLoadingType("create-company-hero");
+                setIsLoading(true);
+              }}
               className="w-full sm:w-auto px-8 py-4 bg-white text-black font-semibold rounded-full hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+              style={{ pointerEvents: loadingType ? "none" : "auto" }}
             >
-              {t.landing.createCompany} <ArrowRight className="w-4 h-4" />
+              {t.landing.createCompany}
+              {loadingType === "create-company-hero" ? (
+                <Loader2 className="w-4 h-4 animate-spin text-black" />
+              ) : (
+                <ArrowRight className="w-4 h-4" />
+              )}
             </Link>
             <Link href="#features" className="w-full sm:w-auto px-8 py-4 bg-white/5 text-white border border-white/10 font-semibold rounded-full hover:bg-white/10 transition-colors flex items-center justify-center">
               {t.landing.discoverPlatform}
@@ -270,10 +291,19 @@ export default function LandingPage() {
               <p className="text-neutral-400 text-lg md:text-xl mb-10 max-w-xl mx-auto">{t.landing.readySubtitle}</p>
               <Link 
                 href="/register-company" 
-                onClick={() => setIsLoading(true)}
+                onClick={() => {
+                  setLoadingType("create-company-cta");
+                  setIsLoading(true);
+                }}
                 className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,255,255,0.15)]"
+                style={{ pointerEvents: loadingType ? "none" : "auto" }}
               >
-                {t.landing.createCompany} <ArrowRight className="w-5 h-5" />
+                {t.landing.createCompany}
+                {loadingType === "create-company-cta" ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-black" />
+                ) : (
+                  <ArrowRight className="w-5 h-5" />
+                )}
               </Link>
             </div>
           </motion.div>
