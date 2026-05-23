@@ -38,6 +38,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json();
+  
+  // Si l'image est modifiée ou supprimée, nettoyer l'ancienne image sur ImageKit
+  if (body.imageUrl !== undefined && body.imageUrl !== existing.imageUrl) {
+    try {
+      const { deleteFromImageKit } = await import("@/lib/imagekit");
+      await deleteFromImageKit(existing.imageUrl);
+    } catch (err) {
+      console.error("Erreur lors de la suppression de l'image ImageKit:", err);
+    }
+  }
+
   const product = await prisma.product.update({
     where: { id },
     data: body,

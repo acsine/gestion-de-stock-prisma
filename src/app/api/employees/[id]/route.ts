@@ -21,10 +21,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const parsed = employeeSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
+    // Nettoyer l'ancienne photo sur ImageKit si elle est modifiée
+    if (body.photoUrl !== undefined && body.photoUrl !== employee.photoUrl) {
+      try {
+        const { deleteFromImageKit } = await import("@/lib/imagekit");
+        await deleteFromImageKit(employee.photoUrl);
+      } catch (err) {
+        console.error("Erreur lors de la suppression de la photo ImageKit de l'employé:", err);
+      }
+    }
+
     const updated = await prisma.employee.update({
       where: { id },
       data: {
         ...parsed.data,
+        photoUrl: body.photoUrl !== undefined ? body.photoUrl : undefined,
         startDate: new Date(parsed.data.startDate),
         dateOfBirth: (parsed.data.dateOfBirth && parsed.data.dateOfBirth !== "") ? new Date(parsed.data.dateOfBirth) : null,
         endDate: (parsed.data.endDate && parsed.data.endDate !== "") ? new Date(parsed.data.endDate) : null,
@@ -58,6 +69,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     
     if (employee._count.payrolls > 0) {
       return NextResponse.json({ error: "Impossible de supprimer cet employé car il a des fiches de paie associées." }, { status: 400 });
+    }
+
+    // Supprimer la photo sur ImageKit si elle existe
+    if (employee.photoUrl) {
+      try {
+        const { deleteFromImageKit } = await import("@/lib/imagekit");
+        await deleteFromImageKit(employee.photoUrl);
+      } catch (err) {
+        console.error("Erreur lors de la suppression de la photo ImageKit de l'employé:", err);
+      }
     }
 
     await prisma.employee.delete({
