@@ -14,10 +14,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 1000,
-            refetchInterval: 10 * 1000, // Refresh every 10 seconds
-            refetchIntervalInBackground: true,
+            staleTime: 60 * 1000, // Cache for 1 minute before refetching on demand/refocus
             retry: 1,
+            refetchOnWindowFocus: false, // Prevent query spam when refocusing window
           },
         },
       })

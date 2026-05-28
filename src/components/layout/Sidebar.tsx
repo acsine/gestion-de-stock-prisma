@@ -137,10 +137,11 @@ export function Sidebar() {
     }
   };
 
-  // Reset loading state when pathname changes
+  // Reset loading state and collapse sidebar when pathname changes (after load completes)
   useEffect(() => {
     setNavigatingTo(null);
-  }, [pathname]);
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
   const canAccess = (item: any) => {
     const isSuper = (session?.user as any)?.isSuperAdmin;
@@ -205,18 +206,18 @@ export function Sidebar() {
       )}
       <aside
         className={cn(
-          "bg-slate-900 text-white flex flex-col transition-all duration-300 z-40 fixed md:relative inset-y-0 left-0 flex-shrink-0 shadow-2xl shadow-slate-900/50",
+          "bg-gradient-to-b from-white/95 via-white/90 to-sky-50/95 backdrop-blur-xl text-slate-800 flex flex-col transition-all duration-300 z-40 fixed md:relative inset-y-0 left-0 flex-shrink-0 shadow-xl border-r border-slate-200/60",
           sidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full overflow-hidden"
         )}
       >
       {/* Logo */}
-      <div className="h-20 flex items-center justify-between px-4 border-b border-white/5 bg-white/5">
+      <div className="h-20 flex items-center justify-between px-4 border-b border-slate-200/60 bg-transparent">
         {sidebarOpen && (
           <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-500">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
               <Boxes className="w-6 h-6 text-white" />
             </div>
-            <span className="font-black text-xl tracking-tight uppercase">ThaborSolution</span>
+            <span className="font-black text-xl tracking-tight uppercase text-slate-800">ThaborSolution</span>
           </div>
         )}
         {!sidebarOpen && (
@@ -227,7 +228,7 @@ export function Sidebar() {
         {sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all duration-300"
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all duration-300"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -239,9 +240,9 @@ export function Sidebar() {
         {nav.map((item, i) => {
           const transLabel = getTranslatedLabel(item);
           if ((item as any).type === "section") {
-            if (!sidebarOpen) return <div key={i} className="my-6 border-t border-white/5 mx-2" />;
+            if (!sidebarOpen) return <div key={i} className="my-6 border-t border-slate-200/60 mx-2" />;
             return (
-              <p key={i} className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-3 pt-6 pb-2">
+              <p key={i} className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] px-3 pt-6 pb-2">
                 {transLabel}
               </p>
             );
@@ -263,7 +264,7 @@ export function Sidebar() {
                 "group flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 relative overflow-hidden",
                 isActive
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                  : "text-white/50 hover:bg-white/5 hover:text-white",
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-800",
                 !sidebarOpen && "justify-center px-0 h-12 w-12 mx-auto",
                 isNavigating && "opacity-80 pointer-events-none"
               )}
@@ -280,10 +281,10 @@ export function Sidebar() {
                 {isNavigating ? (
                   <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                 ) : (
-                  typeof Icon !== "string" && <Icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110", isActive ? "text-white" : "text-white/40 group-hover:text-white")} />
+                  typeof Icon !== "string" && <Icon className={cn("w-5 h-5 transition-transform duration-300 group-hover:scale-110", isActive ? "text-white" : "text-slate-600 group-hover:text-slate-700")} />
                 )}
                 {item.badge && alertCount > 0 && !isNavigating && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center ring-2 ring-slate-900">
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center ring-2 ring-white">
                     {alertCount > 9 ? "9+" : alertCount}
                   </span>
                 )}
@@ -305,7 +306,7 @@ export function Sidebar() {
           <button 
             onClick={() => setIsSetupModalOpen(true)}
             className={cn(
-              "w-full flex items-center gap-3 p-3 rounded-2xl bg-blue-600/10 text-blue-400 border border-blue-600/20 hover:bg-blue-600/20 transition-all group",
+              "w-full flex items-center gap-3 p-3 rounded-2xl bg-blue-600/10 text-blue-600 border border-blue-600/20 hover:bg-blue-600/20 transition-all group",
               !sidebarOpen && "justify-center p-2"
             )}
             title={language === "fr" ? "Installer la version locale" : "Install local version"}
@@ -318,12 +319,12 @@ export function Sidebar() {
 
       {/* Language Switcher */}
       {sidebarOpen ? (
-        <div className="px-6 py-3 border-t border-white/5 flex gap-2">
+        <div className="px-6 py-3 border-t border-slate-200/60 flex gap-2">
           <button
             onClick={() => setLanguage("fr")}
             className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-white/5",
-              language === "fr" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-white/40 hover:bg-white/5 hover:text-white"
+              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-slate-200",
+              language === "fr" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-slate-600 hover:bg-slate-100 hover:text-slate-700"
             )}
           >
             FR
@@ -331,18 +332,18 @@ export function Sidebar() {
           <button
             onClick={() => setLanguage("en")}
             className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-white/5",
-              language === "en" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-white/40 hover:bg-white/5 hover:text-white"
+              "flex-1 py-1.5 rounded-lg text-xs font-black transition-all border border-slate-200",
+              language === "en" ? "bg-blue-600 text-white shadow-lg border-transparent shadow-blue-500/20" : "text-slate-600 hover:bg-slate-100 hover:text-slate-700"
             )}
           >
             EN
           </button>
         </div>
       ) : (
-        <div className="py-3 border-t border-white/5 flex justify-center">
+        <div className="py-3 border-t border-slate-200/60 flex justify-center">
           <button
             onClick={() => setLanguage(language === "fr" ? "en" : "fr")}
-            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black text-blue-400 hover:bg-white/10 hover:text-white transition-all"
+            className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-xs font-black text-blue-600 hover:bg-slate-100 transition-all"
             title={language === "fr" ? "Switch to English" : "Passer en Français"}
           >
             {language.toUpperCase()}
@@ -351,28 +352,28 @@ export function Sidebar() {
       )}
 
       {/* User Card */}
-      <div className="p-4 border-t border-white/5 bg-white/5 flex flex-col gap-2">
-        <div className={cn("flex items-center gap-3 p-2 rounded-2xl transition-colors", sidebarOpen ? "bg-white/5" : "justify-center")}>
+      <div className="p-4 border-t border-slate-200/60 bg-transparent flex flex-col gap-2">
+        <div className={cn("flex items-center gap-3 p-2 rounded-2xl transition-colors", sidebarOpen ? "bg-slate-50 border border-slate-150" : "justify-center")}>
           <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">
             {String(role || "?")[0]?.toUpperCase()}
           </div>
           {sidebarOpen && (
             <div className="min-w-0 flex-1 flex items-center justify-between">
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-blue-400 font-black uppercase tracking-widest leading-none mb-1">
+                <p className="text-xs text-blue-600 font-black uppercase tracking-widest leading-none mb-1">
                   {typeof role === 'string' ? role : (role as any)?.name || "MEMBRE"}
                 </p>
-                <p className="text-sm font-bold text-white truncate">
+                <p className="text-sm font-bold text-slate-800 truncate">
                   {(session as any)?.user?.name || "Utilisateur"}
                 </p>
               </div>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="p-2 rounded-xl text-white/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all shrink-0 ml-2 disabled:opacity-50"
+                className="p-2 rounded-xl text-slate-600 hover:bg-rose-50 hover:text-rose-600 transition-all shrink-0 ml-2 disabled:opacity-50"
                 title={language === "fr" ? "Se déconnecter" : "Log Out"}
               >
-                {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-400" /> : <LogOut className="w-5 h-5" />}
+                {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-500" /> : <LogOut className="w-5 h-5" />}
               </button>
             </div>
           )}
@@ -381,10 +382,10 @@ export function Sidebar() {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="w-10 h-10 mx-auto bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl flex items-center justify-center transition-all disabled:opacity-50"
+            className="w-10 h-10 mx-auto bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center transition-all disabled:opacity-50"
             title={language === "fr" ? "Se déconnecter" : "Log Out"}
           >
-            {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-400" /> : <LogOut className="w-5 h-5" />}
+            {loggingOut ? <Loader2 className="w-5 h-5 animate-spin text-rose-500" /> : <LogOut className="w-5 h-5" />}
           </button>
         )}
       </div>

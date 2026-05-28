@@ -689,3 +689,129 @@ export function useAuditLogs(params?: { search?: string; action?: string; entity
     staleTime: 1000 * 10,
   });
 }
+
+// =====================
+// WAREHOUSES & TRANSFER HOOKS
+// =====================
+export function useWarehouses(params?: { productId?: string }) {
+  const query = new URLSearchParams();
+  if (params?.productId) query.set("productId", params.productId);
+
+  return useQuery({
+    queryKey: ["warehouses", params],
+    queryFn: () => fetch(`/api/stock/warehouses?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 30, // 30 seconds
+  });
+}
+
+export function useCreateWarehouse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch("/api/stock/warehouses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["warehouses"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock"] });
+    },
+  });
+}
+
+export function useWarehouseTransfers(params?: { status?: string }) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set("status", params.status);
+
+  return useQuery({
+    queryKey: ["transfers", params],
+    queryFn: () => fetch(`/api/stock/transfers?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 10, // 10 seconds (time-sensitive transfers)
+  });
+}
+
+export function useCreateWarehouseTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) =>
+      fetch("/api/stock/transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transfers"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock"] });
+      qc.invalidateQueries({ queryKey: ["warehouses"] });
+    },
+  });
+}
+
+export function useReceiveWarehouseTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      fetch("/api/stock/transfers", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "RECEIVE" }),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transfers"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stock"] });
+      qc.invalidateQueries({ queryKey: ["warehouses"] });
+      qc.invalidateQueries({ queryKey: ["alerts"] });
+    },
+  });
+}
+
+// =====================
+// OHADA ACCOUNTING HOOKS
+// =====================
+export function useOhadaAccounts(params?: { class?: number }) {
+  const query = new URLSearchParams();
+  if (params?.class) query.set("class", String(params.class));
+
+  return useQuery({
+    queryKey: ["ohadaAccounts", params],
+    queryFn: () => fetch(`/api/finances/ohada?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+}
+
+export function useCreateOhadaAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { code: string; name: string }) =>
+      fetch("/api/finances/ohada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ohadaAccounts"] });
+    },
+  });
+}
+
+// =====================
+// BEST SELLERS REPORT HOOK
+// =====================
+export function useBestSellers(params?: { startDate?: string; endDate?: string; categoryId?: string; limit?: number; metric?: string }) {
+  const query = new URLSearchParams();
+  if (params?.startDate) query.set("startDate", params.startDate);
+  if (params?.endDate) query.set("endDate", params.endDate);
+  if (params?.categoryId) query.set("categoryId", params.categoryId);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.metric) query.set("metric", params.metric);
+
+  return useQuery({
+    queryKey: ["bestSellers", params],
+    queryFn: () => fetch(`/api/reports/best-sellers?${query}`).then((r) => r.json()),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}

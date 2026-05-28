@@ -46,13 +46,15 @@ export const stockMovementSchema = z.object({
   type: z.enum([
     "ENTREE_ACHAT", "ENTREE_RETOUR", "ENTREE_AJUSTEMENT",
     "SORTIE_VENTE", "SORTIE_USAGE_INTERNE", "SORTIE_PERTE",
-    "SORTIE_RETOUR_FOURNISSEUR", "AJUSTEMENT_INVENTAIRE"
+    "SORTIE_RETOUR_FOURNISSEUR", "AJUSTEMENT_INVENTAIRE",
+    "TRANSFERT_ENTREE", "TRANSFERT_SORTIE"
   ]),
   quantity: z.number().positive("Quantité doit être positive"),
   reason: z.string().optional(),
   reference: z.string().optional(),
   unitPrice: z.number().min(0).optional(),
   note: z.string().optional(),
+  warehouseId: z.string().optional().nullable(),
 });
 
 export type StockMovementInput = z.infer<typeof stockMovementSchema>;
@@ -168,6 +170,8 @@ export const transactionSchema = z.object({
   supplierId: z.string().optional(),
   description: z.string().optional(),
   date: z.string().optional(),
+  debitAccountId: z.string().optional().nullable(),
+  creditAccountId: z.string().optional().nullable(),
 });
 
 export type TransactionInput = z.infer<typeof transactionSchema>;
@@ -226,4 +230,33 @@ export const registerCompanySchema = z.object({
 });
 
 export type RegisterCompanyInput = z.infer<typeof registerCompanySchema>;
+
+// =====================
+// WAREHOUSE & TRANSFER SCHEMAS
+// =====================
+export const warehouseSchema = z.object({
+  name: z.string().min(2, "Nom requis (min 2 caractères)"),
+  code: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  isMain: z.boolean().optional().default(false),
+  isShop: z.boolean().optional().default(false),
+});
+
+export type WarehouseInput = z.infer<typeof warehouseSchema>;
+
+export const warehouseTransferItemSchema = z.object({
+  productId: z.string().min(1, "Produit requis"),
+  quantity: z.number().positive("Quantité positive requise"),
+});
+
+export const warehouseTransferSchema = z.object({
+  sourceWarehouseId: z.string().min(1, "Dépôt source requis"),
+  destinationWarehouseId: z.string().min(1, "Dépôt destination requis"),
+  reference: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  items: z.array(warehouseTransferItemSchema).min(1, "Au moins un article requis"),
+});
+
+export type WarehouseTransferInput = z.infer<typeof warehouseTransferSchema>;
 

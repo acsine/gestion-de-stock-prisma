@@ -225,7 +225,7 @@ function MarginDetailModal({ onClose }: { onClose: () => void }) {
 
 export default function DashboardPage() {
   const { t, language } = useTranslation();
-  const { data, isLoading, refetch } = useDashboard();
+  const { data, isLoading, isFetching, refetch } = useDashboard();
   const [showMarginModal, setShowMarginModal] = useState(false);
   const stats = data?.data;
 
@@ -256,8 +256,8 @@ export default function DashboardPage() {
             {t.dashboard.welcome} — {new Date().toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
-        <button onClick={() => refetch()} disabled={isLoading} className="btn-secondary flex items-center gap-2 text-sm">
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+        <button onClick={() => refetch()} disabled={isFetching} className="btn-secondary flex items-center gap-2 text-sm">
+          <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
           {t.actions.refresh}
         </button>
       </div>

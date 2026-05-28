@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    --primary: 221 83% 53%; /* Modern Blue */
+    --primary: 243.4 75.4% 58.6%; /* Royal Indigo */
     --primary-foreground: 210 40% 98%;
     
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     
-    --accent: 199 89% 48%; /* Cyan Accent */
+    --accent: 187.9 91.7% 45.5%; /* Cyan Accent */
     --accent-foreground: 210 40% 98%;
     
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 33% 98%; /* Light Slate-Blue Premium BG */
+    --foreground: 224 71.4% 4%;
     
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 224 71.4% 4%;
     
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 243.4 75.4% 58.6%;
     
-    --radius: 0.75rem;
+    --radius: 1rem; /* Soft Apple-like curves */
   }
 
   * { @apply border-gray-200; }
   body { 
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-slate-50 text-slate-900 antialiased bg-mesh;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
@@ -37,35 +37,35 @@
   /* Backward compatibility for layout fixes */
   .table-container { @apply card-premium overflow-x-auto; }
   .data-table { @apply table-premium; }
-  .data-table thead th { @apply px-6 py-4 bg-slate-50/50 font-bold text-slate-500 uppercase tracking-wider; }
+  .data-table thead th { @apply px-6 py-4 bg-slate-50/50 font-black text-slate-400 uppercase tracking-wider text-xs; }
   .data-table tbody tr { @apply border-b border-slate-100 hover:bg-slate-50/50 transition-colors duration-200; }
   .data-table tbody td { @apply px-6 py-4 text-slate-700; }
   .input { @apply input-premium; }
-  .label { @apply text-sm font-bold text-slate-700 mb-1.5 block; }
+  .label { @apply text-xs font-black uppercase tracking-wider text-slate-500 mb-1.5 block; }
   .card { @apply card-premium; }
   .badge-green { @apply badge-success; }
   .badge-red { @apply badge-error; }
   .badge-yellow { @apply badge-warning; }
   .badge-blue { @apply badge-info; }
-  .badge-gray { @apply badge-premium bg-slate-100 text-slate-700; }
+  .badge-gray { @apply badge-premium bg-slate-100 text-slate-700 border border-slate-200/50; }
 
   .btn-primary {
-    @apply relative overflow-hidden bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-xl transition-all duration-300 
-           hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 active:scale-95 disabled:opacity-50;
+    @apply relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-2.5 rounded-2xl transition-all duration-300 shadow-md shadow-blue-600/10 
+           hover:shadow-xl hover:shadow-blue-600/20 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50;
   }
   
   .btn-secondary {
-    @apply bg-white text-slate-700 font-semibold px-6 py-2.5 rounded-xl border border-slate-200 transition-all duration-300 
-           hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm active:scale-95;
+    @apply bg-white text-slate-700 font-bold px-6 py-2.5 rounded-2xl border border-slate-200 transition-all duration-300 shadow-sm
+           hover:bg-slate-50 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-95;
   }
   
   .btn-glass {
-    @apply backdrop-blur-md bg-white/30 border border-white/40 text-slate-900 font-semibold px-6 py-2.5 rounded-xl transition-all duration-300 
-           hover:bg-white/40 hover:shadow-lg active:scale-95;
+    @apply backdrop-blur-md bg-white/30 border border-white/40 text-slate-900 font-bold px-6 py-2.5 rounded-2xl transition-all duration-300 
+           hover:bg-white/40 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:scale-95;
   }
 
   .card-premium {
-    @apply bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500;
+    @apply bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:border-indigo-500/10 transition-all duration-500;
   }
   
   .glass-panel {
@@ -73,28 +73,28 @@
   }
 
   .input-premium {
-    @apply w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm transition-all duration-300 
-           focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white;
+    @apply w-full px-4 py-3 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 
+           focus:outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus:bg-white;
   }
 
   .badge-premium {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest;
   }
   
-  .badge-success { @apply badge-premium bg-emerald-100 text-emerald-700; }
-  .badge-error   { @apply badge-premium bg-rose-100 text-rose-700; }
-  .badge-warning { @apply badge-premium bg-amber-100 text-amber-700; }
-  .badge-info    { @apply badge-premium bg-sky-100 text-sky-700; }
+  .badge-success { @apply badge-premium bg-emerald-50 text-emerald-600 border border-emerald-200/50; }
+  .badge-error   { @apply badge-premium bg-rose-50 text-rose-600 border border-rose-200/50; }
+  .badge-warning { @apply badge-premium bg-amber-50 text-amber-600 border border-amber-200/50; }
+  .badge-info    { @apply badge-premium bg-sky-50 text-sky-600 border border-sky-200/50; }
 }
 
 /* Gradients */
 .bg-mesh {
   background-color: #f8fafc;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(147, 51, 234, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-    radial-gradient(at 0% 100%, rgba(147, 51, 234, 0.1) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.06) 0px, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.06) 0px, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.06) 0px, transparent 55%),
+    radial-gradient(at 0% 100%, rgba(79, 70, 229, 0.06) 0px, transparent 55%);
 }
 
 /* Animations */
@@ -218,4 +218,59 @@
     padding: 0 !important;
   }
 }
+
+/* ========================================================
+   GLOBAL POPUP MODAL & SELECT OPTION SCROLLABILITY FIXES
+   ======================================================== */
+
+/* Ensure the fixed background overlays allow scrolling of their children when viewport is small */
+div[class*="fixed inset-0"][class*="bg-black"],
+div[class*="fixed inset-0"][class*="backdrop-blur"] {
+  overflow-y: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+}
+
+/* Ensure modal container cards have a max-height (e.g. 90vh) and expand as flex layout to handle overflow */
+div[class*="fixed inset-0"][class*="bg-black"] > div,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div {
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Keep modal headers fixed at the top */
+div[class*="fixed inset-0"][class*="bg-black"] > div > div:first-child,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > div:first-child {
+  flex-shrink: 0 !important;
+}
+
+/* Make forms and inner content wrappers (p-4, p-5, p-6, etc.) fully scrollable with elegant custom scrollbars */
+div[class*="fixed inset-0"][class*="bg-black"] > div > form,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > form,
+div[class*="fixed inset-0"][class*="bg-black"] > div > div.p-4,
+div[class*="fixed inset-0"][class*="bg-black"] > div > div.p-5,
+div[class*="fixed inset-0"][class*="bg-black"] > div > div.p-6,
+div[class*="fixed inset-0"][class*="bg-black"] > div > div.p-8,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > div.p-4,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > div.p-5,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > div.p-6,
+div[class*="fixed inset-0"][class*="backdrop-blur"] > div > div.p-8 {
+  overflow-y: auto !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important; /* Extremely important for nested flex scroll containers */
+  padding-bottom: 1.5rem !important;
+}
+
+/* Make sure option dropdowns inside custom selects are scrollable across the entire app */
+div[class*="absolute"][class*="z-50"] div[class*="overflow-y-auto"],
+div[class*="absolute"][class*="z-50"] [class*="max-h-52"] {
+  max-h: 12rem !important; /* Force compact scrollable height inside modals/popups */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 

@@ -166,6 +166,46 @@ export default function ParametresPage() {
           </div>
 
           <div className="card p-6 space-y-6">
+            <h2 className="font-bold text-gray-900 text-lg border-b pb-3">{language === "fr" ? "Mode Réseau & Synchronisation" : "Network Mode & Synchronization"}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label text-xs font-bold text-gray-500 uppercase mb-1.5 block">{language === "fr" ? "Mode Réseau" : "Network Mode"}</label>
+                <select 
+                  value={localSettings.network_mode || "LOCAL"} 
+                  onChange={(e) => setLocalSettings((s: any) => ({ ...s, network_mode: e.target.value }))}
+                  className="input"
+                >
+                  <option value="LOCAL">{language === "fr" ? "Réseau Local (Stand-alone)" : "Local Network (Stand-alone)"}</option>
+                  <option value="CLOUD">{language === "fr" ? "En Ligne (Synchronisation Cloud)" : "Online (Cloud Sync)"}</option>
+                </select>
+              </div>
+              <div className="flex flex-col justify-end">
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    addToast({ type: "info", title: language === "fr" ? "Sync en cours" : "Syncing in progress", message: "Veuillez patienter..." });
+                    try {
+                      const res = await fetch("/api/sync/cloud", { method: "POST" });
+                      if (res.ok) {
+                        addToast({ type: "success", title: language === "fr" ? "Synchronisation réussie !" : "Sync completed!" });
+                      } else {
+                        throw new Error();
+                      }
+                    } catch {
+                      addToast({ type: "error", title: language === "fr" ? "Erreur de sync" : "Sync error", message: "Le serveur Cloud est injoignable ou en mode local." });
+                    }
+                  }}
+                  className="btn-secondary w-full py-2.5 flex items-center justify-center gap-2 mt-auto"
+                >
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                  <span>{language === "fr" ? "Synchroniser maintenant" : "Sync Now"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+
+          <div className="card p-6 space-y-6">
             <h2 className="font-bold text-gray-900 text-lg border-b pb-3">{language === "fr" ? "Numérotation & Séries" : "Numbering & Series"}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label={language === "fr" ? "Préfixe Factures" : "Invoice Prefix"} k="invoice_prefix" settings={localSettings} setSettings={setLocalSettings} placeholder="FAC" />

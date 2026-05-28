@@ -20,15 +20,32 @@ export async function GET() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Fetch movements of the current month
+    // Fetch movements of the current month with highly-optimized select payload
     const movements = await prisma.stockMovement.findMany({
       where: {
         ...baseWhere,
         createdAt: { gte: startOfMonth }
       },
-      include: {
-        product: true,
-        user: { select: { name: true } }
+      select: {
+        id: true,
+        type: true,
+        quantity: true,
+        unitPrice: true,
+        createdAt: true,
+        product: {
+          select: {
+            name: true,
+            sku: true,
+            unit: true,
+            buyPrice: true,
+            sellPrice: true
+          }
+        },
+        user: {
+          select: {
+            name: true
+          }
+        }
       },
       orderBy: { createdAt: "desc" }
     });

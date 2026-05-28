@@ -50,6 +50,13 @@ model Tenant {
   leaves         Leave[]
   tickets        Ticket[]
 
+  warehouses      Warehouse[]
+  warehouseStocks WarehouseStock[]
+  transfersFrom   WarehouseTransfer[] @relation("TenantTransfersFrom")
+  transfersTo     WarehouseTransfer[] @relation("TenantTransfersTo")
+  transferItems   WarehouseTransferItem[]
+  ohadaAccounts   OhadaAccount[]
+
   @@map("tenants")
 }
 
@@ -96,6 +103,8 @@ model User {
   ticketMessages TicketMessage[]
   allowedCashAccountId String?
   allowedCashAccount   CashAccount? @relation("UserCashAccount", fields: [allowedCashAccountId], references: [id])
+
+  warehouseTransfers WarehouseTransfer[]
 
   @@map("users")
 }
@@ -168,6 +177,7 @@ model Category {
   products Product[]
 
   @@unique([tenantId, slug])
+  @@index([tenantId])
   @@map("categories")
 }
 
@@ -208,7 +218,13 @@ model Product {
   orderItems      OrderItem[]
   alerts          Alert[]
 
+  warehouseStocks WarehouseStock[]
+  transferItems   WarehouseTransferItem[]
+
   @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([status])
   @@map("products")
 }
 
@@ -248,6 +264,7 @@ model Supplier {
   purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
 
+  @@index([tenantId])
   @@map("suppliers")
 }
 
@@ -277,6 +294,7 @@ model Customer {
 
   invoices     Invoice[]
 
+  @@index([tenantId])
   @@map("customers")
 }
 
@@ -314,6 +332,13 @@ model StockMovement {
   isSynced    Boolean        @default(false)
   remoteId    String?        @unique
 
+  warehouseId String?
+  warehouse   Warehouse?     @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([createdAt])
   @@map("stock_movements")
 }
 
@@ -326,6 +351,8 @@ enum MovementType {
   SORTIE_PERTE
   SORTIE_RETOUR_FOURNISSEUR
   AJUSTEMENT_INVENTAIRE
+  TRANSFERT_ENTREE
+  TRANSFERT_SORTIE
 }
 
 // =====================
@@ -362,6 +389,9 @@ model Invoice {
   payments      Payment[]
   stockMovements StockMovement[]
 
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([issueDate])
   @@map("invoices")
 }
 
@@ -386,6 +416,9 @@ model InvoiceItem {
   isSynced    Boolean @default(false)
   remoteId    String? @unique
 
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([productId])
   @@map("invoice_items")
 }
 
@@ -520,6 +553,7 @@ model CashAccount {
   transactions Transaction[]
   cashiers     User[]        @relation("UserCashAccount")
 
+  @@index([tenantId])
   @@map("cash_accounts")
 }
 
@@ -553,6 +587,16 @@ model Transaction {
   isSynced    Boolean         @default(false)
   remoteId    String?         @unique
 
+  debitAccountId  String?
+  debitAccount    OhadaAccount?   @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccountId String?
+  creditAccount   OhadaAccount?   @relation("CreditAccount", fields: [creditAccountId], references: [id])
+
+  @@index([tenantId])
+  @@index([accountId])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([date])
   @@map("transactions")
 }
 
@@ -594,6 +638,7 @@ model Employee {
   payrolls Payroll[]
   leaves   Leave[]
 
+  @@index([tenantId])
   @@map("employees")
 }
 
@@ -702,6 +747,13 @@ model Alert {
   isSynced  Boolean   @default(false)
   remoteId  String?   @unique
 
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([isRead])
   @@map("alerts")
 }
 
@@ -733,6 +785,8 @@ model AuditLog {
   isSynced    Boolean  @default(false)
   remoteId    String?  @unique
 
+  @@index([userId])
+  @@index([timestamp])
   @@map("audit_logs")
 }
 
@@ -821,4 +875,136 @@ enum TicketPriority {
   NORMALE
   HAUTE
   URGENTE
+}
+
+// =====================
+// WAREHOUSES & STOCKS
+// =====================
+model Warehouse {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  code        String?
+  location    String?
+  description String?
+  isMain      Boolean  @default(false)
+  isShop      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  isSynced    Boolean  @default(false)
+  remoteId    String?  @unique
+
+  stocks         WarehouseStock[]
+  transfersFrom  WarehouseTransfer[] @relation("SourceWarehouse")
+  transfersTo    WarehouseTransfer[] @relation("DestinationWarehouse")
+  stockMovements StockMovement[]
+  alerts         Alert[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("warehouses")
+}
+
+model WarehouseStock {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Float    @default(0)
+  minStock    Float?
+  maxStock    Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  isSynced    Boolean  @default(false)
+  remoteId    String?  @unique
+
+  @@unique([warehouseId, productId])
+  @@index([tenantId])
+  @@index([warehouseId])
+  @@index([productId])
+  @@map("warehouse_stocks")
+}
+
+model WarehouseTransfer {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], name: "TenantTransfersFrom")
+  tenantDestId        String?  // for relation purposes
+  tenantDest          Tenant?  @relation(fields: [tenantDestId], references: [id], name: "TenantTransfersTo")
+  sourceWarehouseId   String
+  sourceWarehouse     Warehouse @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouseId String
+  destinationWarehouse Warehouse @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+  
+  status              TransferStatus @default(PENDING)
+  reference           String?
+  notes               String?
+  userId              String
+  user                User @relation(fields: [userId], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  isSynced    Boolean  @default(false)
+  remoteId    String?  @unique
+
+  items               WarehouseTransferItem[]
+
+  @@index([tenantId])
+  @@index([sourceWarehouseId])
+  @@index([destinationWarehouseId])
+  @@map("warehouse_transfers")
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model WarehouseTransferItem {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  transferId     String
+  transfer       WarehouseTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  quantity       Float
+
+  isSynced    Boolean  @default(false)
+  remoteId    String?  @unique
+
+  @@index([tenantId])
+  @@index([transferId])
+  @@map("warehouse_transfer_items")
+}
+
+// =====================
+// OHADA ACCOUNTING SYSTEM
+// =====================
+model OhadaAccount {
+  id          String   @id @default(cuid())
+  tenantId    String?  
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  code        String   
+  name        String   
+  class       Int      
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  isSynced    Boolean  @default(false)
+  remoteId    String?  @unique
+
+  debitTransactions  Transaction[] @relation("DebitAccount")
+  creditTransactions Transaction[] @relation("CreditAccount")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("ohada_accounts")
 }

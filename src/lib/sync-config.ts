@@ -21,7 +21,12 @@ export const SYNCABLE_MODELS = [
   "leave",
   "alert",
   "setting",
-  "auditLog"
+  "auditLog",
+  "warehouse",
+  "warehouseStock",
+  "warehouseTransfer",
+  "warehouseTransferItem",
+  "ohadaAccount"
 ];
 
 export type SyncableModel = typeof SYNCABLE_MODELS[number];

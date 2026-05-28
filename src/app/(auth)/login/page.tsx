@@ -109,7 +109,9 @@ export default function LoginPage() {
   // Background feature carousel
   const features = [
     { title: t.login.feat1Title, desc: t.login.feat1Desc },
-    { title: t.login.feat2Title, desc: t.login.feat2Desc },
+    { title
+
+          : t.login.feat2Title, desc: t.login.feat2Desc },
     { title: t.login.feat3Title, desc: t.login.feat3Desc },
   ];
   const [featureIdx, setFeatureIdx] = useState(0);

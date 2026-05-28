@@ -84,9 +84,60 @@ export async function POST(req: NextRequest) {
   const { type, amount, accountId } = parsed.data;
   const delta = type === "RECETTE" ? amount : -amount;
 
+  // Récupérer les informations du compte financier pour le type de trésorerie (Caisse / Banque)
+  const cashAccount = await prisma.cashAccount.findUnique({
+    where: { id: accountId }
+  });
+
+  // Associer le compte financier de classe 5 standard
+  const class5Code = cashAccount?.type === "BANQUE" ? "521" : "571";
+  const class5Account = await prisma.ohadaAccount.findFirst({
+    where: { tenantId, code: class5Code }
+  });
+
+  // Déterminer le compte de charges (Classe 6) ou de produits (Classe 7) en fonction de la catégorie
+  let categoryCode = "601"; // par défaut Achat de marchandises
+  if (type === "RECETTE") {
+    categoryCode = "701"; // par défaut Ventes de marchandises
+    if (parsed.data.category === "Prestation de services") categoryCode = "707";
+    if (parsed.data.category === "Autre recette") categoryCode = "75";
+  } else {
+    if (parsed.data.category === "Loyer") categoryCode = "611";
+    if (parsed.data.category === "Salaires") categoryCode = "66";
+    if (parsed.data.category === "Transport") categoryCode = "616";
+    if (parsed.data.category === "Taxes et impôts") categoryCode = "63";
+  }
+
+  const categoryAccount = await prisma.ohadaAccount.findFirst({
+    where: { tenantId, code: categoryCode }
+  });
+
+  // Assigner les rôles de Débit et de Crédit
+  let debitAccountId = parsed.data.debitAccountId || null;
+  let creditAccountId = parsed.data.creditAccountId || null;
+
+  if (!debitAccountId && !creditAccountId) {
+    if (type === "RECETTE") {
+      // Recette : Débit Trésorerie (Banque/Caisse) et Crédit Ventes (Classe 7)
+      debitAccountId = class5Account?.id || null;
+      creditAccountId = categoryAccount?.id || null;
+    } else {
+      // Dépense : Débit Charges (Classe 6) et Crédit Trésorerie (Banque/Caisse)
+      debitAccountId = categoryAccount?.id || null;
+      creditAccountId = class5Account?.id || null;
+    }
+  }
+
   const transaction = await prisma.$transaction(async (tx) => {
     const t = await tx.transaction.create({
-      data: { ...parsed.data, date: parsed.data.date ? new Date(parsed.data.date) : new Date(), userId: (session.user as any).id, tenantId },
+      data: { 
+        ...parsed.data, 
+        debitAccountId,
+        creditAccountId,
+        date: parsed.data.date ? new Date(parsed.data.date) : new Date(), 
+        userId: (session.user as any).id, 
+        tenantId 
+      },
       include: { account: true },
     });
 
@@ -95,7 +146,7 @@ export async function POST(req: NextRequest) {
       data: { balance: { increment: delta } },
     });
 
-    // If it's an expense linked to a supplier, reduce their balance (debt)
+    // Si c'est une dépense liée à un fournisseur, réduire sa dette
     if (type === "DEPENSE" && parsed.data.supplierId) {
       await tx.supplier.update({
         where: { id: parsed.data.supplierId },

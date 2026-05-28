@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get("productId");
     const type = searchParams.get("type");
+    const warehouseId = searchParams.get("warehouseId");
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = 20;
 
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
     }
     if (productId) where.productId = productId;
     if (type) where.type = type;
+    if (warehouseId) where.warehouseId = warehouseId;
 
     const [movements, total] = await Promise.all([
       prisma.stockMovement.findMany({
@@ -80,7 +82,6 @@ export async function POST(req: NextRequest) {
     // Validate tenantId
     let tenantId = sessionTenantId || (isSuper ? body.tenantId || product.tenantId : null);
     if (!tenantId) {
-      // Direct DB user tenant ID lookup fallback
       const dbUser = await prisma.user.findUnique({
         where: { id: session.user?.id },
         select: { tenantId: true }
@@ -90,21 +91,45 @@ export async function POST(req: NextRequest) {
 
     if (!tenantId) return NextResponse.json({ error: "Tenant non identifié" }, { status: 400 });
 
-    // Security Check: Standard users cannot touch products outside their own tenant
+    // Security Check
     if (!isSuper && product.tenantId !== tenantId) {
       return NextResponse.json({ error: "Non autorisé sur ce produit" }, { status: 403 });
     }
 
+    // Resolve target warehouse (default to main if not specified)
+    let targetWarehouseId = body.warehouseId;
+    if (!targetWarehouseId) {
+      const mainWh = await prisma.warehouse.findFirst({
+        where: { tenantId, isMain: true }
+      });
+      targetWarehouseId = mainWh?.id;
+    }
+
+    if (!targetWarehouseId) {
+      return NextResponse.json({ error: "Aucun entrepôt configuré pour ce tenant" }, { status: 400 });
+    }
+
+    // Check warehouse-specific stock
+    let whStock = await prisma.warehouseStock.findUnique({
+      where: {
+        warehouseId_productId: {
+          warehouseId: targetWarehouseId,
+          productId
+        }
+      }
+    });
+
     const isExit = type.startsWith("SORTIE");
-    if (isExit && product.currentStock < quantity) {
-      return NextResponse.json({ error: `Stock insuffisant. Disponible: ${product.currentStock} ${product.unit}` }, { status: 400 });
+    const currentWhQty = whStock?.quantity || 0;
+    if (isExit && currentWhQty < quantity) {
+      return NextResponse.json({ error: `Stock insuffisant dans cet entrepôt. Disponible: ${currentWhQty} ${product.unit}` }, { status: 400 });
     }
 
     const delta = isExit ? -quantity : quantity;
-    const newStock = product.currentStock + delta;
 
-    const [movement] = await prisma.$transaction([
-      prisma.stockMovement.create({
+    const [movement] = await prisma.$transaction(async (tx) => {
+      // 1. Create StockMovement
+      const m = await tx.stockMovement.create({
         data: { 
           tenantId,
           productId, 
@@ -114,15 +139,49 @@ export async function POST(req: NextRequest) {
           reference, 
           unitPrice, 
           note, 
+          warehouseId: targetWarehouseId,
           userId: (session.user as any).id 
         },
         include: { product: true, user: { select: { id: true, name: true } } },
-      }),
-      prisma.product.update({ where: { id: productId }, data: { currentStock: newStock } }),
-    ]);
+      });
 
-    // Generate alerts
-    await generateStockAlerts(tenantId, product.id, newStock, product.minStock, product.maxStock);
+      // 2. Update specific warehouse stock
+      const updatedStock = await tx.warehouseStock.upsert({
+        where: {
+          warehouseId_productId: {
+            warehouseId: targetWarehouseId,
+            productId
+          }
+        },
+        create: {
+          tenantId,
+          warehouseId: targetWarehouseId,
+          productId,
+          quantity: delta,
+          minStock: product.minStock,
+          maxStock: product.maxStock
+        },
+        update: {
+          quantity: { increment: delta }
+        }
+      });
+
+      // 3. Recalculate global product stock
+      const allStocks = await tx.warehouseStock.findMany({
+        where: { productId }
+      });
+      const totalStock = allStocks.reduce((sum: number, s: any) => sum + s.quantity, 0);
+
+      await tx.product.update({
+        where: { id: productId },
+        data: { currentStock: totalStock }
+      });
+
+      // 4. Generate warehouse specific alerts
+      await generateWarehouseStockAlerts(tx, tenantId, targetWarehouseId, productId, updatedStock.quantity, updatedStock.minStock);
+
+      return [m];
+    });
 
     await logActivity({
       userId: (session.user as any).id,
@@ -139,25 +198,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function generateStockAlerts(tenantId: string, productId: string, currentStock: number, minStock: number, maxStock: number) {
-  // Clear old unread alerts for this product
-  await prisma.alert.deleteMany({ where: { productId, tenantId, isRead: false } });
+async function generateWarehouseStockAlerts(tx: any, tenantId: string, warehouseId: string, productId: string, currentStock: number, minStock: number | null) {
+  if (minStock === null) return;
+
+  // Clear old unread alerts for this product/warehouse
+  await tx.alert.deleteMany({
+    where: { productId, tenantId, warehouseId, isRead: false }
+  });
+
+  const wh = await tx.warehouse.findUnique({
+    where: { id: warehouseId },
+    select: { name: true }
+  });
+  const whName = wh?.name || "Entrepôt";
 
   if (currentStock === 0) {
-    await prisma.alert.create({
-      data: { tenantId, productId, type: "RUPTURE", message: "Rupture de stock — quantité zéro" },
-    });
-  } else if (currentStock <= minStock * 0.5) {
-    await prisma.alert.create({
-      data: { tenantId, productId, type: "STOCK_CRITIQUE", message: `Stock critique: ${currentStock} unités restantes` },
+    await tx.alert.create({
+      data: {
+        tenantId,
+        productId,
+        warehouseId,
+        type: "RUPTURE",
+        message: `Rupture de stock dans l'entrepôt [${whName}] — quantité zéro`
+      },
     });
   } else if (currentStock <= minStock) {
-    await prisma.alert.create({
-      data: { tenantId, productId, type: "STOCK_BAS", message: `Stock bas: ${currentStock} unités (min: ${minStock})` },
-    });
-  } else if (currentStock > maxStock) {
-    await prisma.alert.create({
-      data: { tenantId, productId, type: "SURSTOCK", message: `Surstock: ${currentStock} unités (max: ${maxStock})` },
+    await tx.alert.create({
+      data: {
+        tenantId,
+        productId,
+        warehouseId,
+        type: "STOCK_BAS",
+        message: `Stock bas dans l'entrepôt [${whName}] : ${currentStock} unités restantes (seuil: ${minStock})`
+      },
     });
   }
 }

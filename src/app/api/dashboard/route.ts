@@ -58,7 +58,10 @@ export async function GET() {
           ...baseWhere,
           createdAt: { gte: startOfMonth }
         },
-        include: {
+        select: {
+          type: true,
+          quantity: true,
+          unitPrice: true,
           product: {
             select: {
               buyPrice: true,
