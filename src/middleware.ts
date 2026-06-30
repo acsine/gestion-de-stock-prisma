@@ -23,6 +23,7 @@ export default auth((req) => {
     pathname.startsWith("/api/tenants/register") ||
     pathname.startsWith("/api/debug") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/payment/paayit/webhook") ||
     pathname.startsWith("/image");
 
   // 2. Handle Logged-in Users on Public Paths

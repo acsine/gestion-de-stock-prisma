@@ -29,6 +29,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Aucune catégorie disponible. Veuillez en créer une d'abord." }, { status: 400 });
     }
 
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { license: true }
+    });
+
+    const hasProductLimit = tenant?.license?.maxProducts !== null && tenant?.license?.maxProducts !== undefined;
+    let currentProductsCount = 0;
+    if (hasProductLimit) {
+      currentProductsCount = await prisma.product.count({
+        where: { tenantId, status: { not: "ARCHIVE" } }
+      });
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const lineNum = i + 2;
@@ -74,6 +87,14 @@ export async function POST(req: NextRequest) {
           });
           results.skipped++;
         } else {
+          // Vérifier si la limite de produits est atteinte
+          if (hasProductLimit && tenant && tenant.license && tenant.license.maxProducts !== null) {
+            if (currentProductsCount + results.imported >= tenant.license.maxProducts) {
+              results.errors.push(`Ligne ${lineNum}: Limite de produits de votre formule (${tenant.license.maxProducts}) atteinte. Impossible d'importer "${name}".`);
+              continue;
+            }
+          }
+
           await prisma.product.create({
             data: {
               tenantId,

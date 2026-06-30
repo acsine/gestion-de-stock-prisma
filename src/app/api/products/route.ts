@@ -82,6 +82,24 @@ export async function POST(req: NextRequest) {
     });
     if (existing) return NextResponse.json({ error: "SKU déjà utilisé" }, { status: 409 });
 
+    // Vérifier la limite de produits de la licence du locataire (Tenant)
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { license: true }
+    });
+
+    if (tenant?.license && tenant.license.maxProducts !== null) {
+      const currentProductsCount = await prisma.product.count({
+        where: { tenantId, status: { not: "ARCHIVE" } }
+      });
+      if (currentProductsCount >= tenant.license.maxProducts) {
+        return NextResponse.json(
+          { error: `Limite de produits atteinte (${tenant.license.maxProducts}) pour votre formule actuelle (${tenant.license.name}).` },
+          { status: 403 }
+        );
+      }
+    }
+
     let barcode = parsed.data.barcode;
     if (!barcode || barcode.trim() === "") {
       barcode = `PRD-${Date.now().toString().slice(-8)}`;

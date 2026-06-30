@@ -28,6 +28,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Licence ${licenseName} non trouvée` }, { status: 404 });
     }
 
+    // Vérifier les contraintes de la nouvelle formule choisie
+    const currentUsersCount = await prisma.user.count({
+      where: { tenantId }
+    });
+    if (currentUsersCount > license.maxUsers) {
+      return NextResponse.json({
+        error: `Votre entreprise possède actuellement ${currentUsersCount} utilisateur(s). La formule "${licenseName}" choisie est limitée à ${license.maxUsers} utilisateur(s) maximum. Veuillez d'abord supprimer des utilisateurs.`
+      }, { status: 403 });
+    }
+
+    if (license.maxProducts !== null) {
+      const currentProductsCount = await prisma.product.count({
+        where: { tenantId, status: { not: "ARCHIVE" } }
+      });
+      if (currentProductsCount > license.maxProducts) {
+        return NextResponse.json({
+          error: `Votre entreprise possède actuellement ${currentProductsCount} produit(s). La formule "${licenseName}" choisie est limitée à ${license.maxProducts} produit(s) maximum. Veuillez d'abord archiver ou supprimer des produits.`
+        }, { status: 403 });
+      }
+    }
+
     // Mettre à jour le locataire (Tenant) - Activation automatique suite à paiement carte simulé réussi
     await prisma.tenant.update({
       where: { id: tenantId },

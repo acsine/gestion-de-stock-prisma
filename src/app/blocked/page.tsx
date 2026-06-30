@@ -38,9 +38,9 @@ export default function BlockedPage() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [autoPaying, setAutoPaying] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCVC, setCardCVC] = useState("");
+  const [momoService, setMomoService] = useState<"MTN" | "ORANGE">("MTN");
+  const [momoPhone, setMomoPhone] = useState("");
+  const [pollInterval, setPollInterval] = useState<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +52,15 @@ export default function BlockedPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Clean up polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [pollInterval]);
 
   // 0. Check real-time user activation status on page mount / reload
   useEffect(() => {
@@ -260,7 +269,7 @@ export default function BlockedPage() {
     }
   };
 
-  // 7. Submit Automatic Payment Simulation
+  // 7. Submit Automatic Payment via Paayit
   const handleAutoPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlan) return;
@@ -268,8 +277,8 @@ export default function BlockedPage() {
     setAutoPaying(true);
     setError(null);
 
-    // Simulate 3 seconds bank communication delay
-    setTimeout(async () => {
+    // If it's a free plan (0 XAF), bypass payment gateway
+    if (selectedPlan.price === 0) {
       try {
         const res = await fetch("/api/tenants/subscribe", {
           method: "POST",
@@ -280,17 +289,65 @@ export default function BlockedPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Une erreur est survenue");
 
-        // Success! Show toast then redirect
         const successMsg = language === "fr" 
           ? `Félicitations ! Votre formule ${selectedPlan.label} a été activée. Accès débloqué !`
           : `Congratulations! Your plan ${selectedPlan.label} has been activated. Access restored!`;
         showToast(successMsg, "success");
         setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
       } catch (err: any) {
-        setError(err.message || (language === "fr" ? "La validation bancaire a échoué. Veuillez réessayer." : "Bank validation failed. Please try again."));
+        setError(err.message || (language === "fr" ? "L'activation a échoué." : "Activation failed."));
         setAutoPaying(false);
       }
-    }, 3000);
+      return;
+    }
+
+    // Call backend API to initiate transaction
+    try {
+      const res = await fetch("/api/payment/paayit/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenseName: selectedPlan.name,
+          phoneNumber: momoPhone,
+          service: momoService
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Impossible d'initier le paiement.");
+
+      const successMsg = language === "fr"
+        ? "Demande envoyée ! Veuillez saisir votre code PIN sur votre téléphone pour autoriser le débit."
+        : "Request sent! Please enter your PIN on your phone to authorize the transaction.";
+      showToast(successMsg, "success");
+
+      // Start polling for real-time status update
+      const intervalId = setInterval(async () => {
+        try {
+          const statusRes = await fetch("/api/users/check-status", { cache: "no-store" });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.active) {
+              clearInterval(intervalId);
+              showToast(
+                language === "fr" 
+                  ? "Paiement validé avec succès ! Déblocage de votre espace..." 
+                  : "Payment successfully validated! Activating your workspace...", 
+                "success"
+              );
+              setTimeout(() => { window.location.href = "/dashboard"; }, 1500);
+            }
+          }
+        } catch (pollErr) {
+          console.error("Erreur de synchronisation du statut", pollErr);
+        }
+      }, 4000);
+
+      setPollInterval(intervalId);
+    } catch (err: any) {
+      setError(err.message || (language === "fr" ? "La transaction a échoué. Veuillez réessayer." : "Transaction failed. Please try again."));
+      setAutoPaying(false);
+    }
   };
 
   if (checkingActiveTicket) {
@@ -578,10 +635,10 @@ export default function BlockedPage() {
                         </div>
                       </div>
                     ) : paymentMethod === "auto" ? (
-                      // Automatic payment simulation checkout
-                      <form onSubmit={handleAutoPaymentSubmit} className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 space-y-4">
+                      // Automatic payment checkout with Paayit
+                      <form onSubmit={handleAutoPaymentSubmit} className="bg-white border border-slate-200 rounded-[2rem] p-6 md:p-8 space-y-5">
                         <h3 className="text-base font-black text-slate-800 mb-4 flex items-center gap-2">
-                          <CreditCard className="w-5 h-5 text-blue-600" /> {language === "fr" ? "Saisir vos coordonnées bancaires" : "Enter your credit card details"}
+                          <CreditCard className="w-5 h-5 text-blue-600" /> {language === "fr" ? "Paiement Mobile Money Sécurisé" : "Secure Mobile Money Payment"}
                         </h3>
 
                         {autoPaying ? (
@@ -589,59 +646,79 @@ export default function BlockedPage() {
                             <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
                             <div>
                               <h4 className="text-sm font-black text-slate-800">
-                                {language === "fr" ? "Validation bancaire en cours..." : "Bank validation in progress..."}
+                                {language === "fr" ? "Attente de validation sur votre téléphone..." : "Waiting for phone validation..."}
                               </h4>
-                              <p className="text-[10px] text-slate-400 mt-1">
+                              <p className="text-[11px] text-slate-500 mt-2 leading-relaxed max-w-sm mx-auto">
                                 {language === "fr" 
-                                  ? "Veuillez patienter pendant la validation de la transaction sécurisée." 
-                                  : "Please wait while the secure transaction is processed."}
+                                  ? `Une demande de retrait de **${selectedPlan.price.toLocaleString("fr-FR")} XAF** a été envoyée au numéro **${momoPhone}**. Saisissez votre code PIN pour valider.` 
+                                  : `A debit request of **${selectedPlan.price.toLocaleString("fr-FR")} XAF** was sent to **${momoPhone}**. Enter your PIN to validate.`}
                               </p>
+                              <div className="mt-6 flex justify-center gap-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (pollInterval) clearInterval(pollInterval);
+                                    setAutoPaying(false);
+                                  }}
+                                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl text-xs font-bold transition-all"
+                                >
+                                  {language === "fr" ? "Modifier / Annuler" : "Edit / Cancel"}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <div className="space-y-1">
+                            {/* Operator selector */}
+                            <div className="space-y-2">
                               <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                                {language === "fr" ? "Numéro de carte" : "Card number"}
+                                {language === "fr" ? "Choisissez votre opérateur" : "Choose your operator"}
                               </label>
-                              <input
-                                type="text"
-                                required
-                                value={cardNumber}
-                                onChange={(e) => setCardNumber(e.target.value)}
-                                placeholder="4000 1234 5678 9010"
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                              />
+                              <div className="grid grid-cols-2 gap-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setMomoService("MTN")}
+                                  className={`p-4 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                                    momoService === "MTN"
+                                      ? "border-yellow-400 bg-yellow-50/30 ring-2 ring-yellow-400/50"
+                                      : "border-slate-200 bg-white hover:border-slate-300"
+                                  }`}
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-xs font-black text-slate-950">
+                                    MTN
+                                  </div>
+                                  <span className="text-xs font-black text-slate-800">MTN Mobile Money</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setMomoService("ORANGE")}
+                                  className={`p-4 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                                    momoService === "ORANGE"
+                                      ? "border-orange-550 bg-orange-50/20 ring-2 ring-orange-500/40"
+                                      : "border-slate-200 bg-white hover:border-slate-300"
+                                  }`}
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-xs font-black text-white">
+                                    OR
+                                  </div>
+                                  <span className="text-xs font-black text-slate-800">Orange Money</span>
+                                </button>
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                                  {language === "fr" ? "Date d'expiration" : "Expiration date"}
-                                </label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={cardExpiry}
-                                  onChange={(e) => setCardExpiry(e.target.value)}
-                                  placeholder="MM/AA"
-                                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
-                                  {language === "fr" ? "Code CVC" : "CVC Code"}
-                                </label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={cardCVC}
-                                  onChange={(e) => setCardCVC(e.target.value)}
-                                  placeholder="123"
-                                  maxLength={4}
-                                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
-                                />
-                              </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider ml-1">
+                                {language === "fr" ? "Numéro de téléphone Mobile Money" : "Mobile Money phone number"}
+                              </label>
+                              <input
+                                type="tel"
+                                required
+                                value={momoPhone}
+                                onChange={(e) => setMomoPhone(e.target.value)}
+                                placeholder="670 00 00 00"
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                              />
                             </div>
 
                             {error && (
@@ -652,7 +729,7 @@ export default function BlockedPage() {
                               type="submit"
                               className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl text-xs font-black tracking-wider uppercase flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95 transition-all duration-300"
                             >
-                              {language === "fr" ? "Confirmer et Payer" : "Confirm and Pay"} {selectedPlan.price.toLocaleString("fr-FR")} XAF
+                              {language === "fr" ? "Initier le paiement" : "Initiate payment"} {selectedPlan.price.toLocaleString("fr-FR")} XAF
                             </button>
                           </>
                         )}

@@ -50,6 +50,24 @@ export async function POST(req: NextRequest) {
   if (!finalTenantId) return NextResponse.json({ error: "Tenant ID requis" }, { status: 400 });
   if (!name || !email || !password || !roleId) return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 });
   
+  // Vérifier la limite d'utilisateurs de la licence du locataire (Tenant)
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: finalTenantId },
+    include: { license: true }
+  });
+
+  if (tenant?.license) {
+    const currentUsersCount = await prisma.user.count({
+      where: { tenantId: finalTenantId }
+    });
+    if (currentUsersCount >= tenant.license.maxUsers) {
+      return NextResponse.json(
+        { error: `Limite d'utilisateurs de votre forfait atteinte (${tenant.license.maxUsers} max). Veuillez modifier votre formule.` },
+        { status: 403 }
+      );
+    }
+  }
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return NextResponse.json({ error: "Email déjà utilisé" }, { status: 409 });
   
