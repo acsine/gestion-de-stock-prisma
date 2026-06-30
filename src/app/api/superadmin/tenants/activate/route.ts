@@ -27,10 +27,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ticket non trouvé" }, { status: 404 });
     }
 
-    // 2. Extraire la formule choisie à partir du sujet du ticket (ex: "Paiement Manuel — PROFESSIONNEL")
+    // 2. Extraire la formule choisie à partir du sujet du ticket
+    // Format attendu: "Paiement Manuel — NOM_LICENCE"
     let licenseName = "PROFESSIONNEL"; // Valeur par défaut
-    if (ticket.subject.includes("GRATUIT")) licenseName = "GRATUIT";
-    else if (ticket.subject.includes("ENTREPRISE")) licenseName = "ENTREPRISE";
+
+    const manualMatch = ticket.subject.match(/Paiement Manuel\s*[—–-]\s*(.+)/i);
+    if (manualMatch && manualMatch[1]) {
+      licenseName = manualMatch[1].trim();
+    } else {
+      // Fallback: chercher parmi toutes les licences existantes
+      const allLicenses = await prisma.license.findMany({ select: { name: true } });
+      const matchedLicense = allLicenses.find(l => 
+        ticket.subject.toUpperCase().includes(l.name.toUpperCase())
+      );
+      if (matchedLicense) {
+        licenseName = matchedLicense.name;
+      }
+    }
 
     // Récupérer les informations de la licence
     const license = await prisma.license.findUnique({
@@ -38,7 +51,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!license) {
-      return NextResponse.json({ error: `Licence ${licenseName} non trouvée en base de données` }, { status: 404 });
+      return NextResponse.json({ error: `Licence "${licenseName}" non trouvée en base de données` }, { status: 404 });
     }
 
     // 3. Mettre à jour le locataire (Tenant)

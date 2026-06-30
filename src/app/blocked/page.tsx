@@ -341,8 +341,11 @@ export default function BlockedPage() {
         : "Request sent! Please enter your PIN on your phone to authorize the transaction.";
       showToast(successMsg, "success");
 
-      // Start polling for real-time status update
+      // Start polling for real-time status update (every 4 seconds, max 2 minutes)
+      let pollCount = 0;
+      const maxPolls = 30; // 30 * 4s = 2 minutes
       const intervalId = setInterval(async () => {
+        pollCount++;
         try {
           const statusRes = await fetch("/api/users/check-status", { cache: "no-store" });
           if (statusRes.ok) {
@@ -356,10 +359,23 @@ export default function BlockedPage() {
                 "success"
               );
               setTimeout(() => { window.location.href = "/dashboard"; }, 1500);
+              return;
             }
           }
         } catch (pollErr) {
           console.error("Erreur de synchronisation du statut", pollErr);
+        }
+
+        // Timeout after 2 minutes — stop the infinite loading
+        if (pollCount >= maxPolls) {
+          clearInterval(intervalId);
+          setAutoPaying(false);
+          showToast(
+            language === "fr"
+              ? "Le délai d'attente est dépassé. Si le paiement a été effectué, veuillez actualiser la page."
+              : "Timeout reached. If the payment was made, please refresh the page.",
+            "error"
+          );
         }
       }, 4000);
 
