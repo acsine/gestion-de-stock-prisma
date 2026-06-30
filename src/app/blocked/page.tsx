@@ -41,6 +41,8 @@ export default function BlockedPage() {
   const [momoService, setMomoService] = useState<"MTN" | "ORANGE">("MTN");
   const [momoPhone, setMomoPhone] = useState("");
   const [pollInterval, setPollInterval] = useState<any>(null);
+  const [dbLicenses, setDbLicenses] = useState<any[]>([]);
+  const [licensesLoading, setLicensesLoading] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +63,24 @@ export default function BlockedPage() {
       }
     };
   }, [pollInterval]);
+
+  // Fetch licenses dynamically from the database
+  useEffect(() => {
+    async function fetchLicenses() {
+      try {
+        const res = await fetch("/api/licenses");
+        if (res.ok) {
+          const data = await res.json();
+          setDbLicenses(data);
+        }
+      } catch (err) {
+        console.error("Error fetching licenses", err);
+      } finally {
+        setLicensesLoading(false);
+      }
+    }
+    fetchLicenses();
+  }, []);
 
   // 0. Check real-time user activation status on page mount / reload
   useEffect(() => {
@@ -474,107 +494,83 @@ export default function BlockedPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* GRATUIT PLAN */}
-                      <div className="bg-white border border-slate-200 hover:border-slate-350 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-sm relative group hover:scale-[1.01]">
-                        <div>
-                          <span className="text-[9px] font-black tracking-widest text-slate-400 uppercase bg-slate-100 px-2.5 py-1 rounded-md">
-                            {language === "fr" ? "Débutant" : "Beginner"}
-                          </span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">
-                            {language === "fr" ? "Formule Gratuit" : "Free Plan"}
-                          </h3>
-                          <p className="text-slate-400 text-[10px] mt-1">
-                            {language === "fr" ? "Idéal pour tester l'interface" : "Ideal for testing the interface"}
-                          </p>
-                          <div className="my-6">
-                            <span className="text-2xl font-black text-slate-900">0 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> 
-                              {language === "fr" ? " / 1 jour" : " / 1 day"}
-                            </span>
-                          </div>
-                          <ul className="space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "2 Utilisateurs max" : "2 Users max"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "50 Produits max" : "50 Products max"}</li>
-                            <li className="flex items-center gap-2 text-slate-400 line-through">✗ {language === "fr" ? "Téléchargements" : "Downloads"}</li>
-                          </ul>
+                    <div className={`grid grid-cols-1 ${dbLicenses.length === 2 ? 'md:grid-cols-2' : dbLicenses.length >= 3 ? 'md:grid-cols-3' : ''} gap-6`}>
+                      {licensesLoading ? (
+                        <div className="col-span-full flex justify-center py-12">
+                          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                         </div>
-                        <button
-                          onClick={() => setSelectedPlan({ name: "GRATUIT", price: 0, label: language === "fr" ? "Gratuit" : "Free" })}
-                          className="w-full mt-8 py-3.5 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all"
-                        >
-                          {language === "fr" ? "Choisir Gratuit" : "Choose Free"}
-                        </button>
-                      </div>
+                      ) : dbLicenses.length === 0 ? (
+                        <div className="col-span-full text-center py-12 text-slate-400 text-sm font-medium">
+                          {language === "fr" ? "Aucune formule disponible pour le moment." : "No plans available at the moment."}
+                        </div>
+                      ) : (
+                        dbLicenses.map((lic: any, idx: number) => {
+                          const isMiddle = dbLicenses.length >= 3 && idx === 1;
+                          const isFree = lic.price === 0;
+                          const formatPrice = (price: number) => price.toLocaleString("fr-FR");
+                          const formatDuration = (days: number) => {
+                            if (days >= 365) return language === "fr" ? `/ ${Math.round(days / 365)} an${Math.round(days / 365) > 1 ? 's' : ''}` : `/ ${Math.round(days / 365)} year${Math.round(days / 365) > 1 ? 's' : ''}`;
+                            if (days >= 30) return language === "fr" ? `/ ${Math.round(days / 30)} mois` : `/ ${Math.round(days / 30)} month${Math.round(days / 30) > 1 ? 's' : ''}`;
+                            return language === "fr" ? `/ ${days} jour${days > 1 ? 's' : ''}` : `/ ${days} day${days > 1 ? 's' : ''}`;
+                          };
 
-                      {/* PROFESSIONNEL PLAN */}
-                      <div className="bg-white border-2 border-blue-600 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-md relative group hover:scale-[1.01]">
-                        <span className="absolute top-0 right-6 -translate-y-1/2 bg-blue-600 text-white text-[9px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-md">
-                          {language === "fr" ? "Recommandé" : "Recommended"}
-                        </span>
-                        <div>
-                          <span className="text-[9px] font-black tracking-widest text-blue-600 uppercase bg-blue-50 px-2.5 py-1 rounded-md">
-                            {language === "fr" ? "Commerce" : "Business"}
-                          </span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">
-                            {language === "fr" ? "Professionnel" : "Professional"}
-                          </h3>
-                          <p className="text-slate-400 text-[10px] mt-1">
-                            {language === "fr" ? "Pour les commerces en pleine croissance" : "For growing businesses"}
-                          </p>
-                          <div className="my-6">
-                            <span className="text-2xl font-black text-slate-900">50 000 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> 
-                              {language === "fr" ? " / an" : " / year"}
-                            </span>
-                          </div>
-                          <ul className="space-y-2 border-t border-blue-50 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "10 Utilisateurs max" : "10 Users max"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "5 000 Produits max" : "5,000 Products max"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Téléchargements activés" : "Downloads enabled"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Support Standard" : "Standard Support"}</li>
-                          </ul>
-                        </div>
-                        <button
-                          onClick={() => setSelectedPlan({ name: "PROFESSIONNEL", price: 50000, label: language === "fr" ? "Professionnel" : "Professional" })}
-                          className="w-full mt-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all shadow-md shadow-blue-500/20"
-                        >
-                          {language === "fr" ? "Choisir Pro" : "Choose Pro"}
-                        </button>
-                      </div>
-
-                      {/* PLAN ENTREPRISE */}
-                      <div className="bg-white border border-slate-200 hover:border-slate-350 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-sm relative group hover:scale-[1.01]">
-                        <div>
-                          <span className="text-[9px] font-black tracking-widest text-indigo-600 uppercase bg-indigo-50 px-2.5 py-1 rounded-md">
-                            {language === "fr" ? "Multi-magasin" : "Multi-store"}
-                          </span>
-                          <h3 className="text-lg font-black text-slate-800 mt-4">
-                            {language === "fr" ? "Entreprise" : "Enterprise"}
-                          </h3>
-                          <p className="text-slate-400 text-[10px] mt-1">
-                            {language === "fr" ? "Puissance maximale et illimité" : "Maximum power & unlimited"}
-                          </p>
-                          <div className="my-6">
-                            <span className="text-2xl font-black text-slate-900">150 000 XAF</span>
-                            <span className="text-slate-400 text-xs font-semibold"> 
-                              {language === "fr" ? " / an" : " / year"}
-                            </span>
-                          </div>
-                          <ul className="space-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-600">
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "100 Utilisateurs max" : "100 Users max"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Produits Illimités" : "Unlimited Products"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Options de téléchargement" : "Download options"}</li>
-                            <li className="flex items-center gap-2">✓ {language === "fr" ? "Support VIP 24/7" : "24/7 VIP Support"}</li>
-                          </ul>
-                        </div>
-                        <button
-                          onClick={() => setSelectedPlan({ name: "ENTREPRISE", price: 150000, label: language === "fr" ? "Entreprise" : "Enterprise" })}
-                          className="w-full mt-8 py-3.5 bg-slate-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all"
-                        >
-                          {language === "fr" ? "Choisir Entreprise" : "Choose Enterprise"}
-                        </button>
-                      </div>
+                          return (
+                            <div 
+                              key={lic.id} 
+                              className={`bg-white rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between shadow-sm relative group hover:scale-[1.01] ${
+                                isMiddle ? 'border-2 border-blue-600 shadow-md' : 'border border-slate-200 hover:border-slate-350'
+                              }`}
+                            >
+                              {isMiddle && (
+                                <span className="absolute top-0 right-6 -translate-y-1/2 bg-blue-600 text-white text-[9px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-md">
+                                  {language === "fr" ? "Recommandé" : "Recommended"}
+                                </span>
+                              )}
+                              <div>
+                                <span className={`text-[9px] font-black tracking-widest uppercase px-2.5 py-1 rounded-md ${
+                                  isMiddle ? 'text-blue-600 bg-blue-50' : isFree ? 'text-slate-400 bg-slate-100' : 'text-indigo-600 bg-indigo-50'
+                                }`}>
+                                  {lic.name}
+                                </span>
+                                <h3 className="text-lg font-black text-slate-800 mt-4">
+                                  {lic.name}
+                                </h3>
+                                <div className="my-6">
+                                  <span className="text-2xl font-black text-slate-900">{formatPrice(lic.price)} XAF</span>
+                                  <span className="text-slate-400 text-xs font-semibold"> {formatDuration(lic.durationDays)}</span>
+                                </div>
+                                <ul className={`space-y-2 border-t pt-4 text-xs font-semibold text-slate-600 ${
+                                  isMiddle ? 'border-blue-50' : 'border-slate-100'
+                                }`}>
+                                  <li className="flex items-center gap-2">✓ {lic.maxUsers} {language === "fr" ? "Utilisateurs max" : "Users max"}</li>
+                                  <li className="flex items-center gap-2">
+                                    {lic.maxProducts ? (
+                                      <>✓ {lic.maxProducts.toLocaleString("fr-FR")} {language === "fr" ? "Produits max" : "Products max"}</>
+                                    ) : (
+                                      <>✓ {language === "fr" ? "Produits Illimités" : "Unlimited Products"}</>
+                                    )}
+                                  </li>
+                                  {lic.canDownload ? (
+                                    <li className="flex items-center gap-2">✓ {language === "fr" ? "Téléchargements activés" : "Downloads enabled"}</li>
+                                  ) : (
+                                    <li className="flex items-center gap-2 text-slate-400 line-through">✗ {language === "fr" ? "Téléchargements" : "Downloads"}</li>
+                                  )}
+                                </ul>
+                              </div>
+                              <button
+                                onClick={() => setSelectedPlan({ name: lic.name, price: lic.price, label: lic.name })}
+                                className={`w-full mt-8 py-3.5 text-white text-xs font-black uppercase tracking-wider rounded-2xl transition-all ${
+                                  isMiddle 
+                                    ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20' 
+                                    : 'bg-slate-900 hover:bg-black'
+                                }`}
+                              >
+                                {language === "fr" ? `Choisir ${lic.name}` : `Choose ${lic.name}`}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 ) : (

@@ -93,10 +93,53 @@ export async function updateLicenseDetails(licenseId: string, data: any) {
   return await prisma.license.update({
     where: { id: licenseId },
     data: {
+      name: data.name,
       price: parseFloat(data.price),
       durationDays: parseInt(data.durationDays),
       maxUsers: parseInt(data.maxUsers),
+      maxProducts: data.maxProducts ? parseInt(data.maxProducts) : null,
       canDownload: data.canDownload === true || data.canDownload === "true"
     }
   });
 }
+
+export async function createLicense(data: any) {
+  const session = await auth();
+  if (!(session?.user as any)?.isSuperAdmin) {
+    throw new Error("Accès refusé");
+  }
+
+  return await prisma.license.create({
+    data: {
+      name: data.name,
+      price: parseFloat(data.price),
+      durationDays: parseInt(data.durationDays),
+      maxUsers: parseInt(data.maxUsers),
+      maxProducts: data.maxProducts ? parseInt(data.maxProducts) : null,
+      canDownload: data.canDownload === true || data.canDownload === "true"
+    }
+  });
+}
+
+export async function deleteLicense(licenseId: string) {
+  const session = await auth();
+  if (!(session?.user as any)?.isSuperAdmin) {
+    throw new Error("Accès refusé");
+  }
+
+  // Check if any tenants are using this license
+  const tenantsUsingLicense = await prisma.tenant.count({
+    where: { licenseId }
+  });
+
+  if (tenantsUsingLicense > 0) {
+    throw new Error(
+      `Cette licence est utilisée par ${tenantsUsingLicense} entreprise(s). Veuillez d'abord les migrer vers une autre licence.`
+    );
+  }
+
+  return await prisma.license.delete({
+    where: { id: licenseId }
+  });
+}
+
