@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const { event, transaction_id, status } = payload;
 
     // We only process successful deposit updates
-    if (event === "transaction.updated" && status === "success") {
+    if (event?.toLowerCase() === "transaction.updated" && status?.toLowerCase() === "success") {
       let reference = payload.reference;
 
       // Fallback: If reference is not in payload, query transaction details directly from Paayit
