@@ -225,7 +225,7 @@ def test_postgres_connection(user, password):
     env["PGPASSWORD"] = password
     try:
         result = subprocess.run(
-            f'psql -U {user} -h localhost -c "SELECT 1;"',
+            f'psql -U {user} -h 127.0.0.1 -w -c "SELECT 1;"',
             shell=True,
             env=env,
             capture_output=True,
@@ -369,7 +369,7 @@ def main():
     env["PGPASSWORD"] = DB_PASS
     
     # Tentative de création de la DB
-    subprocess.run(f'psql -U {DB_USER} -c "CREATE DATABASE {DB_NAME};"', shell=True, env=env, capture_output=True)
+    subprocess.run(f'psql -U {DB_USER} -h 127.0.0.1 -w -c "CREATE DATABASE {DB_NAME};"', shell=True, env=env, capture_output=True)
 
     print("🚀 Initialisation du moteur de données (Prisma)...")
     run_command("npx prisma generate", show_output=True)
