@@ -195,7 +195,13 @@ def update_env_file():
         content = f.read()
 
     # Configuration de la DB
-    db_url = f"postgresql://{DB_USER}:{DB_PASS}@localhost:5432/{DB_NAME}"
+    import urllib.parse
+    db_user_encoded = urllib.parse.quote(DB_USER)
+    db_url = f"postgresql://{db_user_encoded}"
+    if DB_PASS:
+        db_pass_encoded = urllib.parse.quote(DB_PASS)
+        db_url += f":{db_pass_encoded}"
+    db_url += f"@127.0.0.1:5432/{DB_NAME}"
     if "DATABASE_URL" in content:
         content = re.sub(r'DATABASE_URL=.*', f'DATABASE_URL="{db_url}"', content)
     else:
@@ -502,7 +508,7 @@ def main():
         f.write("\n")
         f.write(":modules_ok\n")
         f.write("\n")
-        f.write("if exist \"prisma\\dev.db\" goto :db_ok\n")
+        f.write("if exist \".env\" goto :db_ok\n")
         f.write("echo [Systeme] Base de donnees absente. Initialisation...\n")
         f.write("call npx prisma db push\n")
         f.write("if %errorlevel% equ 0 goto :db_ok\n")

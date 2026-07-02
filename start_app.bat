@@ -31,7 +31,7 @@ exit /b
 
 :modules_ok
 
-if exist "prisma\dev.db" goto :db_ok
+if exist ".env" goto :db_ok
 echo [Systeme] Base de donnees absente. Initialisation...
 call npx prisma db push
 if %errorlevel% equ 0 goto :db_ok
