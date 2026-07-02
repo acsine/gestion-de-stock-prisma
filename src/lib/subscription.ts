@@ -43,6 +43,29 @@ export async function getTenantSubscription(tenantId: string) {
     return { isValid: false, reason: "LICENSE_EXPIRED", license: tenant.license };
   }
 
+  // 4. Limits checks (users and products)
+  if (tenant.license) {
+    const userCount = await prisma.user.count({ where: { tenantId } });
+    if (userCount > tenant.license.maxUsers) {
+      return { 
+        isValid: false, 
+        reason: "LIMIT_USERS_EXCEEDED", 
+        license: tenant.license 
+      };
+    }
+
+    if (tenant.license.maxProducts !== null) {
+      const productCount = await prisma.product.count({ where: { tenantId } });
+      if (productCount > tenant.license.maxProducts) {
+        return { 
+          isValid: false, 
+          reason: "LIMIT_PRODUCTS_EXCEEDED", 
+          license: tenant.license 
+        };
+      }
+    }
+  }
+
   return { 
     isValid: true, 
     license: tenant.license,

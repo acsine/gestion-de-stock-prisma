@@ -28,6 +28,7 @@ export default function BlockedPage() {
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [checkingActiveTicket, setCheckingActiveTicket] = useState(true);
+  const [blockedReason, setBlockedReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { toasts, show: showToast, close: closeToast } = useToast();
   
@@ -92,6 +93,8 @@ export default function BlockedPage() {
           if (status.active) {
             // User is active, redirect to dashboard!
             window.location.href = "/dashboard";
+          } else {
+            setBlockedReason(status.reason || null);
           }
         }
       } catch (err) {
@@ -418,6 +421,79 @@ export default function BlockedPage() {
             <p className="text-slate-500 font-medium text-xs leading-relaxed mb-6">
               {language === "fr" ? "Bonjour" : "Hello"} <strong>{session?.user?.name || "Utilisateur"}</strong>. {t.blocked.desc1} {t.blocked.desc2}
             </p>
+
+            {blockedReason && (
+              <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-left animate-in fade-in duration-300">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center flex-shrink-0 border border-rose-200">
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-2 flex-1 min-w-0">
+                    <h4 className="font-bold text-rose-800">
+                      {language === "fr" ? "Accès Suspendu / Bloqué" : "Access Suspended / Blocked"}
+                    </h4>
+                    <p className="text-[10px] text-rose-700/80 font-medium leading-relaxed">
+                      {blockedReason === "TRIAL_EXPIRED" && (language === "fr" 
+                        ? "Votre période d'essai gratuit a expiré. Veuillez vous abonner à une formule ci-dessous pour continuer à utiliser l'application." 
+                        : "Your free trial period has expired. Please subscribe to a plan below to continue using the application.")}
+                      {blockedReason === "LICENSE_EXPIRED" && (language === "fr" 
+                        ? "Votre licence d'utilisation est arrivée à expiration. Veuillez la renouveler ci-dessous." 
+                        : "Your license has expired. Please renew it below.")}
+                      {blockedReason === "SUSPENDED" && (language === "fr" 
+                        ? "Votre abonnement a été suspendu par l'administrateur système ou suite à une résiliation." 
+                        : "Your subscription has been suspended by the system administrator or due to termination.")}
+                      {blockedReason === "LIMIT_USERS_EXCEEDED" && (language === "fr" 
+                        ? "Vous avez dépassé la limite maximale d'utilisateurs autorisée par votre licence actuelle. Veuillez supprimer des utilisateurs ou demander un upgrade." 
+                        : "You have exceeded the maximum users limit authorized by your current license. Please remove users or request an upgrade.")}
+                      {blockedReason === "LIMIT_PRODUCTS_EXCEEDED" && (language === "fr" 
+                        ? "Vous avez dépassé la limite maximale de produits enregistrés autorisée par votre licence actuelle. Veuillez archiver des produits ou demander un upgrade." 
+                        : "You have exceeded the maximum products limit authorized by your current license. Please archive products or request an upgrade.")}
+                      {blockedReason === "USER_INACTIVE" && (language === "fr" 
+                        ? "Votre compte utilisateur a été désactivé par l'administrateur. Veuillez contacter le support." 
+                        : "Your user account has been deactivated by the administrator. Please contact support.")}
+                    </p>
+
+                    {(blockedReason === "LIMIT_USERS_EXCEEDED" || blockedReason === "LIMIT_PRODUCTS_EXCEEDED" || blockedReason === "LICENSE_EXPIRED") && (
+                      <button
+                        onClick={async () => {
+                          const requestSubject = `Demande d'upgrade — ${blockedReason}`;
+                          const requestMessage = language === "fr"
+                            ? `Bonjour, je souhaite demander une mise à niveau (upgrade) de ma licence. Mon espace est actuellement bloqué pour le motif suivant : ${blockedReason}. Merci d'avance.`
+                            : `Hello, I would like to request an upgrade for my license. My workspace is currently blocked for the following reason: ${blockedReason}. Thank you.`;
+                          
+                          setLoading(true);
+                          try {
+                            const res = await fetch("/api/support/tickets", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                subject: requestSubject,
+                                message: requestMessage,
+                                priority: "URGENTE",
+                              }),
+                            });
+                            if (res.ok) {
+                              const resData = await res.json();
+                              setActiveTicketId(resData.data.id);
+                              setMessages(resData.data.messages || []);
+                              setActiveTab("chat");
+                            }
+                          } catch (err) {
+                            console.error("Error creating upgrade ticket", err);
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-[9px] uppercase tracking-wider rounded-lg transition-all"
+                      >
+                        {language === "fr" ? "Demander une mise à niveau" : "Request Upgrade"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">

@@ -28,19 +28,22 @@ export async function GET() {
 
     const isSuper = dbUser?.isSuperAdmin || false;
     let active = dbUser?.isActive || isSuper || false;
+    let reason = dbUser?.isActive ? null : "USER_INACTIVE";
 
     // Si l'utilisateur est actif mais n'est pas Super Admin, on vérifie l'état de l'abonnement du locataire
     if (active && !isSuper && dbUser?.tenantId) {
       const sub = await getTenantSubscription(dbUser.tenantId);
       if (!sub || !sub.isValid) {
         active = false;
+        reason = sub?.reason || "SUBSCRIPTION_INVALID";
       }
     }
 
     return NextResponse.json(
       {
         active,
-        authenticated: true
+        authenticated: true,
+        reason
       },
       {
         headers: {

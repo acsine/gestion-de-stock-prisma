@@ -42,11 +42,9 @@ exit /b
 
 :db_ok
 
-echo [Systeme] Lancement du serveur local...
-echo [Systeme] Le site va s'ouvrir automatiquement dans votre navigateur.
+echo [Systeme] Lancement du serveur local avec Electron...
 echo.
-start "" "%~dp0public\loading.html"
-call npm run dev
+call npx electron electron-main.js
 if %errorlevel% neq 0 (
     echo.
     echo [ERREUR] Le serveur s'est arrete avec une erreur.

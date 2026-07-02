@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getTenants, getLicenses, updateTenantLicense, toggleUserActiveStatus } from "@/app/actions/admin-actions";
+import { getTenants, getLicenses, updateTenantLicense, toggleUserActiveStatus, terminateTenantContract } from "@/app/actions/admin-actions";
 import { Landmark, CheckCircle, XCircle, Clock, ShieldCheck, Users, Loader2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useTranslation } from "@/locales/i18n";
@@ -26,7 +26,9 @@ export default function AdminTenantsPage() {
   };
 
   const handleUpdate = async (tenantId: string, licenseId: string, active: boolean) => {
-    await updateTenantLicense(tenantId, licenseId, active);
+    // Si on attribue une licence et que le compte était désactivé, on l'active automatiquement
+    const newActive = licenseId ? true : active;
+    await updateTenantLicense(tenantId, licenseId, newActive);
     loadData();
   };
 
@@ -116,6 +118,26 @@ export default function AdminTenantsPage() {
                       {tenant.subscriptionActive ? (language === "fr" ? "Suspendre" : "Suspend") : (language === "fr" ? "Réactiver" : "Reactivate")}
                     </button>
                   </div>
+
+                  {tenant.licenseId && (
+                    <div className="flex flex-col gap-1 flex-1 sm:flex-none">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">
+                        {language === "fr" ? "Contrat" : "Contract"}
+                      </label>
+                      <button 
+                        onClick={async () => {
+                          if (!confirm(language === "fr" 
+                            ? "Êtes-vous sûr de vouloir résilier le contrat de ce marchand ? Cela désactivera sa licence et suspendra tous ses utilisateurs."
+                            : "Are you sure you want to terminate this merchant's contract? This will deactivate their license and suspend all their users.")) return;
+                          await terminateTenantContract(tenant.id);
+                          loadData();
+                        }}
+                        className="p-3 rounded-xl text-xs font-black uppercase transition-all w-full text-center bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/10 shadow-sm"
+                      >
+                        {language === "fr" ? "Résilier" : "Terminate"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

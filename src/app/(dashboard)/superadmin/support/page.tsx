@@ -196,8 +196,44 @@ export default function AdminSupportPage() {
                     <p className="text-[8px] md:text-[10px] text-green-500 font-black uppercase truncate">{ticket.tenant?.name}</p>
                   </div>
                 </div>
-                <div className="hidden lg:block">
-                   <span className="text-xs font-bold text-slate-400 truncate max-w-[200px] block">{ticket.subject}</span>
+                <div className="flex items-center gap-2">
+                  <div className="hidden lg:block mr-2">
+                     <span className="text-xs font-bold text-slate-400 truncate max-w-[200px] block">{ticket.subject}</span>
+                  </div>
+                  {ticket.userId && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm(language === "fr"
+                          ? `Voulez-vous réinitialiser le mot de passe de ${ticket.user?.name} à la valeur par défaut '12345678' ? (Un e-mail de notification lui sera également envoyé).`
+                          : `Do you want to reset ${ticket.user?.name}'s password to '12345678'? (A notification email will also be sent to them).`)) return;
+                        try {
+                          const res = await fetch("/api/superadmin/support/reset-password", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ticketId: ticket.id }),
+                          });
+                          if (res.ok) {
+                            addToast({ 
+                              type: "success", 
+                              title: language === "fr" ? "Mot de passe réinitialisé" : "Password Reset", 
+                              message: language === "fr" ? "Le mot de passe a été défini à '12345678' !" : "Password has been set to '12345678'!" 
+                            });
+                            qc.invalidateQueries({ queryKey: ["tickets"] });
+                            window.location.reload();
+                          } else {
+                            const err = await res.json();
+                            addToast({ type: "error", title: t.common.error, message: err.error || "Erreur" });
+                          }
+                        } catch (err) {
+                          addToast({ type: "error", title: t.common.error, message: "Erreur" });
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>{language === "fr" ? "Réinitialiser MDP" : "Reset Pass"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

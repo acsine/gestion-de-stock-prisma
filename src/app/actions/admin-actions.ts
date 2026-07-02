@@ -143,3 +143,29 @@ export async function deleteLicense(licenseId: string) {
   });
 }
 
+export async function terminateTenantContract(tenantId: string) {
+  const session = await auth();
+  if (!(session?.user as any)?.isSuperAdmin) {
+    throw new Error("Accès refusé");
+  }
+
+  // 1. Mettre à jour le locataire (Tenant)
+  const updatedTenant = await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { 
+      licenseId: null,
+      subscriptionActive: false,
+      status: "SUSPENDED",
+      trialEndsAt: null
+    }
+  });
+
+  // 2. Désactiver tous les utilisateurs associés
+  await prisma.user.updateMany({
+    where: { tenantId },
+    data: { isActive: false }
+  });
+
+  return updatedTenant;
+}
+

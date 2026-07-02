@@ -54,6 +54,29 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // 4.5 Envoyer le mot de passe temporaire par e-mail
+    if (ticket.user?.email) {
+      try {
+        await fetch("https://notification-app-jm3r.vercel.app/v1/notification/send-email/json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to_email: [ticket.user.email],
+            subject: "Réinitialisation de votre mot de passe - ThaborSolution",
+            message: `Bonjour ${ticket.user.name || ""},\n\nVotre mot de passe a été réinitialisé par l'administrateur suite à votre demande sur l'espace de support.\n\nVotre mot de passe temporaire est : 12345678\n\nLors de votre prochaine connexion, vous serez invité à définir un nouveau mot de passe sécurisé.\n\nCordialement,\nL'équipe ThaborSolution.`,
+            title: "Mot de passe réinitialisé",
+            button_text: "Se connecter",
+            button_url: process.env.NEXTAUTH_URL || "http://localhost:3000",
+            use_template: true,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("[EMAIL SEND ERROR]", emailErr);
+      }
+    }
+
     // 5. Marquer le ticket comme résolu
     await prisma.ticket.update({
       where: { id: ticket.id },
