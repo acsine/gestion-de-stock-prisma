@@ -215,6 +215,11 @@ def update_env_file():
         else:
             content += f'\nNEXTAUTH_SECRET="{secret}"'
 
+    if "AUTH_TRUST_HOST" in content:
+        content = re.sub(r'AUTH_TRUST_HOST=.*', 'AUTH_TRUST_HOST="true"', content)
+    else:
+        content += '\nAUTH_TRUST_HOST="true"'
+
     with open(".env", "w", encoding="utf-8") as f:
         f.write(content)
     print("✅ Fichier .env configuré avec succès.")

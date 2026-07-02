@@ -31,7 +31,8 @@ function startNextServer(port) {
     shell: true,
     env: {
       ...process.env,
-      PORT: port.toString()
+      PORT: port.toString(),
+      AUTH_TRUST_HOST: "true"
     }
   });
 
