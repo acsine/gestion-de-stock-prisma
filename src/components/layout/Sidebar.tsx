@@ -81,30 +81,23 @@ export function Sidebar() {
     }
   };
 
-  const handleDownloadZip = async (e: React.MouseEvent) => {
+  const handleDownloadZip = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (downloadingZip) return;
     setDownloadingZip(true);
     try {
-      const response = await fetch("/setup_thaborsolution.zip");
-      if (!response.ok) throw new Error("Network response was not ok");
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
+      a.href = "/setup_thaborsolution.zip";
       a.download = "setup_thaborsolution.zip";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading ZIP:", error);
-      const a = document.createElement("a");
-      a.href = "/setup_thaborsolution.zip";
-      a.download = "setup_thaborsolution.zip";
-      a.click();
     } finally {
-      setDownloadingZip(false);
+      // Rétablir l'état du bouton après un court instant
+      setTimeout(() => {
+        setDownloadingZip(false);
+      }, 1500);
     }
   };
 
