@@ -53,11 +53,12 @@ function checkServerReady(port, callback) {
   const req = http.request({
     host: '127.0.0.1',
     port: port,
-    path: '/api/setup/config', // endpoint simple
+    path: '/', // Page d'accueil (peut rediriger, d'où l'acceptation de tout code statut)
     method: 'GET',
     timeout: 1000
   }, (res) => {
-    if (res.statusCode === 200) {
+    // Si on reçoit un statut HTTP (200, 302, 307, 401, etc.), le serveur est prêt !
+    if (res.statusCode) {
       callback(true);
     } else {
       setTimeout(() => checkServerReady(port, callback), 500);
