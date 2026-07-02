@@ -32,7 +32,8 @@ function startNextServer(port) {
     env: {
       ...process.env,
       PORT: port.toString(),
-      AUTH_TRUST_HOST: "true"
+      AUTH_TRUST_HOST: "true",
+      NEXTAUTH_URL: `http://127.0.0.1:${port}`
     }
   });
 
