@@ -432,32 +432,17 @@ def main():
             
         password = input("🔑 Saisissez votre mot de passe en ligne : ").strip()
         
-        # Résoudre ou demander le CLOUD_DATABASE_URL
+        # Configuration automatique de l'accès en ligne
         if config_cloud_url:
             set_env_variable("CLOUD_DATABASE_URL", config_cloud_url)
             os.environ["CLOUD_DATABASE_URL"] = config_cloud_url
-            print("🗄️ Base de données en ligne configurée automatiquement depuis 'setup_config.json'.")
+            print("🔑 Clé de configuration détectée et configurée avec succès.")
         else:
             existing_cloud_url = get_env_variable("CLOUD_DATABASE_URL")
-            if not existing_cloud_url or "localhost" in existing_cloud_url or "127.0.0.1" in existing_cloud_url:
-                print("\n⚙️ Configuration de la base de données cloud...")
-                print("Veuillez saisir l'URL de connexion PostgreSQL de la base de données cloud.")
-                print("(Ex: postgresql://utilisateur:motdepasse@serveur-en-ligne:5432/gestionstock)")
-                print("Laissez vide si vous n'avez pas de base en ligne ou pour ignorer.")
-                cloud_url_input = input("🗄️ URL de la base de données en ligne (CLOUD_DATABASE_URL) : ").strip()
-                if cloud_url_input:
-                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
-                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
-                else:
-                    print("⚠️ Aucune URL saisie. La synchronisation en ligne sera désactivée par défaut.")
+            if existing_cloud_url and "localhost" not in existing_cloud_url and "127.0.0.1" not in existing_cloud_url:
+                os.environ["CLOUD_DATABASE_URL"] = existing_cloud_url
             else:
-                print(f"\n⚙️ Base de données cloud déjà configurée.")
-                cloud_url_input = input(f"🗄️ URL cloud [Appuyez sur Entrée pour conserver : {existing_cloud_url}] : ").strip()
-                if cloud_url_input:
-                    set_env_variable("CLOUD_DATABASE_URL", cloud_url_input)
-                    os.environ["CLOUD_DATABASE_URL"] = cloud_url_input
-                else:
-                    os.environ["CLOUD_DATABASE_URL"] = existing_cloud_url
+                os.environ["CLOUD_DATABASE_URL"] = ""
                 
         # Exécuter d'abord le seed pour s'assurer que les structures système sont prêtes (silencieusement)
         print("\n🌱 Initialisation des structures système...")
@@ -467,22 +452,30 @@ def main():
         except Exception:
             pass
 
-        print("🔄 Rapatriement de vos données en ligne...")
-        try:
-            # On appelle le script de synchro
-            sync_result = subprocess.run(
-                f'npx tsx scratch/sync_initial.ts --email "{email}" --password "{password}"',
-                shell=True,
-                capture_output=False
-            )
-            if sync_result.returncode == 0:
-                sync_success = True
-                sync_email = email
-            else:
-                print("\n❌ Impossible de valider ou synchroniser vos données en ligne.")
-                print("Vérifiez vos identifiants, l'URL de votre base cloud, et votre connexion internet.")
-        except Exception as e:
-            print(f"\n❌ Erreur système lors de la synchronisation : {e}")
+        # Vérification si la base de données cloud est configurée
+        cloud_db_url = os.environ.get("CLOUD_DATABASE_URL")
+        if not cloud_db_url:
+            print("\n⚠️ Synchronisation ignorée : Fichier 'setup_config.json' (clé de synchronisation) introuvable.")
+            print("Pour récupérer vos données, assurez-vous d'avoir téléchargé et placé ce fichier dans ce dossier")
+            print("avant de lancer l'installation. L'application démarrera avec un compte par défaut.")
+            sync_success = False
+        else:
+            print("🔄 Rapatriement de vos données en ligne...")
+            try:
+                # On appelle le script de synchro
+                sync_result = subprocess.run(
+                    f'npx tsx scratch/sync_initial.ts --email "{email}" --password "{password}"',
+                    shell=True,
+                    capture_output=False
+                )
+                if sync_result.returncode == 0:
+                    sync_success = True
+                    sync_email = email
+                else:
+                    print("\n❌ Impossible de vous connecter à votre compte en ligne.")
+                    print("Veuillez vérifier vos identifiants, votre connexion internet, ou votre clé de synchronisation.")
+            except Exception as e:
+                print(f"\n❌ Une erreur est survenue lors de la synchronisation : {e}")
             
         if not sync_success:
             print("\n⚠️ Passage en mode d'installation locale standard.")
