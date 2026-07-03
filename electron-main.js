@@ -9,7 +9,7 @@ const PORT = 3000; // Port par défaut de Next.js local
 
 function findFreePort(startPort, callback) {
   const server = http.createServer();
-  server.listen(startPort, '127.0.0.1', () => {
+  server.listen(startPort, () => {
     server.once('close', () => {
       callback(startPort);
     });
