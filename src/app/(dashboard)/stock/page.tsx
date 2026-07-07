@@ -894,19 +894,19 @@ export default function StockPage() {
             return (
               <div key={w.id} className="bg-white border rounded-2xl shadow-sm p-5 space-y-4 hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-black text-gray-900 text-base flex items-center gap-2">
-                      {w.isShop ? <ShoppingBag className="w-5 h-5 text-blue-600" /> : <Home className="w-5 h-5 text-emerald-600" />}
-                      {w.name}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="font-black text-gray-900 text-base flex items-center gap-2 max-w-full break-all">
+                      {w.isShop ? <ShoppingBag className="w-5 h-5 text-blue-600 shrink-0" /> : <Home className="w-5 h-5 text-emerald-600 shrink-0" />}
+                      <span>{w.name}</span>
                     </h3>
                     <span className={cn(
-                      "text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full border uppercase",
+                      "text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full border uppercase shrink-0 whitespace-nowrap",
                       w.isShop ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"
                     )}>
                       {w.isShop ? "Showroom / Boutique" : "Dépôt Stockage"}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 leading-normal">{w.description || "Aucune description fournie"}</p>
+                  <p className="text-xs text-gray-500 leading-normal break-words">{w.description || "Aucune description fournie"}</p>
                 </div>
 
                 <div className="space-y-2 border-t pt-3 text-xs">
